@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="JOBLY - website tuyển dụng demo">
+<link rel="icon" href="assets/logo.svg">
+<link rel="stylesheet" href="css/style.css">
+<title>Đăng nhập - JOBLY</title>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container header-inner">
+    <a class="brand" href="index.html"><span class="brand-mark">J</span><span class="brand__name">JOBLY</span></a>
+    <nav class="nav">
+      <a class="" href="jobs.html">Việc làm</a>
+      <a class="" href="companies.html">Công ty</a>
+      <a class="" href="guides.html">Cẩm nang</a>
+    </nav>
+    <div class="header-actions">
+      <input class="header-mini-search" data-global-search placeholder="Tìm kiếm..." aria-label="Tìm kiếm">
+      <button class="icon-btn" data-theme-toggle aria-label="Đổi giao diện">☾</button>
+      <a class="btn btn-outline" href="login.html">Đăng nhập</a>
+      <a class="btn btn-primary" href="register.html">Đăng ký</a>
+      <button class="icon-btn mobile-menu-btn" data-mobile-menu aria-label="Mở menu">☰</button>
+    </div>
+  </div>
+</header>
+
+
+<main class="auth-page">
+  <section class="auth-card">
+    <h1>Đăng nhập</h1><p>Chào mừng bạn quay lại JOBLY.</p>
+    <form id="login-form">
+      <div class="form-group"><label>Email</label><input id="login-email" class="form-control" type="email" placeholder="you@example.com"></div>
+      <div class="form-group"><label>Mật khẩu</label><input id="login-password" class="form-control" type="password" placeholder="Ít nhất 6 ký tự"></div>
+      <button class="btn btn-primary" style="width:100%">Đăng nhập</button>
+    </form>
+    <div class="auth-footer">Chưa có tài khoản? <a href="register.html">Đăng ký</a></div>
+  </section>
+</main>
+
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-col">
+        <a class="brand" href="index.html"><span class="brand-mark">J</span><span>JOBLY</span></a>
+        <p>Nền tảng demo tuyển dụng dành cho đồ án môn Phát triển ứng dụng Web. Toàn bộ dữ liệu trong website này là dữ liệu mẫu.</p>
+      </div>
+      <div class="footer-col"><h4>Dành cho ứng viên</h4><a href="jobs.html">Tìm việc</a><a href="companies.html">Công ty</a><a href="guides.html">Cẩm nang</a></div>
+      <div class="footer-col"><h4>Dành cho doanh nghiệp</h4><a href="employer.html">Đăng tin tuyển dụng</a><a href="admin.html">Trang quản trị demo</a></div>
+      <div class="footer-col"><h4>Tài khoản</h4><a href="login.html">Đăng nhập</a><a href="register.html">Đăng ký</a></div>
+    </div>
+    <div class="footer-bottom"><span>© 2026 JOBLY Demo.</span><span>HTML + CSS + Vanilla JavaScript</span></div>
+  </div>
+</footer>
+
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+<script src="js/forms.js"></script>
+</body>
+</html>
