@@ -1,4 +1,4 @@
-window.JOBLY_DATA = {
+window.MATCHAJOB_DATA = {
   jobs: [
     {id:1,title:"Product Designer",company:"FPT Software",logo:"FP",salary:"30–45 triệu",location:"TP.HCM",type:"Toàn thời gian",match:96,category:"Thiết kế",exp:"2+ năm",posted:"2 giờ trước"},
     {id:2,title:"Frontend Developer",company:"VNG",logo:"VN",salary:"25–40 triệu",location:"TP.HCM",type:"Toàn thời gian",match:93,category:"Công nghệ",exp:"1–3 năm",posted:"4 giờ trước"},
@@ -18,3 +18,4 @@ window.JOBLY_DATA = {
     {name:"NashTech",logo:"NT",industry:"IT Services",jobs:10,desc:"Đội ngũ phát triển phần mềm và giải pháp chuyển đổi số cho doanh nghiệp."}
   ]
 };
+window.JOBLY_DATA = window.MATCHAJOB_DATA;

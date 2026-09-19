@@ -37,3 +37,19 @@ build/
 .cache/
 tmp/
 temp/
+
+# Frontend Documentation, Workflow & Private Dev Reports
+docs/
+FE_WORKFLOW.md
+FE_UI_FLOW.md
+README_FE.md
+FE_REPORT_*.md
+*.report.md
+*_REPORT_*.md
+*WORKFLOW*.md
+*UI_FLOW*.md
+*.draft.md
+personal/
+notes/
+scratch/
+

@@ -1,8 +1,8 @@
 (function(){
-  const jobs = window.JOBLY_DATA?.jobs || [];
+  const jobs = window.MATCHAJOB_DATA?.jobs || [];
 
   function card(job){
-    const isFav = window.Jobly.getFavorites().includes(job.id);
+    const isFav = window.MatchaJob.getFavorites().includes(job.id);
     return `
       <article class="job-card">
         <div class="job-card-top">
@@ -33,10 +33,10 @@
     scope.querySelectorAll("[data-favorite]").forEach(btn=>{
       btn.addEventListener("click",()=>{
         const id = Number(btn.dataset.favorite);
-        const active = window.Jobly.toggleFavorite(id);
+        const active = window.MatchaJob.toggleFavorite(id);
         btn.classList.toggle("active",active);
         btn.textContent = active ? "♥":"♡";
-        window.Jobly.toast(active ? "Đã lưu công việc" : "Đã bỏ lưu công việc");
+        window.MatchaJob.toast(active ? "Đã lưu công việc" : "Đã bỏ lưu công việc");
       });
     });
   }
@@ -58,8 +58,13 @@
     const params = new URLSearchParams(location.search);
     if(qInput) qInput.value = params.get("q") || "";
     if(locSelect && params.get("location")){
+      const targetLoc = params.get("location").toLowerCase();
       [...locSelect.options].forEach(o=>{
-        if(o.value.toLowerCase().includes(params.get("location").toLowerCase())) locSelect.value=o.value;
+        const val = o.value.toLowerCase();
+        const txt = o.textContent.toLowerCase();
+        if(val && (val.includes(targetLoc) || targetLoc.includes(val) || txt.includes(targetLoc) || targetLoc.includes(txt))) {
+          locSelect.value = o.value;
+        }
       });
     }
 
@@ -71,8 +76,9 @@
 
       let filtered = jobs.filter(job=>{
         const hay = `${job.title} ${job.company} ${job.category}`.toLowerCase();
+        const locMatch = !loc || job.location.toLowerCase().includes(loc.toLowerCase()) || loc.toLowerCase().includes(job.location.toLowerCase());
         return (!q || hay.includes(q))
-          && (!loc || job.location === loc)
+          && locMatch
           && (!type || job.type === type);
       });
 
@@ -103,7 +109,7 @@
 
   const companiesGrid = document.querySelector("[data-companies-grid]");
   if(companiesGrid){
-    companiesGrid.innerHTML = (window.JOBLY_DATA.companies || []).map(c=>`
+    companiesGrid.innerHTML = (window.MATCHAJOB_DATA.companies || []).map(c=>`
       <article class="company-card">
         <div class="logo-box">${c.logo}</div>
         <h3>${c.name}</h3>
@@ -122,7 +128,7 @@
     const params = new URLSearchParams(location.search);
     const id = Number(params.get("id") || 1);
     const job = jobs.find(j=>j.id===id) || jobs[0];
-    document.title = `${job.title} - JOBLY`;
+    document.title = `${job.title} - MatchaJob`;
     detailHost.innerHTML = `
       <div class="detail-header">
         <div class="logo-box">${job.logo}</div>
