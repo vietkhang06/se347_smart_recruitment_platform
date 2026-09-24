@@ -42,8 +42,7 @@ build/
 tmp/
 temp/
 
-# Frontend Documentation, Workflow & Private Dev Reports
-docs/
+# docs/ - allowed for project skeleton documentation
 FE_WORKFLOW.md
 FE_UI_FLOW.md
 README_FE.md
