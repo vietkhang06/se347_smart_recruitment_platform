@@ -42,7 +42,9 @@ build/
 tmp/
 temp/
 
-# docs/ - allowed for project skeleton documentation
+# docs/ - keep directory skeleton only
+docs/*
+!docs/.gitkeep
 FE_WORKFLOW.md
 FE_UI_FLOW.md
 README_FE.md
