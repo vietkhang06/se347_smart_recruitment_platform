@@ -1,0 +1,552 @@
+/* ========================================================
+   MAT पंतप्रधानB DESIGN TOKENS & SYSTEM STYLES
+   Tương thích đồng thời với CSS thuần và Bootstrap 5
+   ======================================================== */
+
+:root {
+  /* Bảng màu thương hiệu MatchaJob */
+  --primary: #2d8653;
+  --primary-hover: #246e43;
+  --primary-soft: #ecfdf5;
+  --success: #16a34a;
+  --success-soft: #f0fdf4;
+  --danger: #ef4444;
+  --warning: #d97706;
+  --purple: #7c3aed;
+  --teal: #0d9488;
+  --orange: #ea580c;
+
+  /* Nền và bề mặt Light mode */
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --surface-2: #f1f5f9;
+  --text: #0f172a;
+  --muted: #64748b;
+  --border: #e2e8f0;
+
+  --shadow-sm: 0 2px 8px rgba(15, 23, 42, 0.04);
+  --shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+  --radius: 12px;
+  --radius-lg: 18px;
+}
+
+/* Dark Mode - Được kích hoạt bởi class .dark hoặc data-bs-theme="dark" */
+body.dark,
+[data-bs-theme="dark"] {
+  --bg: #0b0f14;
+  --surface: #151b23;
+  --surface-2: #1e2631;
+  --text: #f0f6fc;
+  --muted: #8b949e;
+  --border: #2d333b;
+
+  --primary: #3fb978;
+  --primary-hover: #48cb85;
+  --primary-soft: rgba(63, 185, 120, 0.12);
+  --shadow: 0 14px 36px rgba(0, 0, 0, 0.45);
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  transition: background-color 0.25s ease, color 0.25s ease;
+  min-height: 100vh;
+}
+
+/* Tùy biến nút Primary theo màu Matcha */
+.btn-primary {
+  background-color: var(--primary) !important;
+  border-color: var(--primary) !important;
+  color: #ffffff !important;
+  font-weight: 500;
+  border-radius: 8px;
+  padding: 0.5rem 1.25rem;
+  transition: all 0.2s ease;
+}
+
+.btn-primary:hover, .btn-primary:focus {
+  background-color: var(--primary-hover) !important;
+  border-color: var(--primary-hover) !important;
+  transform: translateY(-1px);
+}
+
+.btn-outline-primary {
+  color: var(--primary) !important;
+  border-color: var(--primary) !important;
+  border-radius: 8px;
+}
+
+.btn-outline-primary:hover {
+  background-color: var(--primary) !important;
+  color: #ffffff !important;
+}
+
+/* Thẻ Card Matcha */
+.matcha-card {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.matcha-card:hover {
+  border-color: var(--primary);
+  box-shadow: var(--shadow);
+}
+
+/* Thẻ Badge/Chip phong cách Matcha */
+.badge-matcha {
+  background-color: var(--primary-soft);
+  color: var(--primary);
+  border-radius: 9999px;
+  font-weight: 600;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8rem;
+}
+
+/* Nút thả tim yêu thích */
+.btn-fav {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  transition: all 0.2s ease;
+}
+
+.btn-fav:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+  transform: scale(1.1);
+}
+
+.btn-fav.active {
+  background-color: rgba(239, 68, 68, 0.1);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+/* Hero Section */
+.hero-section {
+  padding: 4.5rem 0 3rem 0;
+  background: radial-gradient(circle at 50% 20%, var(--primary-soft) 0%, transparent 60%);
+}
+
+/* Status Chips */
+.status-chip {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.status-chip.is-success { background: rgba(22, 163, 74, 0.12); color: #16a34a; }
+.status-chip.is-warning { background: rgba(217, 119, 6, 0.12); color: #d97706; }
+.status-chip.is-danger  { background: rgba(239, 68, 68, 0.12); color: #ef4444; }
+.status-chip.is-neutral { background: rgba(100, 116, 139, 0.12); color: var(--muted); }
+
+/* Animation Timeline cho Ứng viên */
+.timeline-step {
+  position: relative;
+  padding-bottom: 1.5rem;
+  padding-left: 2rem;
+}
+.timeline-step::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 8px;
+  bottom: 0;
+  width: 2px;
+  background: var(--border);
+}
+.timeline-step:last-child::before {
+  display: none;
+}
+.timeline-dot {
+  position: absolute;
+  left: 0;
+  top: 4px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+.timeline-step.completed .timeline-dot {
+  background: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-soft);
+}
+.timeline-step.completed::before {
+  background: var(--primary);
+}
+
+/* Navbar Matcha */
+.navbar-matcha {
+  background-color: var(--surface) !important;
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(10px);
+}
+
+/* ========================================================
+   PORTAL UTILITIES: EMPLOYER & ADMIN RICH STYLES
+   ======================================================== */
+
+/* Kanban Column & Card */
+.kanban-col {
+  background-color: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  min-width: 270px;
+  max-width: 310px;
+  display: flex;
+  flex-direction: column;
+}
+.kanban-card {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.kanban-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--primary);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+/* WYSIWYG Mini Toolbar & Editor */
+.mini-toolbar {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.toolbar-btn {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+}
+.toolbar-btn:hover {
+  background: var(--primary-soft);
+  color: var(--primary);
+  border-color: var(--primary);
+}
+.rich-editor-box {
+  min-height: 120px;
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  background-color: var(--surface);
+  color: var(--text);
+  line-height: 1.6;
+}
+.rich-editor-box:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-soft);
+}
+.rich-editor-box ul {
+  padding-left: 20px;
+  margin-bottom: 0;
+}
+
+/* Modal Composer Dialog Custom Width & Resizable */
+.composer-custom-dialog {
+  max-width: 95vw !important;
+  width: fit-content !important;
+  margin: 1.75rem auto;
+}
+
+.composer-custom-dialog .modal-content {
+  width: 860px; /* Độ rộng ban đầu */
+  min-width: 580px; /* Giới hạn co nhỏ tối thiểu để không gãy form */
+  max-width: 95vw; /* Giới hạn độ rộng tối đa theo màn hình */
+  min-height: 520px;
+  max-height: 92vh;
+  resize: both; /* Cho phép người dùng kéo giãn cả 2 chiều */
+  overflow: hidden; /* Bắt buộc để trình duyệt hiện resize handle ở góc */
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25);
+}
+
+.composer-custom-dialog .modal-body {
+  overflow-y: auto;
+  flex: 1 1 auto;
+}
+
+@media (max-width: 991px) {
+  .composer-custom-dialog {
+    width: 96% !important;
+    max-width: 96% !important;
+    margin: 0.5rem auto;
+  }
+  .composer-custom-dialog .modal-content {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    resize: none; /* Thiết bị di động không cần resize */
+  }
+}
+
+/* Tag Manager & Animations */
+@keyframes tagFlyUp {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.88);
+  }
+  60% {
+    transform: translateY(-2px) scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes suggestFlyDown {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.88);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.tag-chip {
+  background: var(--primary-soft);
+  color: var(--primary);
+  border: 1px solid rgba(45, 134, 83, 0.25);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 500;
+  animation: tagFlyUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transition: all 0.2s ease;
+}
+.tag-chip:hover {
+  border-color: var(--primary);
+  box-shadow: 0 2px 6px rgba(45, 134, 83, 0.15);
+}
+
+.tag-chip-remove {
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: 15px;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.tag-chip-remove:hover {
+  opacity: 1;
+  transform: scale(1.2);
+}
+
+.suggest-chip {
+  background: var(--surface-2);
+  border: 1px dashed var(--border);
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 4px 11px;
+  font-size: 11.5px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  animation: suggestFlyDown 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+.suggest-chip:hover {
+  background: var(--primary-soft);
+  color: var(--primary);
+  border-color: var(--primary);
+  transform: translateY(-1px);
+}
+
+/* Custom Calendar Dropdown Popup */
+.custom-calendar-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 1060;
+  width: 320px;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+  padding: 16px;
+  animation: calendarFadeIn 0.2s ease forwards;
+}
+
+@keyframes calendarFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.cal-grid-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  margin-bottom: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.cal-grid-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+  text-align: center;
+}
+
+.cal-day-cell {
+  width: 100%;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cal-day-cell:hover:not(:disabled) {
+  background-color: var(--primary-soft);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.cal-day-cell.selected {
+  background-color: var(--primary) !important;
+  color: #ffffff !important;
+  font-weight: 700;
+}
+
+.cal-day-cell:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+  text-decoration: line-through;
+  color: var(--muted);
+}
+
+
+/* Live Preview Box with Green Accent Bar */
+.composer-preview-header {
+  border-left: 4px solid var(--primary);
+  padding-left: 12px;
+}
+.summary-icon-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--surface-2);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+.summary-icon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+/* Priority Card Admin */
+.priority-alert-card {
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.priority-alert-card:hover {
+  transform: translateX(4px);
+  box-shadow: var(--shadow-sm);
+}
+.priority-alert-card.danger {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.2);
+}
+.priority-alert-card.warning {
+  background: rgba(217, 119, 6, 0.08);
+  border-color: rgba(217, 119, 6, 0.2);
+}
+.priority-alert-card.info {
+  background: rgba(59, 130, 246, 0.08);
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
+/* Service Health Dot */
+.service-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.service-dot.online {
+  background-color: #16a34a;
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.2);
+}
+
+/* Company Banner */
+.company-banner {
+  height: 160px;
+  border-radius: var(--radius) var(--radius) 0 0;
+  background: linear-gradient(135deg, #10b981 0%, #047857 50%, #064e3b 100%);
+  position: relative;
+}
+.company-avatar-overlap {
+  width: 72px;
+  height: 72px;
+  border-radius: 16px;
+  border: 3px solid var(--surface);
+  position: absolute;
+  bottom: -36px;
+  left: 24px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 24px;
+  color: var(--primary);
+}
+
