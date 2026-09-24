@@ -1,51 +1,87 @@
-# MatchaJob - Full Static Website Demo
+# MatchaJob Frontend (React.js + Vite)
 
-## Cách chạy
-Cách đơn giản nhất:
-1. Mở thư mục bằng VS Code.
-2. Cài extension **Live Server**.
-3. Chuột phải `index.html` → **Open with Live Server**.
+Phân hệ giao diện người dùng của nền tảng tuyển dụng thông minh **MatchaJob** (SE347), được xây dựng hoàn toàn bằng **React.js** với cấu trúc module hóa sạch sẽ, khả năng mở rộng cao và tích hợp các tính năng AI hỗ trợ tuyển dụng.
 
-Bạn cũng có thể mở trực tiếp `index.html`, nhưng Live Server dễ test điều hướng nhiều trang hơn.
+---
 
-## Cấu trúc
-- `index.html`: Trang chủ
-- `jobs.html`: Danh sách và bộ lọc việc làm
-- `job-detail.html`: Chi tiết việc làm + popup ứng tuyển
-- `companies.html`: Danh sách công ty
-- `guides.html`: Cẩm nang
-- `login.html`: Đăng nhập demo
-- `register.html`: Đăng ký demo
-- `role.html`: Chọn vai trò trước khi đăng nhập hoặc đăng ký
-- `saved.html`: Danh sách việc làm đã lưu
-- `applications.html`: Theo dõi tiến trình ứng tuyển
-- `profile.html`: Hồ sơ nghề nghiệp, CV và kiểm tra CV mẫu
-- `forgot-password.html`: Luồng khôi phục mật khẩu và OTP
-- `employer.html`: Không gian Nhà tuyển dụng với dashboard, tin, ứng viên, pipeline, lịch, phân tích, doanh nghiệp, dịch vụ và hồ sơ
-- `admin.html`: Trung tâm Admin với người dùng, kiểm duyệt, báo cáo, danh mục, cấu hình, nhật ký và thông báo
-- `css/style.css`: Toàn bộ giao diện responsive + dark mode
-- `js/data.js`: Dữ liệu công việc/công ty mẫu
-- `js/mock-data.js`: Dữ liệu mẫu riêng cho Nhà tuyển dụng và Admin
-- `js/portal.js`: Điều hướng và tương tác cho hai không gian quản trị
-- `js/candidate.js`: Dữ liệu và tương tác cho hồ sơ, việc đã lưu, đơn ứng tuyển
-- `js/app.js`: Dark mode, menu mobile, ô tìm kiếm, toast, lưu yêu thích
-- `js/jobs.js`: Render job card, bộ lọc, sắp xếp, trang chi tiết, công ty
-- `js/forms.js`: Kiểm tra form, login/register demo, đăng tin, ứng tuyển
-- `assets/logo.svg`: favicon/logo đơn giản
+## 🚀 Khởi Chạy Nhanh Cho Thành Viên Nhóm
 
-## JavaScript thể hiện ở đâu?
-1. Nút ☾/☀ trên header đổi sáng/tối và lưu lựa chọn vào `localStorage`.
-2. Ô tìm kiếm ở trang chủ chuyển sang `jobs.html` với từ khóa.
-3. `jobs.html` lọc theo từ khóa, địa điểm, hình thức và sắp xếp ngay trên trình duyệt.
-4. Nút ♡/♥ lưu việc yêu thích bằng `localStorage`.
-5. `job-detail.html?id=...` đọc `id` trên URL để đổi nội dung công việc.
-6. Nút **Ứng tuyển ngay** mở modal; form lưu hồ sơ demo vào `localStorage`.
-7. `login.html` và `register.html` kiểm tra dữ liệu nhập và giả lập đăng nhập.
-8. `employer.html` có 9 khu vực chức năng, modal tạo tin, đặt lịch, chọn gói và xác nhận thao tác.
-9. `admin.html` có 9 khu vực chức năng, duyệt/từ chối nội dung, cấu hình và thông báo mẫu.
-10. Hồ sơ, yêu thích, ứng tuyển, theme và một số biểu mẫu được lưu bằng `localStorage`.
-11. Giao diện responsive cho desktop, tablet, mobile và hỗ trợ Light/Dark mode.
+### 1. Cài đặt thư viện
+```bash
+npm install
+```
 
-## Lưu ý
-Đây là frontend thuần HTML/CSS/JavaScript. Chưa có backend hoặc database thật.
-Dữ liệu đăng nhập/ứng tuyển/đăng tin chỉ được lưu trên trình duyệt hiện tại bằng `localStorage`.
+### 2. Chạy server phát triển (Dev server)
+```bash
+npm run dev
+```
+Trình duyệt sẽ mở tại `http://localhost:5173/`.
+
+### 3. Đóng gói kiểm tra bản build (Production build)
+```bash
+npm run build
+npm run preview
+```
+
+---
+
+## 📁 Cấu Trúc Mã Nguồn `src/`
+
+```text
+src/
+├── assets/
+│   ├── images/                 # Ảnh minh họa xác thực, ảnh nền
+│   ├── icons/                  # Logo SVG và các icon tĩnh
+│   └── fonts/                  # Phông chữ tùy biến
+├── components/
+│   ├── common/                 # Badge, Button, Card, EmptyState, Toast
+│   ├── navbar/                 # Thanh điều hướng trên cùng, đổi vai trò, theme toggle
+│   ├── sidebar/                # Menu thanh bên cho HR và Ứng viên
+│   ├── modal/                  # Hộp thoại popup dùng chung
+│   ├── form/                   # FormField wrapper và SearchInput
+│   ├── job/                    # JobCard, JobFilter
+│   ├── candidate/              # CandidateCard, CandidateRow
+│   ├── matching/               # MatchScoreBadge, MatchBreakdown
+│   └── chart/                  # BarChart, FunnelChart
+├── layouts/
+│   ├── MainLayout.jsx          # Layout chung cho trang công khai & đăng nhập
+│   ├── HRLayout.jsx            # Layout chuyên dụng cho Nhà tuyển dụng
+│   └── CandidateLayout.jsx     # Layout chuyên dụng cho Ứng viên
+├── pages/
+│   ├── auth/                   # Login, Register
+│   ├── candidate/              # Dashboard, Profile, MyCV, Jobs, Applications
+│   └── hr/                     # Dashboard, Jobs, Candidates, Screening, Ranking, Analytics
+├── routes/
+│   ├── AppRoutes.jsx           # Bản đồ điều hướng trung tâm
+│   ├── ProtectedRoute.jsx      # Chặn truy cập khi chưa đăng nhập
+│   └── RoleRoute.jsx           # Phân quyền theo vai trò (Candidate / Employer / Admin)
+├── services/
+│   ├── authService.js          # Xác thực & tài khoản demo
+│   ├── candidateService.js     # Hồ sơ cá nhân, việc đã lưu, phân tích CV
+│   ├── jobService.js           # Quản lý tin tuyển dụng & bộ lọc
+│   ├── applicationService.js   # Quản lý đơn ứng tuyển
+│   ├── matchingService.js      # Thuật toán MatchAI chấm điểm phù hợp
+│   └── screeningService.js     # Quy trình sàng lọc hồ sơ
+├── contexts/
+│   └── AuthContext.jsx         # Quản lý trạng thái đăng nhập toàn ứng dụng
+├── hooks/
+│   ├── useAuth.js              # Hook tiện ích tài khoản
+│   ├── useTheme.js             # Hook đổi Dark / Light mode
+│   └── useToast.js             # Hook hiển thị thông báo popup
+├── types/
+│   └── index.js                # JSDoc type definitions
+├── utils/
+│   ├── formatters.js           # Định dạng tiền tệ, ngày tháng, tone trạng thái
+│   └── storage.js              # Tiện ích tương tác an toàn với localStorage
+└── constants/
+    └── index.js                # Hằng số cấu hình vai trò, giai đoạn, danh mục
+```
+
+---
+
+## 🔑 Tài Khoản Demo Để Kiểm Thử Nhanh
+
+Tại trang đăng nhập (`/auth/login`), sử dụng các nút **Dùng thử nhanh** ở cuối form:
+- **Ứng viên Demo:** Truy cập cổng tìm việc, theo dõi đơn nộp, scan CV.
+- **HR Demo:** Truy cập bảng điều khiển tuyển dụng, đăng tin mới, sàng lọc Kanban, xem bảng xếp hạng MatchAI.
+- **Admin Demo:** Quyền điều phối hệ thống.
