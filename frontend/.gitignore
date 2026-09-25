@@ -1,55 +1,24 @@
-# Environment variables & secrets
-.env
-.env.local
-.env.*.local
-!.env.example
-
-# Dependencies (if any added in future)
-node_modules/
-package-lock.json
-
-# Logs & debugging
+# Logs
+logs
 *.log
 npm-debug.log*
 yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# Editor & IDE configurations
-.vscode/
-.idea/
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
-
-# OS generated files
-Thumbs.db
-ehthumbs.db
-Desktop.ini
-$RECYCLE.BIN/
-.DS_Store
-.AppleDouble
-.LSOverride
-
-# Temporary / Build directories
-dist/
-build/
-.cache/
-tmp/
-temp/
-
-# Frontend Documentation, Workflow & Private Dev Reports
-docs/
-FE_WORKFLOW.md
-FE_UI_FLOW.md
-README_FE.md
-FE_REPORT_*.md
-*.report.md
-*_REPORT_*.md
-*WORKFLOW*.md
-*UI_FLOW*.md
-*.draft.md
-personal/
-notes/
-scratch/
-
