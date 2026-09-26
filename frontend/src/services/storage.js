@@ -1,4 +1,6 @@
 // Quản lý localStorage với fallback an toàn
+import { mockStore } from "./mockStore";
+
 const STORAGE_KEYS = {
   THEME: "matchajob-theme",
   LEGACY_THEME: "jobly-theme",
@@ -72,22 +74,15 @@ export const storage = {
   },
 
   getApplications() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEYS.APPLICATIONS);
-      const userApps = raw ? JSON.parse(raw) : [];
-      const defaultApps = [
-        { id: 101, title: "Senior Product Designer", company: "FPT Digital Talent", stage: "Phỏng vấn", statusBadge: "is-success", date: "14/09/2026", step: 3 },
-        { id: 102, title: "Product Designer", company: "Tiki", stage: "Bài kiểm tra", statusBadge: "is-warning", date: "12/09/2026", step: 2 },
-        { id: 103, title: "UI/UX Designer", company: "VNG", stage: "Đã xem hồ sơ", statusBadge: "is-neutral", date: "08/09/2026", step: 1 }
-      ];
-      return [...userApps, ...defaultApps];
-    } catch {
-      return [];
-    }
+    return mockStore.getApplications();
   },
   addApplication(application) {
-    const apps = this.getApplications();
-    apps.unshift({ ...application, id: Date.now(), date: "Vừa xong", step: 1, stage: "Đã nộp đơn", statusBadge: "is-neutral" });
-    localStorage.setItem(STORAGE_KEYS.APPLICATIONS, JSON.stringify(apps));
+    return mockStore.applyForJob({
+      jobId: application.jobId || "JOB-2048",
+      candidateName: application.applicantName || "Nguyễn An Khang",
+      candidateEmail: application.applicantEmail || "ankhang@example.com",
+      candidatePhone: application.applicantPhone || "0909 123 456",
+      coverLetter: application.coverLetter || ""
+    });
   }
 };
