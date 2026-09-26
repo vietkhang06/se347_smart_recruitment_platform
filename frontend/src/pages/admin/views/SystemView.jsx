@@ -6,34 +6,23 @@ import Button from "react-bootstrap/Button";
 import Form from "react-bootstrap/Form";
 import Table from "react-bootstrap/Table";
 import { useToast } from "../../../context/ToastContext";
+import { mockStore } from "../../../services/mockStore";
 
 export default function SystemView() {
   const { showToast } = useToast();
 
-  const [settings, setSettings] = useState([
-    { id: "s1", label: "Tự động duyệt tin đăng từ các doanh nghiệp đã xác minh", desc: "Cho phép các tin đạt chuẩn từ doanh nghiệp tích xanh xuất bản ngay", checked: true },
-    { id: "s2", label: "Kích hoạt bộ lọc AI phát hiện nội dung rủi ro", desc: "Tự động flag các tin có dấu hiệu thu phí hoặc từ ngữ phân biệt đối xử", checked: true },
-    { id: "s3", label: "Bắt buộc công khai mức thu nhập trong tin tuyển dụng", desc: "Không cho phép để trống trường lương hoặc ẩn lương", checked: true },
-    { id: "s4", label: "Gửi email cảnh báo vi phạm SLA sau 30 phút", desc: "Cảnh báo khẩn cấp tới đội ngũ quản trị khi có báo cáo chưa xử lý", checked: true },
-    { id: "s5", label: "Bật chế độ bảo trì hệ thống toàn diện", desc: "Tạm dừng truy cập công khai của ứng viên để nâng cấp hạ tầng", checked: false }
-  ]);
-
-  const services = [
-    { name: "Cổng web Ứng viên (Candidate App)", latency: "120ms", status: "Online" },
-    { name: "Cổng web Tuyển dụng (Employer Portal)", latency: "142ms", status: "Online" },
-    { name: "Dịch vụ AI Matching & Sàng lọc CV", latency: "320ms", status: "Online" },
-    { name: "Dịch vụ Email & SMS Gateway", latency: "98ms", status: "Online" },
-    { name: "Cổng thanh toán & Hóa đơn VietQR", latency: "164ms", status: "Online" }
-  ];
+  const [settings, setSettings] = useState(() => mockStore.getSystemSettings());
+  const services = mockStore.getSystemServices();
 
   const handleToggle = (id) => {
-    setSettings(
-      settings.map((s) => (s.id === id ? { ...s, checked: !s.checked } : s))
-    );
+    const updated = mockStore.toggleSystemSetting(id);
+    setSettings(updated);
+    const item = updated.find((s) => s.id === id);
+    showToast(`Đã ${item.checked ? "kích hoạt" : "tắt"}: ${item.label}`);
   };
 
   const handleSave = () => {
-    showToast("Đã lưu toàn bộ cấu hình quy tắc vận hành hệ thống!");
+    showToast("Đã lưu toàn bộ cấu hình quy tắc vận hành hệ thống vào CSDL!");
   };
 
   return (
@@ -59,15 +48,16 @@ export default function SystemView() {
                   key={s.id}
                   className="d-flex justify-content-between align-items-center p-3 rounded bg-surface-2 border"
                 >
-                  <div className="pe-3">
-                    <strong className="d-block text-body small mb-1">{s.label}</strong>
-                    <span className="text-muted" style={{ fontSize: "12px" }}>{s.desc}</span>
+                  <div className="me-3">
+                    <strong className="d-block text-body mb-1">{s.label}</strong>
+                    <div className="text-muted small">{s.desc}</div>
                   </div>
                   <Form.Check
                     type="switch"
                     id={s.id}
                     checked={s.checked}
                     onChange={() => handleToggle(s.id)}
+                    className="fs-5"
                   />
                 </div>
               ))}
@@ -75,31 +65,39 @@ export default function SystemView() {
           </Card>
         </Col>
 
-        {/* Right: Service Health & Security Info */}
+        {/* Right: Service Health Monitor */}
         <Col lg={5}>
-          {/* Service Health Card */}
           <Card className="matcha-card p-4 border-0 shadow-sm mb-4">
             <div className="d-flex justify-content-between align-items-center mb-3">
-              <div>
-                <h5 className="fw-bold mb-0">Tình trạng dịch vụ (Service Health)</h5>
-                <small className="text-muted">Cập nhật thời gian thực</small>
-              </div>
-              <span className="badge bg-success bg-opacity-10 text-success">Uptime 99.98%</span>
+              <h5 className="fw-bold mb-0">Tình trạng cụm dịch vụ Core</h5>
+              <span className="badge bg-success bg-opacity-10 text-success border">
+                <i className="bi bi-circle-fill me-1" style={{ fontSize: "8px" }}></i>Hoạt động 100%
+              </span>
             </div>
 
             <div className="table-responsive">
-              <Table hover className="align-middle mb-0 small">
+              <Table hover className="align-middle mb-0">
+                <thead className="table-light">
+                  <tr>
+                    <th>Dịch vụ</th>
+                    <th>Độ trễ</th>
+                    <th>Trạng thái</th>
+                  </tr>
+                </thead>
                 <tbody>
-                  {services.map((svc, i) => (
-                    <tr key={i}>
+                  {services.map((srv, idx) => (
+                    <tr key={idx}>
+                      <td className="small fw-semibold">{srv.name}</td>
                       <td>
-                        <div className="d-flex align-items-center gap-2">
-                          <span className="service-dot online"></span>
-                          <span className="fw-semibold">{svc.name}</span>
-                        </div>
+                        <span className="badge bg-secondary bg-opacity-10 text-body small">
+                          {srv.latency}
+                        </span>
                       </td>
-                      <td className="text-end"><code>{svc.latency}</code></td>
-                      <td className="text-end text-success fw-bold">{svc.status}</td>
+                      <td>
+                        <span className="text-success small fw-bold">
+                          <i className="bi bi-check-circle-fill me-1"></i>{srv.status}
+                        </span>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -107,21 +105,12 @@ export default function SystemView() {
             </div>
           </Card>
 
-          {/* Security Info Card */}
-          <Card className="matcha-card p-4 border-0 shadow-sm">
-            <h5 className="fw-bold mb-3">Chính sách bảo mật hệ thống</h5>
-            <div className="d-flex flex-column gap-2 small">
-              <div className="d-flex justify-content-between py-2 border-bottom">
-                <span className="text-muted">Thời gian hết hạn phiên làm việc:</span>
-                <strong>30 phút không hoạt động</strong>
-              </div>
-              <div className="d-flex justify-content-between py-2 border-bottom">
-                <span className="text-muted">Xác thực 2 bước (2FA):</span>
-                <strong className="text-success">Bắt buộc đối với toàn bộ Admin</strong>
-              </div>
-              <div className="d-flex justify-content-between py-2">
-                <span className="text-muted">Mã hóa dữ liệu tại chỗ:</span>
-                <strong className="text-success">AES-256 Bit GCM</strong>
+          <Card className="matcha-card p-3 border-0 shadow-sm bg-surface-2">
+            <div className="d-flex align-items-center gap-3">
+              <i className="bi bi-shield-lock-fill fs-2 text-primary"></i>
+              <div>
+                <strong className="d-block small">Chứng chỉ bảo mật SSL / TLS 1.3</strong>
+                <span className="text-muted small">Mã hóa đầu cuối bảo vệ dữ liệu hồ sơ cá nhân của người dùng</span>
               </div>
             </div>
           </Card>

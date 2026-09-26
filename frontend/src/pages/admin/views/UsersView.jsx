@@ -6,7 +6,9 @@ import Badge from "react-bootstrap/Badge";
 import Form from "react-bootstrap/Form";
 import InputGroup from "react-bootstrap/InputGroup";
 import UserDetailModal from "../components/UserDetailModal";
+import UserCreateModal from "../components/UserCreateModal";
 import { useToast } from "../../../context/ToastContext";
+import { mockStore } from "../../../services/mockStore";
 
 export default function UsersView({ users, setUsers }) {
   const { showToast } = useToast();
@@ -16,6 +18,7 @@ export default function UsersView({ users, setUsers }) {
 
   const [selectedUser, setSelectedUser] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const filteredUsers = users.filter((u) => {
     const matchSearch =
@@ -36,17 +39,9 @@ export default function UsersView({ users, setUsers }) {
   });
 
   const toggleUserStatus = (id) => {
-    setUsers((prev) =>
-      prev.map((u) => {
-        if (u.id === id) {
-          const isCurrentlyActive = u.status === "Hoạt động" || u.status === "Đã xác minh";
-          const newStatus = isCurrentlyActive ? "Tạm khóa" : "Hoạt động";
-          showToast(`Đã chuyển trạng thái tài khoản ${u.name} sang: ${newStatus}`);
-          return { ...u, status: newStatus };
-        }
-        return u;
-      })
-    );
+    const newStatus = mockStore.toggleUserStatus(id);
+    setUsers(mockStore.getUsers());
+    showToast(`Đã chuyển trạng thái tài khoản sang: ${newStatus}`);
   };
 
   const handleOpenDetail = (user) => {
@@ -54,20 +49,39 @@ export default function UsersView({ users, setUsers }) {
     setShowDetailModal(true);
   };
 
+  const handleUserCreated = (newUser) => {
+    setUsers(mockStore.getUsers());
+  };
+
+  const handleUserUpdated = (updatedUser) => {
+    setUsers(mockStore.getUsers());
+    setSelectedUser(updatedUser);
+  };
+
   return (
     <Card className="matcha-card p-4 border-0 shadow-sm" data-aos="fade-up">
       <div className="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
         <div>
-          <h5 className="fw-bold mb-0">Quản lý người dùng hệ thống (User Directory)</h5>
+          <h5 className="fw-bold mb-0">Quản lý người dùng hệ thống ({users.length})</h5>
           <p className="text-muted small mb-0">Theo dõi thông tin ứng viên, doanh nghiệp tuyển dụng và an toàn tài khoản</p>
         </div>
-        <Button
-          variant="outline-dark"
-          size="sm"
-          onClick={() => showToast("Đã xuất danh bạ người dùng (.CSV)")}
-        >
-          <i className="bi bi-download me-1"></i>Xuất danh sách
-        </Button>
+        <div className="d-flex gap-2">
+          <Button
+            variant="outline-dark"
+            size="sm"
+            onClick={() => showToast("Đã xuất danh bạ người dùng (.CSV)")}
+          >
+            <i className="bi bi-download me-1"></i>Xuất danh sách
+          </Button>
+          <Button
+            variant="success"
+            size="sm"
+            className="fw-bold"
+            onClick={() => setShowCreateModal(true)}
+          >
+            <i className="bi bi-person-plus me-1"></i>Thêm người dùng
+          </Button>
+        </div>
       </div>
 
       {/* Filter and Search Bar */}
@@ -88,6 +102,7 @@ export default function UsersView({ users, setUsers }) {
             <option value="all">Tất cả vai trò</option>
             <option value="Ứng viên">Ứng viên</option>
             <option value="Nhà tuyển dụng">Nhà tuyển dụng</option>
+            <option value="Quản trị viên">Quản trị viên</option>
           </Form.Select>
         </div>
 
@@ -128,10 +143,28 @@ export default function UsersView({ users, setUsers }) {
                 return (
                   <tr key={u.id}>
                     <td><code>{u.id}</code></td>
-                    <td className="fw-semibold">{u.name}</td>
+                    <td className="fw-semibold">
+                      <div className="d-flex align-items-center gap-2">
+                        <div
+                          className="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold shadow-sm flex-shrink-0"
+                          style={{
+                            width: "32px",
+                            height: "32px",
+                            fontSize: "12px",
+                            backgroundColor: u.role === "Nhà tuyển dụng" ? "var(--primary)" : u.role === "Quản trị viên" ? "#0f172a" : "var(--purple)"
+                          }}
+                        >
+                          {u.name.slice(0, 2).toUpperCase()}
+                        </div>
+                        <div>
+                          <div className="text-body">{u.name}</div>
+                          {u.companyName && <small className="text-muted">{u.companyName}</small>}
+                        </div>
+                      </div>
+                    </td>
                     <td>{u.email}</td>
                     <td>
-                      <Badge bg={u.role === "Nhà tuyển dụng" ? "primary" : "secondary"}>
+                      <Badge bg={u.role === "Nhà tuyển dụng" ? "primary" : u.role === "Quản trị viên" ? "dark" : "secondary"}>
                         {u.role}
                       </Badge>
                     </td>
@@ -174,6 +207,14 @@ export default function UsersView({ users, setUsers }) {
         onHide={() => setShowDetailModal(false)}
         user={selectedUser}
         onToggleStatus={toggleUserStatus}
+        onUserUpdated={handleUserUpdated}
+      />
+
+      {/* User Create Modal */}
+      <UserCreateModal
+        show={showCreateModal}
+        onHide={() => setShowCreateModal(false)}
+        onUserCreated={handleUserCreated}
       />
     </Card>
   );
