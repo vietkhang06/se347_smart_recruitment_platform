@@ -6,14 +6,18 @@ import Card from "react-bootstrap/Card";
 import Badge from "react-bootstrap/Badge";
 import { useToast } from "../../../context/ToastContext";
 
-export default function PlanModal({ show, onHide, plan }) {
+import { mockStore } from "../../../services/mockStore";
+
+export default function PlanModal({ show, onHide, plan, onPlanActivated }) {
   const { showToast } = useToast();
   const [method, setMethod] = useState("qr");
 
   if (!plan) return null;
 
   const handleConfirm = () => {
-    showToast(`Đã ghi nhận yêu cầu nâng cấp gói ${plan.name}. Bộ phận CSKH sẽ kích hoạt trong 5 phút!`);
+    mockStore.activatePlan(plan.id);
+    if (onPlanActivated) onPlanActivated(plan.id);
+    showToast(`Đã kích hoạt thành công gói ${plan.name}! Hạn mức tin đăng mới đã được cập nhật.`);
     onHide();
   };
 

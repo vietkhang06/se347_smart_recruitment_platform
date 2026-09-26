@@ -8,16 +8,26 @@ import Table from "react-bootstrap/Table";
 import Badge from "react-bootstrap/Badge";
 import PlanModal from "../components/PlanModal";
 import { useToast } from "../../../context/ToastContext";
+import { mockStore } from "../../../services/mockStore";
 
-export default function BillingView({ plans }) {
+export default function BillingView({ plans: initialPlans, activeJobsCount = 8 }) {
   const { showToast } = useToast();
+  const [plans, setPlans] = useState(() => initialPlans || mockStore.getPlans());
   const [selectedPlan, setSelectedPlan] = useState(null);
 
+  const currentPlan = plans.find((p) => p.current) || plans[1] || plans[0];
+  const quota = currentPlan.quota || 15;
+  const usagePercent = Math.min(100, Math.round((activeJobsCount / quota) * 100));
+
   const invoices = [
-    { id: "#MJ-2026-0901", date: "18/09/2026", plan: "Growth", amount: "1.490.000đ", status: "Đã thanh toán" },
+    { id: "#MJ-2026-0901", date: "18/09/2026", plan: currentPlan.name, amount: currentPlan.price, status: "Đã thanh toán" },
     { id: "#MJ-2026-0801", date: "18/08/2026", plan: "Growth", amount: "1.490.000đ", status: "Đã thanh toán" },
-    { id: "#MJ-2026-0701", date: "18/07/2026", plan: "Growth", amount: "1.490.000đ", status: "Đã thanh toán" }
+    { id: "#MJ-2026-0701", date: "18/07/2026", plan: "Starter", amount: "0đ", status: "Đã thanh toán" }
   ];
+
+  const handlePlanActivated = () => {
+    setPlans(mockStore.getPlans());
+  };
 
   return (
     <div data-aos="fade-up">
@@ -36,7 +46,7 @@ export default function BillingView({ plans }) {
         <Row className="align-items-center g-3">
           <Col md={5}>
             <span className="badge bg-success bg-opacity-10 text-success fw-bold mb-1">GÓI HIỆN TẠI</span>
-            <h3 className="fw-bold text-success mb-1">Growth (Doanh nghiệp tăng trưởng)</h3>
+            <h3 className="fw-bold text-success mb-1">{currentPlan.name}</h3>
             <p className="text-muted small mb-0">Hạn gia hạn tiếp theo: <strong>18/10/2026</strong> · Tự động trừ định kỳ</p>
           </Col>
 
@@ -44,10 +54,10 @@ export default function BillingView({ plans }) {
             <div className="d-flex flex-column gap-3 p-3 rounded bg-surface-2 border">
               <div>
                 <div className="d-flex justify-content-between small mb-1">
-                  <span>Tin đang hoạt động: <strong>8 / 15 tin</strong></span>
-                  <span className="text-success fw-bold">53%</span>
+                  <span>Tin đang hoạt động: <strong>{activeJobsCount} / {quota} tin</strong></span>
+                  <span className="text-success fw-bold">{usagePercent}%</span>
                 </div>
-                <ProgressBar variant="success" now={53} style={{ height: "8px" }} />
+                <ProgressBar variant="success" now={usagePercent} style={{ height: "8px" }} />
               </div>
 
               <div>
@@ -66,7 +76,7 @@ export default function BillingView({ plans }) {
       <h5 className="fw-bold mb-3">Các gói dịch vụ tiêu chuẩn</h5>
       <Row className="g-4 mb-4">
         {plans.map((p) => (
-          <Col md={4} key={p.name}>
+          <Col md={4} key={p.id || p.name}>
             <Card
               className={`matcha-card p-4 h-100 border shadow-sm text-center position-relative ${
                 p.current ? "border-2 border-success" : ""
@@ -111,8 +121,8 @@ export default function BillingView({ plans }) {
       <Card className="matcha-card p-4 border-0 shadow-sm">
         <h5 className="fw-bold mb-3">Lịch sử hóa đơn thanh toán</h5>
         <div className="table-responsive">
-          <Table hover className="align-middle mb-0">
-            <thead className="table-light">
+          <Table hover className="matcha-table align-middle mb-0">
+            <thead>
               <tr>
                 <th>Mã hóa đơn</th>
                 <th>Ngày giao dịch</th>
@@ -125,19 +135,19 @@ export default function BillingView({ plans }) {
             <tbody>
               {invoices.map((inv) => (
                 <tr key={inv.id}>
-                  <td><code>{inv.id}</code></td>
+                  <td><span className="font-monospace text-muted small">{inv.id}</span></td>
                   <td>{inv.date}</td>
-                  <td><Badge bg="secondary" className="bg-opacity-10 text-body">{inv.plan}</Badge></td>
-                  <td className="fw-bold text-success">{inv.amount}</td>
-                  <td><Badge bg="success">{inv.status}</Badge></td>
+                  <td><span className="candidate-skill-badge">{inv.plan}</span></td>
+                  <td className="fw-semibold text-body">{inv.amount}</td>
+                  <td><span className="status-badge status-badge-success">{inv.status}</span></td>
                   <td>
                     <Button
                       variant="link"
                       size="sm"
-                      className="p-0 text-success text-decoration-none fw-semibold"
+                      className="p-0 text-decoration-none text-muted"
                       onClick={() => showToast(`Đang tải hóa đơn VAT điện tử ${inv.id}`)}
                     >
-                      <i className="bi bi-filetype-pdf me-1"></i>Tải VAT (.PDF)
+                      <i className="bi bi-filetype-pdf me-1 text-danger"></i>Tải VAT (.PDF)
                     </Button>
                   </td>
                 </tr>
@@ -152,6 +162,7 @@ export default function BillingView({ plans }) {
         show={selectedPlan !== null}
         onHide={() => setSelectedPlan(null)}
         plan={selectedPlan}
+        onPlanActivated={handlePlanActivated}
       />
     </div>
   );

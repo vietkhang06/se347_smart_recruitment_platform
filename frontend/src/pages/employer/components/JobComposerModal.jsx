@@ -8,31 +8,12 @@ import Badge from "react-bootstrap/Badge";
 import InputGroup from "react-bootstrap/InputGroup";
 import { useToast } from "../../../context/ToastContext";
 
-const DEFAULT_REQ_SUGGESTIONS = [
-  "1 năm kinh nghiệm chuyên môn",
-  "Cao Đẳng trở lên",
-  "Đại học trở lên",
-  "Tiếng Anh Giao tiếp cơ bản",
-  "Tiếng Anh Giao tiếp thành thạo",
-  "Tin học văn phòng",
-  "Kỹ năng làm việc nhóm",
-  "Tư duy phản biện"
-];
-
-const DEFAULT_SPEC_SUGGESTIONS = [
-  "Sales Xuất nhập khẩu/Logistics khác",
-  "Xuất nhập khẩu / Hải quan",
-  "Logistic / Vận tải",
-  "Hàng hải",
-  "B2B",
-  "Direct Sales",
-  "Telesales",
-  "Online Sales",
-  "React",
-  "NodeJS",
-  "Figma",
-  "SQL"
-];
+import {
+  DEFAULT_REQ_SUGGESTIONS,
+  DEFAULT_SPEC_SUGGESTIONS,
+  DEFAULT_JOB_TEMPLATES
+} from "../../../mock/mockComposerTemplates";
+import { mockStore } from "../../../services/mockStore";
 
 // Currency format helper: xxx,yyy,zzz
 const formatNumberWithCommas = (val) => {
@@ -46,20 +27,22 @@ export default function JobComposerModal({ show, onHide, onJobCreated }) {
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState("edit"); // "edit" | "preview"
 
+  const template = DEFAULT_JOB_TEMPLATES.logisticsSales;
+
   // 1. Basic Info
-  const [title, setTitle] = useState("Nhân viên Kinh doanh Xuất nhập khẩu (Logistics Sales)");
-  const [city, setCity] = useState("TP. Hồ Chí Minh");
-  const [address, setAddress] = useState("Tòa nhà FPT Tân Thuận, Quận 7, TP.HCM");
-  const [jobLevel, setJobLevel] = useState("Nhân viên");
-  const [workType, setWorkType] = useState("Toàn thời gian");
-  const [team, setTeam] = useState("Engineering");
+  const [title, setTitle] = useState(template.title);
+  const [city, setCity] = useState(template.city);
+  const [address, setAddress] = useState(template.address);
+  const [jobLevel, setJobLevel] = useState(template.jobLevel);
+  const [workType, setWorkType] = useState(template.workType);
+  const [team, setTeam] = useState(template.team);
 
   // 2. Salary & Deadline
-  const [salaryMode, setSalaryMode] = useState("range"); // range, from, under, negotiable
-  const [salaryCurrency, setSalaryCurrency] = useState("Triệu VNĐ");
-  const [salaryMin, setSalaryMin] = useState("15,000,000");
-  const [salaryMax, setSalaryMax] = useState("25,000,000");
-  const [salarySingle, setSalarySingle] = useState("20,000,000");
+  const [salaryMode, setSalaryMode] = useState(template.salaryMode); // range, from, under, negotiable
+  const [salaryCurrency, setSalaryCurrency] = useState(template.salaryCurrency);
+  const [salaryMin, setSalaryMin] = useState(template.salaryMin);
+  const [salaryMax, setSalaryMax] = useState(template.salaryMax);
+  const [salarySingle, setSalarySingle] = useState(template.salarySingle);
 
   // Deadline logic: >= today + 7 days
   const today = new Date();
@@ -74,7 +57,7 @@ export default function JobComposerModal({ show, onHide, onJobCreated }) {
   const defaultDeadlineDate = new Date(today);
   defaultDeadlineDate.setDate(today.getDate() + 30);
   const [deadline, setDeadline] = useState(formatDateString(defaultDeadlineDate));
-  const [experience, setExperience] = useState("1 năm kinh nghiệm");
+  const [experience, setExperience] = useState(template.experience);
 
   // Custom Calendar State
   const [showCalendar, setShowCalendar] = useState(false);
@@ -101,19 +84,8 @@ export default function JobComposerModal({ show, onHide, onJobCreated }) {
   const [reqPool, setReqPool] = useState(DEFAULT_REQ_SUGGESTIONS);
   const [specPool, setSpecPool] = useState(DEFAULT_SPEC_SUGGESTIONS);
 
-  const [reqTags, setReqTags] = useState([
-    "1 năm kinh nghiệm chuyên môn",
-    "Cao Đẳng trở lên",
-    "Tiếng Anh Giao tiếp cơ bản"
-  ]);
-
-  const [specTags, setSpecTags] = useState([
-    "Sales Xuất nhập khẩu/Logistics khác",
-    "Xuất nhập khẩu / Hải quan",
-    "Logistic / Vận tải",
-    "Hàng hải",
-    "B2B"
-  ]);
+  const [reqTags, setReqTags] = useState(template.reqTags);
+  const [specTags, setSpecTags] = useState(template.specTags);
 
   const [newReqTag, setNewReqTag] = useState("");
   const [newSpecTag, setNewSpecTag] = useState("");
@@ -123,26 +95,18 @@ export default function JobComposerModal({ show, onHide, onJobCreated }) {
   const availableSpecSuggestions = specPool.filter((t) => !specTags.includes(t));
 
   // 4. Rich Texts
-  const [descHtml, setDescHtml] = useState(
-    "<ul><li>Tìm kiếm, khai thác và mở rộng mạng lưới khách hàng doanh nghiệp có nhu cầu vận chuyển hàng hóa xuất nhập khẩu (đường biển, đường hàng không, nội địa).</li><li>Tư vấn giải pháp logistics tối ưu: cước vận tải biển (FCL/LCL), cước hàng không (Air), thủ tục hải quan và kho bãi.</li><li>Đàm phán giá cả, điều khoản hợp đồng và theo dõi tiến độ đơn hàng cùng bộ phận Customer Service.</li></ul>"
-  );
-  const [reqHtml, setReqHtml] = useState(
-    "<ul><li>Tốt nghiệp Cao đẳng/Đại học chuyên ngành Kinh tế, Ngoại thương, Xuất nhập khẩu, Logistics hoặc các ngành liên quan.</li><li>Tối thiểu <b>1 năm kinh nghiệm</b> trong lĩnh vực Sales Logistics / Forwarding.</li><li>Kỹ năng giao tiếp, đàm phán và thuyết phục khách hàng tốt.</li><li>Tiếng Anh giao tiếp và đọc hiểu chứng từ xuất nhập khẩu.</li></ul>"
-  );
-  const [benefitsHtml, setBenefitsHtml] = useState(
-    "<ul><li>Thu nhập cạnh tranh: Lương cứng 15 - 25 Triệu + % Hoa hồng không giới hạn theo doanh số.</li><li>Thưởng tháng 13, thưởng hiệu quả kinh doanh quý/năm.</li><li>Chế độ bảo hiểm FPT Care cho bản thân và gia đình.</li><li>Tham gia các khóa đào tạo chuyên sâu về chuỗi cung ứng quốc tế.</li></ul>"
-  );
-  const [scheduleHtml, setScheduleHtml] = useState(
-    "<ul><li>Thời gian: Thứ Hai - Thứ Sáu (8:00 - 17:30), nghỉ Thứ Bảy & Chủ Nhật.</li><li>Địa điểm: Tòa nhà FPT Tân Thuận, Đường số 8, KCX Tân Thuận, Quận 7, TP.HCM.</li></ul>"
-  );
+  const [descHtml, setDescHtml] = useState(template.descHtml);
+  const [reqHtml, setReqHtml] = useState(template.reqHtml);
+  const [benefitsHtml, setBenefitsHtml] = useState(template.benefitsHtml);
+  const [scheduleHtml, setScheduleHtml] = useState(template.scheduleHtml);
 
   // 5. Summary Row (Icon cards)
-  const [sumIndustry, setSumIndustry] = useState("Xuất nhập khẩu / Hải quan, Logistic / Vận tải, Hàng hải");
-  const [sumRequired, setSumRequired] = useState("Tìm kiếm khách hàng, Đàm phán, Giao tiếp, Chăm Sóc Khách Hàng");
-  const [sumPreferred, setSumPreferred] = useState("Tiếng Anh giao tiếp, Tin học văn phòng, Am Hiểu Về Incoterms");
+  const [sumIndustry, setSumIndustry] = useState(template.summary.industry);
+  const [sumRequired, setSumRequired] = useState(template.summary.required);
+  const [sumPreferred, setSumPreferred] = useState(template.summary.preferred);
 
   // 6. Map Link
-  const [mapLink, setMapLink] = useState("https://maps.google.com/?q=FPT+Tan+Thuan");
+  const [mapLink, setMapLink] = useState(template.mapLink);
 
   // Refs for contenteditable elements
   const descRef = useRef(null);
@@ -382,16 +346,11 @@ export default function JobComposerModal({ show, onHide, onJobCreated }) {
       posted: "Vừa xong"
     };
 
-    // Save to localStorage
-    try {
-      const stored = JSON.parse(localStorage.getItem("matchajob-employer-posts") || "[]");
-      localStorage.setItem("matchajob-employer-posts", JSON.stringify([newJob, ...stored]));
-    } catch (err) {
-      console.error(err);
-    }
+    // Save to unified mockStore
+    const createdJob = mockStore.saveJob(newJob);
 
-    if (onJobCreated) onJobCreated(newJob);
-    showToast(`Đã xuất bản tin tuyển dụng: ${title}`);
+    if (onJobCreated) onJobCreated(createdJob);
+    showToast(`Đã xuất bản tin tuyển dụng: ${title} (${createdJob.status})`);
     onHide();
   };
 

@@ -5,6 +5,7 @@ import Badge from "react-bootstrap/Badge";
 import Button from "react-bootstrap/Button";
 import Nav from "react-bootstrap/Nav";
 import { MATCHAJOB_MOCK } from "../../services/mockData";
+import { mockStore } from "../../services/mockStore";
 import { useToast } from "../../context/ToastContext";
 
 // Modular Admin Views
@@ -40,18 +41,55 @@ export default function AdminPortal() {
     window.location.hash = tabKey;
   };
 
-  const adminData = MATCHAJOB_MOCK.admin;
-  const [reviews, setReviews] = useState(adminData.reviews);
-  const [users, setUsers] = useState(adminData.users);
-  const [reports, setReports] = useState(adminData.reports);
-  const [categories, setCategories] = useState(adminData.categories || []);
-  const [notifications, setNotifications] = useState(adminData.notifications || []);
+  const [reviews, setReviews] = useState(() => mockStore.getReviews());
+  const [users, setUsers] = useState(() => mockStore.getUsers());
+  const [reports, setReports] = useState(() => mockStore.getReports());
+  const [categories, setCategories] = useState(() => mockStore.getCategories());
+  const [notifications, setNotifications] = useState(() => mockStore.getNotifications());
+  const [logs, setLogs] = useState(() => mockStore.getAuditLogs());
 
-  const pendingReviewsCount = reviews.filter((r) => r.status === "Chờ duyệt" || r.status === "Cần kiểm tra").length;
+  useEffect(() => {
+    const handleStoreChange = () => {
+      setReviews(mockStore.getReviews());
+      setUsers(mockStore.getUsers());
+      setReports(mockStore.getReports());
+      setCategories(mockStore.getCategories());
+      setNotifications(mockStore.getNotifications());
+      setLogs(mockStore.getAuditLogs());
+    };
+
+    window.addEventListener("matchajob:store-changed", handleStoreChange);
+    return () => {
+      window.removeEventListener("matchajob:store-changed", handleStoreChange);
+    };
+  }, []);
+
+  const pendingReviewsCount = reviews.filter(
+    (r) => r.status === "Chờ duyệt" || r.status === "Cần kiểm tra" || r.status === "Chờ xác minh"
+  ).length;
   const pendingReportsCount = reports.filter((r) => r.status !== "Đã xử lý").length;
+  const activeJobsCount = mockStore.getJobs().filter((j) => j.status === "Đang tuyển").length;
+
+  const dynamicAdminData = {
+    ...MATCHAJOB_MOCK.admin,
+    metrics: [
+      { label: "Tổng người dùng", value: `${(18200 + users.length).toLocaleString("vi-VN")}`, change: "+18,2%", tone: "purple", icon: "●" },
+      { label: "Tin đang hiển thị", value: `${(1280 + activeJobsCount).toLocaleString("vi-VN")}`, change: "+7,6%", tone: "green", icon: "▣" },
+      { label: "Hồ sơ chờ duyệt", value: `${pendingReviewsCount}`, change: `${reviews.filter((r) => r.risk === "Cao").length} rủi ro cao`, tone: "orange", icon: "◷" },
+      { label: "Báo cáo rủi ro", value: `${pendingReportsCount}`, change: `${reports.filter((r) => r.severity === "Nghiêm trọng").length} nghiêm trọng`, tone: "red", icon: "!" }
+    ],
+    logs,
+    reviews,
+    users,
+    reports,
+    categories,
+    notifications
+  };
 
   return (
     <Container fluid className="py-4 px-lg-5">
+
+
       {/* Admin Header */}
       <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 pb-3 border-bottom gap-3">
         <div>
@@ -83,63 +121,10 @@ export default function AdminPortal() {
         </div>
       </div>
 
-      {/* Admin Navigation Tabs (9 Sub-views) */}
-      <Nav
-        variant="pills"
-        className="mb-4 gap-2 border-bottom pb-3 flex-nowrap overflow-auto"
-        activeKey={activeTab}
-      >
-        <Nav.Item>
-          <Nav.Link eventKey="overview" onClick={() => handleTabChange("overview")} className="fw-medium text-nowrap">
-            <i className="bi bi-grid-1x2 me-1"></i>Tổng quan hệ thống
-          </Nav.Link>
-        </Nav.Item>
-        <Nav.Item>
-          <Nav.Link eventKey="moderation" onClick={() => handleTabChange("moderation")} className="fw-medium text-nowrap">
-            <i className="bi bi-check2-circle me-1"></i>Kiểm duyệt ({pendingReviewsCount})
-          </Nav.Link>
-        </Nav.Item>
-        <Nav.Item>
-          <Nav.Link eventKey="users" onClick={() => handleTabChange("users")} className="fw-medium text-nowrap">
-            <i className="bi bi-people me-1"></i>Người dùng ({users.length})
-          </Nav.Link>
-        </Nav.Item>
-        <Nav.Item>
-          <Nav.Link eventKey="reports" onClick={() => handleTabChange("reports")} className="fw-medium text-nowrap">
-            <i className="bi bi-exclamation-triangle me-1"></i>Báo cáo vi phạm ({pendingReportsCount})
-          </Nav.Link>
-        </Nav.Item>
-        <Nav.Item>
-          <Nav.Link eventKey="categories" onClick={() => handleTabChange("categories")} className="fw-medium text-nowrap">
-            <i className="bi bi-tags me-1"></i>Danh mục ngành nghề
-          </Nav.Link>
-        </Nav.Item>
-        <Nav.Item>
-          <Nav.Link eventKey="system" onClick={() => handleTabChange("system")} className="fw-medium text-nowrap">
-            <i className="bi bi-sliders me-1"></i>Cấu hình hệ thống
-          </Nav.Link>
-        </Nav.Item>
-        <Nav.Item>
-          <Nav.Link eventKey="logs" onClick={() => handleTabChange("logs")} className="fw-medium text-nowrap">
-            <i className="bi bi-journal-text me-1"></i>Nhật ký hệ thống
-          </Nav.Link>
-        </Nav.Item>
-        <Nav.Item>
-          <Nav.Link eventKey="notifications" onClick={() => handleTabChange("notifications")} className="fw-medium text-nowrap">
-            <i className="bi bi-bell me-1"></i>Thông báo
-          </Nav.Link>
-        </Nav.Item>
-        <Nav.Item>
-          <Nav.Link eventKey="profile" onClick={() => handleTabChange("profile")} className="fw-medium text-nowrap">
-            <i className="bi bi-person-badge me-1"></i>Hồ sơ Admin
-          </Nav.Link>
-        </Nav.Item>
-      </Nav>
-
       {/* 9 SUB-VIEWS RENDERED CONDITIONALLY */}
       {activeTab === "overview" && (
         <AdminOverviewView
-          adminData={adminData}
+          adminData={dynamicAdminData}
           onNavigateTab={handleTabChange}
         />
       )}
@@ -177,7 +162,7 @@ export default function AdminPortal() {
       )}
 
       {activeTab === "logs" && (
-        <LogsView logs={adminData.logs} />
+        <LogsView logs={logs} />
       )}
 
       {activeTab === "notifications" && (

@@ -1,13 +1,23 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Container from "react-bootstrap/Container";
 import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 import Card from "react-bootstrap/Card";
 import Badge from "react-bootstrap/Badge";
-import { storage } from "../../services/storage";
+import { mockStore } from "../../services/mockStore";
 
 export default function ApplicationsPage() {
-  const [applications] = useState(() => storage.getApplications());
+  const [applications, setApplications] = useState(() => mockStore.getApplications());
+
+  useEffect(() => {
+    const handleStoreChange = () => {
+      setApplications(mockStore.getApplications());
+    };
+    window.addEventListener("matchajob:store-changed", handleStoreChange);
+    return () => {
+      window.removeEventListener("matchajob:store-changed", handleStoreChange);
+    };
+  }, []);
 
   const steps = ["Đã nộp hồ sơ", "Sàng lọc hồ sơ", "Phỏng vấn chuyên môn", "Nhận kết quả Offer"];
 
