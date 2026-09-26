@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import Container from "react-bootstrap/Container";
 import Badge from "react-bootstrap/Badge";
 import Button from "react-bootstrap/Button";
 import Nav from "react-bootstrap/Nav";
-import { MATCHAJOB_MOCK } from "../../services/mockData";
 import { useToast } from "../../context/ToastContext";
+import { mockStore } from "../../services/mockStore";
 
 // Modular Views
 import OverviewView from "./views/OverviewView";
@@ -46,18 +46,32 @@ export default function EmployerPortal() {
     window.location.hash = tabKey;
   };
 
-  // State for data
-  const employerData = MATCHAJOB_MOCK.employer;
-  const [jobs, setJobs] = useState(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem("matchajob-employer-posts") || "null");
-      if (Array.isArray(saved) && saved.length > 0) return saved;
-    } catch (e) {}
-    return employerData.jobs;
-  });
+  // State managed via unified mockStore
+  const [company, setCompany] = useState(() => mockStore.getCompany("COMP-01"));
+  const [jobs, setJobs] = useState(() => mockStore.getEmployerJobs("COMP-01"));
+  const [candidates, setCandidates] = useState(() => mockStore.getCandidates());
+  const [interviews, setInterviews] = useState(() => mockStore.getInterviews());
+  const [plans, setPlans] = useState(() => mockStore.getPlans());
 
-  const [candidates, setCandidates] = useState(employerData.candidates);
-  const [interviews, setInterviews] = useState(employerData.interviews);
+  // Reload data from store
+  const refreshStoreData = useCallback(() => {
+    setCompany(mockStore.getCompany("COMP-01"));
+    setJobs(mockStore.getEmployerJobs("COMP-01"));
+    setCandidates(mockStore.getCandidates());
+    setInterviews(mockStore.getInterviews());
+    setPlans(mockStore.getPlans());
+  }, []);
+
+  // Listen to store changes from any component/tab
+  useEffect(() => {
+    const handleStoreChange = () => {
+      refreshStoreData();
+    };
+    window.addEventListener("matchajob:store-changed", handleStoreChange);
+    return () => {
+      window.removeEventListener("matchajob:store-changed", handleStoreChange);
+    };
+  }, [refreshStoreData]);
 
   // Modals state
   const [showComposer, setShowComposer] = useState(false);
@@ -78,30 +92,58 @@ export default function EmployerPortal() {
     setShowInterviewModal(true);
   };
 
+  // Candidate stage transition
+  const handleCandidateStageChange = (candidateId, nextStage) => {
+    mockStore.updateCandidateStage(candidateId, nextStage);
+    const updated = mockStore.getCandidates();
+    setCandidates(updated);
+    if (selectedCandidate && selectedCandidate.id === candidateId) {
+      setSelectedCandidate({ ...selectedCandidate, stage: nextStage });
+    }
+  };
+
+  // Candidate reject
+  const handleCandidateReject = (candidateId, reason) => {
+    mockStore.rejectCandidate(candidateId, reason);
+    const updated = mockStore.getCandidates();
+    setCandidates(updated);
+    if (selectedCandidate && selectedCandidate.id === candidateId) {
+      setSelectedCandidate({ ...selectedCandidate, stage: "Đã từ chối" });
+    }
+  };
+
   // Handle job created
   const handleJobCreated = (newJob) => {
-    setJobs([newJob, ...jobs]);
+    setJobs(mockStore.getEmployerJobs("COMP-01"));
     setActiveTab("jobs");
     window.location.hash = "jobs";
   };
 
   // Handle interview created
   const handleInterviewCreated = (newInterview) => {
-    setInterviews([newInterview, ...interviews]);
+    setInterviews(mockStore.getInterviews());
     setActiveTab("interviews");
     window.location.hash = "interviews";
   };
 
+  // Metrics calculation
+  const activeJobsCount = jobs.filter((j) => j.status === "Đang tuyển").length;
+  const newCandidatesCount = candidates.filter((c) => c.stage === "Mới" || c.stage === "Sàng lọc").length;
+
   return (
     <Container fluid className="py-4 px-lg-5">
+
+
       {/* Portal Header */}
       <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 pb-3 border-bottom gap-3">
         <div>
           <div className="d-flex align-items-center gap-2 mb-1 flex-wrap">
-            <h2 className="fw-bold mb-0 fs-3">{employerData.company.name}</h2>
-            <Badge bg="success" className="bg-opacity-10 text-success border">
-              <i className="bi bi-patch-check-fill me-1"></i>Doanh nghiệp đã xác minh
-            </Badge>
+            <h2 className="fw-bold mb-0 fs-3">{company.name}</h2>
+            {company.verified && (
+              <Badge bg="success" className="bg-opacity-10 text-success border">
+                <i className="bi bi-patch-check-fill me-1"></i>Doanh nghiệp đã xác minh
+              </Badge>
+            )}
           </div>
           <p className="text-muted small mb-0">Trung tâm quản lý tuyển dụng & nhân tài thông minh</p>
         </div>
@@ -125,63 +167,30 @@ export default function EmployerPortal() {
         </div>
       </div>
 
-      {/* Portal Navigation Tabs (9 Sub-views) */}
-      <Nav
-        variant="pills"
-        className="mb-4 gap-2 border-bottom pb-3 flex-nowrap overflow-auto"
-        activeKey={activeTab}
-      >
-        <Nav.Item>
-          <Nav.Link eventKey="overview" onClick={() => handleTabChange("overview")} className="fw-medium text-nowrap">
-            <i className="bi bi-speedometer2 me-1"></i>Tổng quan
-          </Nav.Link>
-        </Nav.Item>
-        <Nav.Item>
-          <Nav.Link eventKey="jobs" onClick={() => handleTabChange("jobs")} className="fw-medium text-nowrap">
-            <i className="bi bi-briefcase me-1"></i>Tin tuyển dụng ({jobs.length})
-          </Nav.Link>
-        </Nav.Item>
-        <Nav.Item>
-          <Nav.Link eventKey="candidates" onClick={() => handleTabChange("candidates")} className="fw-medium text-nowrap">
-            <i className="bi bi-people me-1"></i>Kho ứng viên ({candidates.length})
-          </Nav.Link>
-        </Nav.Item>
-        <Nav.Item>
-          <Nav.Link eventKey="pipeline" onClick={() => handleTabChange("pipeline")} className="fw-medium text-nowrap">
-            <i className="bi bi-kanban me-1"></i>Quy trình (Kanban)
-          </Nav.Link>
-        </Nav.Item>
-        <Nav.Item>
-          <Nav.Link eventKey="interviews" onClick={() => handleTabChange("interviews")} className="fw-medium text-nowrap">
-            <i className="bi bi-calendar-event me-1"></i>Phỏng vấn ({interviews.length})
-          </Nav.Link>
-        </Nav.Item>
-        <Nav.Item>
-          <Nav.Link eventKey="analytics" onClick={() => handleTabChange("analytics")} className="fw-medium text-nowrap">
-            <i className="bi bi-bar-chart-fill me-1"></i>Phân tích HR
-          </Nav.Link>
-        </Nav.Item>
-        <Nav.Item>
-          <Nav.Link eventKey="company" onClick={() => handleTabChange("company")} className="fw-medium text-nowrap">
-            <i className="bi bi-building me-1"></i>Doanh nghiệp
-          </Nav.Link>
-        </Nav.Item>
-        <Nav.Item>
-          <Nav.Link eventKey="billing" onClick={() => handleTabChange("billing")} className="fw-medium text-nowrap">
-            <i className="bi bi-credit-card me-1"></i>Dịch vụ & Gói
-          </Nav.Link>
-        </Nav.Item>
-        <Nav.Item>
-          <Nav.Link eventKey="profile" onClick={() => handleTabChange("profile")} className="fw-medium text-nowrap">
-            <i className="bi bi-person-circle me-1"></i>Hồ sơ HR
-          </Nav.Link>
-        </Nav.Item>
-      </Nav>
-
       {/* 9 SUB-VIEWS RENDERED CONDITIONALLY */}
       {activeTab === "overview" && (
         <OverviewView
-          employerData={{ ...employerData, interviews, candidates }}
+          employerData={{
+            company,
+            metrics: [
+              { label: "Tin đang tuyển", value: String(activeJobsCount), change: `Tổng ${jobs.length} tin`, tone: "green", icon: "▣" },
+              { label: "Ứng viên tiếp nhận", value: String(candidates.length), change: `${newCandidatesCount} mới cần duyệt`, tone: "purple", icon: "●" },
+              { label: "Lịch phỏng vấn", value: String(interviews.length), change: `${interviews.filter(iv => iv.status === "Sắp diễn ra").length} sắp diễn ra`, tone: "orange", icon: "◷" },
+              { label: "Tỷ lệ phản hồi", value: "94%", change: "+4,2% tuần này", tone: "teal", icon: "↗" }
+            ],
+            interviews,
+            candidates,
+            activity: [
+              { time: "09:14", text: "Nguyễn An Khang đã xác nhận lịch phỏng vấn", tone: "green" },
+              { time: "Hôm qua", text: "Tin Senior Product Designer có 8 hồ sơ mới", tone: "purple" },
+              { time: "18/09", text: "Lê Quốc Huy đã hoàn tất bài test kỹ thuật", tone: "teal" }
+            ],
+            weeklyPerformance: {
+              labels: ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật"],
+              applications: [24, 38, 31, 52, 45, 68, 56],
+              views: [110, 145, 132, 210, 185, 290, 240]
+            }
+          }}
           onOpenComposer={() => setShowComposer(true)}
           onOpenCandidate={handleOpenCandidate}
           onNavigateTab={handleTabChange}
@@ -193,6 +202,10 @@ export default function EmployerPortal() {
           jobs={jobs}
           setJobs={setJobs}
           onOpenComposer={() => setShowComposer(true)}
+          onNavigateCandidates={(job) => {
+            setActiveTab("pipeline");
+            window.location.hash = "pipeline";
+          }}
         />
       )}
 
@@ -209,6 +222,7 @@ export default function EmployerPortal() {
           candidates={candidates}
           setCandidates={setCandidates}
           onOpenCandidate={handleOpenCandidate}
+          onInviteCandidate={handleInviteCandidate}
         />
       )}
 
@@ -224,15 +238,18 @@ export default function EmployerPortal() {
       )}
 
       {activeTab === "analytics" && (
-        <AnalyticsView employerData={employerData} />
+        <AnalyticsView employerData={{ company, jobs, candidates, interviews, weeklyPerformance: { labels: ["T2", "T3", "T4", "T5", "T6", "T7", "CN"], applications: [24, 38, 31, 52, 45, 68, 56], views: [110, 145, 132, 210, 185, 290, 240] }, funnel: { labels: ["Ứng tuyển", "Sàng lọc", "Bài test", "Phỏng vấn", "Nhận Offer"], counts: [candidates.length, 4, 3, 2, 1] }, sources: { labels: ["MatchaJob", "LinkedIn", "Nội bộ giới thiệu", "Facebook", "Khác"], data: [48, 26, 14, 8, 4] } }} />
       )}
 
       {activeTab === "company" && (
-        <CompanyView companyData={employerData.company} />
+        <CompanyView
+          companyData={company}
+          onCompanyUpdated={(updated) => setCompany(updated)}
+        />
       )}
 
       {activeTab === "billing" && (
-        <BillingView plans={employerData.plans} />
+        <BillingView plans={plans} activeJobsCount={activeJobsCount} />
       )}
 
       {activeTab === "profile" && (
@@ -254,6 +271,8 @@ export default function EmployerPortal() {
           setShowCandidateModal(false);
           handleInviteCandidate(c);
         }}
+        onStageChange={handleCandidateStageChange}
+        onRejectCandidate={handleCandidateReject}
       />
 
       <InterviewModal

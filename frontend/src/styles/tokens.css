@@ -550,3 +550,444 @@ body {
   color: var(--primary);
 }
 
+/* ========================================================
+   ROLE-BASED HEADER TASK LINKS
+   Tối ưu không gian, không icon/số, không scroll ngang
+   ======================================================== */
+.header-task-link {
+  color: var(--muted) !important;
+  font-size: 14px !important;
+  font-weight: 500;
+  padding: 6px 12px !important;
+  border-radius: 8px;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+  line-height: 1.25;
+}
+
+.header-task-link:hover {
+  color: var(--text) !important;
+  background-color: var(--surface-2);
+}
+
+.header-task-link.active {
+  color: var(--primary) !important;
+  background-color: var(--primary-soft) !important;
+  font-weight: 600;
+}
+
+/* ========================================================
+   THEME-AWARE FILTER PILLS (LIGHT & DARK MODE)
+   Khắc phục chói mắt, hỗ trợ focus dịu nhẹ
+   ======================================================== */
+.filter-pill {
+  background-color: var(--surface-2) !important;
+  color: var(--muted) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 9999px !important;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 5px 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.filter-pill:hover {
+  color: var(--text) !important;
+  border-color: var(--muted) !important;
+}
+
+.filter-pill:focus,
+.filter-pill:focus-visible {
+  outline: none !important;
+  box-shadow: 0 0 0 2px var(--primary-soft) !important;
+}
+
+.filter-pill.active {
+  background-color: var(--primary-soft) !important;
+  color: var(--primary) !important;
+  border-color: var(--primary) !important;
+  font-weight: 600;
+}
+
+.filter-pill .badge {
+  background-color: rgba(125, 125, 125, 0.14) !important;
+  color: inherit !important;
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  transition: all 0.15s ease;
+}
+
+.filter-pill.active .badge {
+  background-color: var(--primary) !important;
+  color: #ffffff !important;
+}
+
+/* ========================================================
+   MATCHA THEME-AWARE TABLE
+   Xóa bỏ table-light gây chói trắng ở dark mode,
+   chữ vừa vặn, không quá to, hàng gọn gàng
+   ======================================================== */
+.matcha-table {
+  font-size: 13px !important;
+}
+
+.matcha-table thead th {
+  background-color: var(--surface-2) !important;
+  color: var(--muted) !important;
+  border-bottom: 1px solid var(--border) !important;
+  border-top: none !important;
+  font-weight: 600;
+  font-size: 11.5px !important;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 10px 12px !important;
+  text-align: center !important;
+  white-space: nowrap !important;
+  vertical-align: middle !important;
+}
+
+.matcha-table tbody td {
+  padding: 9px 12px !important;
+  font-size: 13px !important;
+  vertical-align: middle;
+}
+
+.matcha-table tbody tr {
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  transition: background-color 0.15s ease;
+}
+
+.matcha-table tbody tr:hover {
+  background-color: var(--surface-2) !important;
+}
+
+.matcha-table tbody tr.table-active {
+  background-color: var(--primary-soft) !important;
+}
+
+.matcha-table code {
+  color: var(--text) !important;
+  background-color: var(--surface-2) !important;
+  border: 1px solid var(--border) !important;
+  padding: 2px 6px !important;
+  border-radius: 4px !important;
+  font-size: 11.5px !important;
+}
+
+/* ========================================================
+   ENHANCED ACCESSIBLE CHECKBOXES (LIGHT & DARK MODE)
+   Tăng kích thước từ 13px -> 19px, viền 2px Slate đậm nét,
+   nền sáng rõ, căn giữa ô cột và tương thích hoàn hảo Light/Dark Mode.
+   ======================================================== */
+.matcha-table th:first-child,
+.matcha-table td:first-child {
+  width: 48px !important;
+  text-align: center !important;
+  vertical-align: middle !important;
+  padding-left: 8px !important;
+  padding-right: 8px !important;
+}
+
+.matcha-table .form-check,
+.matcha-checkbox-wrap {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.matcha-table .form-check-input,
+.matcha-checkbox {
+  float: none !important;
+  margin: 0 !important;
+  width: 19px !important;
+  height: 19px !important;
+  min-width: 19px !important;
+  min-height: 19px !important;
+  border: 2px solid #94a3b8 !important; /* Viền xám đậm Slate-400 tương phản cao trên nền sáng */
+  background-color: var(--surface, #ffffff) !important;
+  border-radius: 5px !important;
+  cursor: pointer !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06) !important;
+}
+
+.matcha-table .form-check-input:hover,
+.matcha-checkbox:hover {
+  border-color: var(--primary, #2d8653) !important;
+  box-shadow: 0 0 0 3px rgba(45, 134, 83, 0.2) !important;
+}
+
+.matcha-table .form-check-input:checked,
+.matcha-checkbox:checked {
+  background-color: var(--primary, #2d8653) !important;
+  border-color: var(--primary, #2d8653) !important;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='m6 10 3 3 6-6'/%3e%3c/svg%3e") !important;
+}
+
+.matcha-table .form-check-input:indeterminate,
+.matcha-checkbox:indeterminate {
+  background-color: var(--primary, #2d8653) !important;
+  border-color: var(--primary, #2d8653) !important;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='M6 10h8'/%3e%3c/svg%3e") !important;
+}
+
+/* Dark mode cho ô Checkbox */
+[data-bs-theme="dark"] .matcha-table .form-check-input,
+body.dark .matcha-table .form-check-input,
+[data-bs-theme="dark"] .matcha-checkbox,
+body.dark .matcha-checkbox {
+  border-color: #64748b !important; /* Viền sáng rõ Slate-500 trên nền dark mode */
+  background-color: var(--surface-2, #1e293b) !important;
+}
+
+[data-bs-theme="dark"] .matcha-table .form-check-input:hover,
+body.dark .matcha-table .form-check-input:hover,
+[data-bs-theme="dark"] .matcha-checkbox:hover,
+body.dark .matcha-checkbox:hover {
+  border-color: var(--primary, #3fb978) !important;
+  box-shadow: 0 0 0 3px rgba(63, 185, 120, 0.25) !important;
+}
+
+[data-bs-theme="dark"] .matcha-table .form-check-input:checked,
+body.dark .matcha-table .form-check-input:checked,
+[data-bs-theme="dark"] .matcha-table .form-check-input:indeterminate,
+body.dark .matcha-table .form-check-input:indeterminate,
+[data-bs-theme="dark"] .matcha-checkbox:checked,
+body.dark .matcha-checkbox:checked,
+[data-bs-theme="dark"] .matcha-checkbox:indeterminate,
+body.dark .matcha-checkbox:indeterminate {
+  background-color: var(--primary, #3fb978) !important;
+  border-color: var(--primary, #3fb978) !important;
+}
+
+/* ========================================================
+   MATCHA STATUS BADGES (SYNCHRONIZED HARMONIOUS PALETTE)
+   Không bị quá đậm (như solid bg), không bị quá nhạt (như opacity-10 text-body),
+   đẹp mắt hài hòa trên cả Light Mode & Dark Mode.
+   ======================================================== */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px !important;
+  font-weight: 600 !important;
+  padding: 3px 9px !important;
+  border-radius: 9999px !important;
+  letter-spacing: 0.2px;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+/* Biến thể Xanh lá (Đang tuyển, Đã xác nhận, Đã thanh toán, Hoàn thành) */
+.status-badge-success {
+  background-color: rgba(34, 197, 94, 0.15) !important;
+  color: #15803d !important;
+  border: 1px solid rgba(34, 197, 94, 0.3) !important;
+}
+[data-bs-theme="dark"] .status-badge-success,
+body.dark .status-badge-success {
+  background-color: rgba(34, 197, 94, 0.22) !important;
+  color: #4ade80 !important;
+  border-color: rgba(74, 222, 128, 0.35) !important;
+}
+
+/* Biến thể Xanh lam / Cyan (Mới, Đang kích hoạt) */
+.status-badge-info {
+  background-color: rgba(14, 165, 233, 0.15) !important;
+  color: #0284c7 !important;
+  border: 1px solid rgba(14, 165, 233, 0.3) !important;
+}
+[data-bs-theme="dark"] .status-badge-info,
+body.dark .status-badge-info {
+  background-color: rgba(14, 165, 233, 0.22) !important;
+  color: #38bdf8 !important;
+  border-color: rgba(56, 189, 248, 0.35) !important;
+}
+
+/* Biến thể Tím / Purple (Sàng lọc, Đánh giá) */
+.status-badge-purple {
+  background-color: rgba(168, 85, 247, 0.15) !important;
+  color: #7e22ce !important;
+  border: 1px solid rgba(168, 85, 247, 0.3) !important;
+}
+[data-bs-theme="dark"] .status-badge-purple,
+body.dark .status-badge-purple {
+  background-color: rgba(168, 85, 247, 0.22) !important;
+  color: #c084fc !important;
+  border-color: rgba(192, 132, 252, 0.35) !important;
+}
+
+/* Biến thể Xanh dương / Tím (Sắp diễn ra, Phỏng vấn) */
+.status-badge-primary {
+  background-color: rgba(59, 130, 246, 0.15) !important;
+  color: #1d4ed8 !important;
+  border: 1px solid rgba(59, 130, 246, 0.3) !important;
+}
+[data-bs-theme="dark"] .status-badge-primary,
+body.dark .status-badge-primary {
+  background-color: rgba(59, 130, 246, 0.22) !important;
+  color: #60a5fa !important;
+  border-color: rgba(96, 165, 250, 0.35) !important;
+}
+
+/* Biến thể Vàng cam (Chờ duyệt, Chờ xác nhận, Bài kiểm tra) */
+.status-badge-warning {
+  background-color: rgba(245, 158, 11, 0.15) !important;
+  color: #b45309 !important;
+  border: 1px solid rgba(245, 158, 11, 0.3) !important;
+}
+[data-bs-theme="dark"] .status-badge-warning,
+body.dark .status-badge-warning {
+  background-color: rgba(245, 158, 11, 0.22) !important;
+  color: #fbbf24 !important;
+  border-color: rgba(251, 191, 36, 0.35) !important;
+}
+
+/* Biến thể Trung tính / Xám (Tạm dừng, Hoàn tất, Lưu trữ) */
+.status-badge-secondary {
+  background-color: rgba(148, 163, 184, 0.16) !important;
+  color: #475569 !important;
+  border: 1px solid rgba(148, 163, 184, 0.3) !important;
+}
+[data-bs-theme="dark"] .status-badge-secondary,
+body.dark .status-badge-secondary {
+  background-color: rgba(148, 163, 184, 0.22) !important;
+  color: #cbd5e1 !important;
+  border-color: rgba(203, 213, 225, 0.35) !important;
+}
+
+/* Biến thể Đỏ (Đã đóng, Đã hủy, Từ chối) */
+.status-badge-danger {
+  background-color: rgba(239, 68, 68, 0.15) !important;
+  color: #b91c1c !important;
+  border: 1px solid rgba(239, 68, 68, 0.3) !important;
+}
+[data-bs-theme="dark"] .status-badge-danger,
+body.dark .status-badge-danger {
+  background-color: rgba(239, 68, 68, 0.22) !important;
+  color: #f87171 !important;
+  border-color: rgba(248, 113, 113, 0.35) !important;
+}
+
+/* Candidate Skill Chips */
+.candidate-skill-badge {
+  background-color: var(--surface-2) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border) !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  padding: 3px 8px !important;
+  border-radius: 6px !important;
+  line-height: 1.35 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  height: auto !important;
+  white-space: nowrap !important;
+}
+
+.candidate-skill-more {
+  color: var(--muted) !important;
+  border: 1px dashed var(--border) !important;
+  font-weight: 600 !important;
+}
+
+/* ========================================================
+   THEME-AWARE MINI CALENDAR WIDGET (LIGHT & DARK MODE)
+   ======================================================== */
+.matcha-calendar-popover {
+  background-color: var(--surface) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: var(--shadow) !important;
+  border-radius: 14px !important;
+}
+
+.cal-nav-btn {
+  background-color: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-size: 11px;
+}
+
+.cal-nav-btn:hover {
+  background-color: var(--primary-soft);
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+.cal-day-btn {
+  background: transparent;
+  color: var(--text);
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  height: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.15s ease;
+}
+
+.cal-day-btn:hover {
+  background-color: var(--surface-2);
+}
+
+.cal-day-btn.selected {
+  background-color: var(--primary) !important;
+  color: #ffffff !important;
+  font-weight: 600;
+}
+
+.cal-event-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background-color: var(--primary);
+  position: absolute;
+  bottom: 3px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.cal-day-btn.selected .cal-event-dot {
+  background-color: #ffffff;
+}
+
+.matcha-dropdown-menu {
+  background-color: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: var(--shadow) !important;
+  border-radius: 10px !important;
+}
+
+.matcha-dropdown-menu .dropdown-item {
+  color: var(--text) !important;
+}
+
+.matcha-dropdown-menu .dropdown-item:hover {
+  background-color: var(--surface-2) !important;
+  color: var(--primary) !important;
+}
+
+

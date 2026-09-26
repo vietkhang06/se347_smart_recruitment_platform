@@ -1,34 +1,89 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 import Card from "react-bootstrap/Card";
 import Button from "react-bootstrap/Button";
 import Form from "react-bootstrap/Form";
 import Badge from "react-bootstrap/Badge";
+import InputGroup from "react-bootstrap/InputGroup";
 import { useToast } from "../../../context/ToastContext";
+import { mockStore } from "../../../services/mockStore";
 
-export default function CompanyView({ companyData }) {
+export default function CompanyView({ companyData, onCompanyUpdated }) {
   const { showToast } = useToast();
 
   const [name, setName] = useState(companyData?.name || "FPT Digital Talent");
   const [industry, setIndustry] = useState(companyData?.industry || "Công nghệ & Sản phẩm số");
   const [size, setSize] = useState(companyData?.size || "500+ nhân sự");
   const [location, setLocation] = useState(companyData?.location || "TP. Hồ Chí Minh");
+  const [address, setAddress] = useState(companyData?.address || "Tòa nhà FPT Tân Thuận, Đường số 8, KCX Tân Thuận, Quận 7, TP.HCM");
   const [website, setWebsite] = useState(companyData?.website || "fptsoftware.com");
+  const [email, setEmail] = useState(companyData?.email || "talent@fpt.com");
+  const [phone, setPhone] = useState(companyData?.phone || "028 7300 7373");
+  const [taxCode, setTaxCode] = useState(companyData?.taxCode || "0101248141");
   const [about, setAbout] = useState(
-    "Đội ngũ công nghệ phát triển các sản phẩm số có tác động tích cực đến hàng triệu người dùng. Môi trường làm việc năng động, tôn trọng sáng tạo và khuyến khích học hỏi liên tục."
+    companyData?.about || "Đội ngũ công nghệ phát triển các sản phẩm số có tác động tích cực đến hàng triệu người dùng. Môi trường làm việc năng động, tôn trọng sáng tạo và khuyến khích học hỏi liên tục."
   );
 
-  const perks = [
-    "Hybrid linh hoạt",
-    "Bảo hiểm sức khỏe FPT Care",
-    "Ngân sách học tập định kỳ",
-    "Thưởng hiệu suất & Lương tháng 13",
-    "Teambuilding & Du lịch hàng năm"
-  ];
+  const [perks, setPerks] = useState(companyData?.perks || [
+    "Làm việc Hybrid linh hoạt (2 ngày remote/tuần)",
+    "Bảo hiểm sức khỏe FPT Care toàn diện cho bản thân & gia đình",
+    "Ngân sách tài trợ học tập & chứng chỉ quốc tế định kỳ",
+    "Thưởng hiệu suất kinh doanh & Lương tháng 13",
+    "Teambuilding hàng quý, du lịch nghỉ dưỡng hàng năm"
+  ]);
+
+  const [newPerk, setNewPerk] = useState("");
+
+  useEffect(() => {
+    if (companyData) {
+      setName(companyData.name);
+      setIndustry(companyData.industry);
+      setSize(companyData.size);
+      setLocation(companyData.location);
+      setAddress(companyData.address || address);
+      setWebsite(companyData.website);
+      setEmail(companyData.email || email);
+      setPhone(companyData.phone || phone);
+      setTaxCode(companyData.taxCode || taxCode);
+      if (companyData.about) setAbout(companyData.about);
+      if (companyData.perks) setPerks(companyData.perks);
+    }
+  }, [companyData]);
+
+  const handleAddPerk = (e) => {
+    e.preventDefault();
+    if (newPerk.trim() && !perks.includes(newPerk.trim())) {
+      setPerks([...perks, newPerk.trim()]);
+      setNewPerk("");
+    }
+  };
+
+  const handleRemovePerk = (index) => {
+    setPerks(perks.filter((_, i) => i !== index));
+  };
 
   const handleSave = (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
+    const updated = {
+      id: companyData?.id || "COMP-01",
+      name,
+      shortName: name.split(" ")[0] || "FPT",
+      industry,
+      size,
+      location,
+      address,
+      website,
+      email,
+      phone,
+      taxCode,
+      about,
+      perks,
+      verified: companyData?.verified ?? true
+    };
+
+    mockStore.saveCompany(updated);
+    if (onCompanyUpdated) onCompanyUpdated(updated);
     showToast("Đã lưu thông tin hồ sơ doanh nghiệp thành công!");
   };
 
@@ -49,7 +104,7 @@ export default function CompanyView({ companyData }) {
         <Col lg={7}>
           <Card className="matcha-card border-0 shadow-sm overflow-hidden mb-4">
             {/* Banner Cover with Avatar */}
-            <div className="company-banner d-flex align-items-end justify-content-end p-3">
+            <div className="company-banner d-flex align-items-end justify-content-end p-3 position-relative" style={{ minHeight: "130px", background: "linear-gradient(135deg, #10b981 0%, #047857 100%)" }}>
               <Button
                 variant="light"
                 size="sm"
@@ -58,16 +113,19 @@ export default function CompanyView({ companyData }) {
               >
                 <i className="bi bi-camera me-1"></i>Đổi ảnh bìa
               </Button>
-              <div className="company-avatar-overlap">
+              <div
+                className="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold shadow position-absolute start-0 bottom-0 ms-4 translate-middle-y"
+                style={{ width: "68px", height: "68px", backgroundColor: "#0f172a", fontSize: "1.5rem", border: "3px solid #fff" }}
+              >
                 {name.slice(0, 2).toUpperCase()}
               </div>
             </div>
 
-            <div className="p-4" style={{ paddingTop: "48px" }}>
+            <div className="p-4" style={{ paddingTop: "36px" }}>
               <Form onSubmit={handleSave}>
                 <Row className="g-3">
                   <Col md={12}>
-                    <Form.Label className="small fw-semibold">Tên doanh nghiệp</Form.Label>
+                    <Form.Label className="small fw-semibold">Tên doanh nghiệp / Pháp nhân</Form.Label>
                     <Form.Control
                       type="text"
                       value={name}
@@ -97,7 +155,7 @@ export default function CompanyView({ companyData }) {
                   </Col>
 
                   <Col md={6}>
-                    <Form.Label className="small fw-semibold">Trụ sở chính</Form.Label>
+                    <Form.Label className="small fw-semibold">Thành phố chính</Form.Label>
                     <Form.Control
                       type="text"
                       value={location}
@@ -106,7 +164,25 @@ export default function CompanyView({ companyData }) {
                   </Col>
 
                   <Col md={6}>
-                    <Form.Label className="small fw-semibold">Website doanh nghiệp</Form.Label>
+                    <Form.Label className="small fw-semibold">Mã số thuế doanh nghiệp</Form.Label>
+                    <Form.Control
+                      type="text"
+                      value={taxCode}
+                      onChange={(e) => setTaxCode(e.target.value)}
+                    />
+                  </Col>
+
+                  <Col md={12}>
+                    <Form.Label className="small fw-semibold">Địa chỉ trụ sở cụ thể</Form.Label>
+                    <Form.Control
+                      type="text"
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                    />
+                  </Col>
+
+                  <Col md={4}>
+                    <Form.Label className="small fw-semibold">Website</Form.Label>
                     <Form.Control
                       type="text"
                       value={website}
@@ -114,11 +190,29 @@ export default function CompanyView({ companyData }) {
                     />
                   </Col>
 
+                  <Col md={4}>
+                    <Form.Label className="small fw-semibold">Email tuyển dụng</Form.Label>
+                    <Form.Control
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                    />
+                  </Col>
+
+                  <Col md={4}>
+                    <Form.Label className="small fw-semibold">Hotline HR</Form.Label>
+                    <Form.Control
+                      type="text"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                    />
+                  </Col>
+
                   <Col md={12}>
-                    <Form.Label className="small fw-semibold">Giới thiệu tổng quan về văn hóa & sản phẩm</Form.Label>
+                    <Form.Label className="small fw-semibold">Giới thiệu tổng quan về công ty & văn hóa</Form.Label>
                     <Form.Control
                       as="textarea"
-                      rows={4}
+                      rows={3}
                       value={about}
                       onChange={(e) => setAbout(e.target.value)}
                     />
@@ -129,47 +223,58 @@ export default function CompanyView({ companyData }) {
           </Card>
         </Col>
 
-        {/* Right: Live Public Card Preview */}
+        {/* Right: Company Perks & Live Preview card */}
         <Col lg={5}>
-          <Card className="matcha-card p-4 border-0 shadow-sm h-100">
-            <div className="d-flex justify-content-between align-items-center mb-3">
-              <span className="text-muted small fw-bold">XEM TRƯỚC HỒ SƠ CÔNG KHAI</span>
-              <Badge bg="success" className="bg-opacity-10 text-success border">
-                <i className="bi bi-patch-check-fill me-1"></i>Đã xác minh
-              </Badge>
-            </div>
-
-            <div className="text-center py-3 border-bottom mb-3">
-              <div
-                className="rounded-3 d-inline-flex align-items-center justify-content-center fw-bold text-white shadow-sm mb-2"
-                style={{ width: "64px", height: "64px", backgroundColor: "var(--primary)", fontSize: "24px" }}
-              >
-                {name.slice(0, 2).toUpperCase()}
-              </div>
-              <h5 className="fw-bold mb-1">{name}</h5>
-              <div className="text-muted small">{industry} · {size}</div>
-              <div className="text-muted small mt-1">
-                <i className="bi bi-geo-alt me-1 text-danger"></i>{location} · <i className="bi bi-globe me-1 text-primary"></i>{website}
-              </div>
-            </div>
-
-            <h6 className="fw-bold text-success mb-2">Giới thiệu chung</h6>
-            <p className="small text-muted mb-4" style={{ lineHeight: "1.6" }}>
-              {about}
-            </p>
-
-            <h6 className="fw-bold text-success mb-2">Chính sách đãi ngộ nổi bật</h6>
-            <div className="d-flex flex-wrap gap-2 mb-4">
-              {perks.map((p) => (
-                <span key={p} className="badge bg-success bg-opacity-10 text-success p-2 small">
-                  <i className="bi bi-check2 me-1"></i>{p}
-                </span>
+          {/* Perks Management */}
+          <Card className="matcha-card p-4 border-0 shadow-sm mb-4">
+            <h6 className="fw-bold mb-3">Chế độ đãi ngộ & Phúc lợi nổi bật ({perks.length})</h6>
+            <div className="d-flex flex-column gap-2 mb-3">
+              {perks.map((p, idx) => (
+                <div key={idx} className="p-2 px-3 rounded bg-surface-2 border d-flex justify-content-between align-items-center small">
+                  <span><i className="bi bi-check-circle-fill text-success me-2"></i>{p}</span>
+                  <button
+                    type="button"
+                    className="btn btn-link text-danger p-0 border-0"
+                    title="Xóa phúc lợi này"
+                    onClick={() => handleRemovePerk(idx)}
+                  >
+                    <i className="bi bi-x"></i>
+                  </button>
+                </div>
               ))}
             </div>
 
-            <div className="mt-auto p-3 rounded bg-surface-2 border text-center small text-muted">
-              <i className="bi bi-eye text-primary me-1"></i>
-              Hồ sơ này sẽ hiển thị trực tiếp cho mọi ứng viên khi bấm vào trang chi tiết việc làm.
+            <Form onSubmit={handleAddPerk}>
+              <InputGroup size="sm">
+                <Form.Control
+                  placeholder="Thêm phúc lợi mới (ví dụ: Bảo hiểm sức khỏe...)"
+                  value={newPerk}
+                  onChange={(e) => setNewPerk(e.target.value)}
+                />
+                <Button variant="success" type="submit">
+                  Thêm
+                </Button>
+              </InputGroup>
+            </Form>
+          </Card>
+
+          {/* Mini Live Preview Badge */}
+          <Card className="matcha-card p-3 border-0 shadow-sm">
+            <h6 className="fw-bold mb-2 small text-muted">Hiển thị trực tiếp trên trang Việc làm</h6>
+            <div className="d-flex align-items-center gap-3 p-3 rounded bg-surface border">
+              <div
+                className="rounded-3 d-flex align-items-center justify-content-center text-white fw-bold shadow-sm"
+                style={{ width: "48px", height: "48px", backgroundColor: "var(--primary)" }}
+              >
+                {name.slice(0, 2).toUpperCase()}
+              </div>
+              <div className="overflow-hidden">
+                <div className="fw-bold text-truncate">{name}</div>
+                <div className="small text-muted text-truncate">{industry} · {location}</div>
+                <Badge bg="success" className="bg-opacity-10 text-success border mt-1">
+                  <i className="bi bi-patch-check-fill me-1"></i>Doanh nghiệp đã xác minh
+                </Badge>
+              </div>
             </div>
           </Card>
         </Col>
