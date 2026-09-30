@@ -7,10 +7,26 @@ Frontend/.env
 Frontend/.env.local
 Frontend/.env.*.local
 !Frontend/.env.example
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
+!frontend/.env.example
 
-# Dependencies
+# Dependencies & Build artifacts
 node_modules/
 package-lock.json
+target/
+dist/
+build/
+.cache/
+tmp/
+temp/
+
+# Python virtualenv & cache
+.venv/
+venv/
+__pycache__/
+*.pyc
 
 # Logs & debugging
 *.log
@@ -35,16 +51,10 @@ $RECYCLE.BIN/
 .AppleDouble
 .LSOverride
 
-# Temporary / Build directories
-dist/
-build/
-.cache/
-tmp/
-temp/
-
-# docs/ - keep directory skeleton only
+# docs/ - allow documentation while keeping draft notes excluded
 docs/*
 !docs/.gitkeep
+!docs/*.md
 FE_WORKFLOW.md
 FE_UI_FLOW.md
 README_FE.md
@@ -57,3 +67,4 @@ FE_REPORT_*.md
 personal/
 notes/
 scratch/
+
