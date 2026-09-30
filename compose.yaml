@@ -1,0 +1,57 @@
+name: matchajob
+
+services:
+  database:
+    image: pgvector/pgvector:pg16
+    container_name: matchajob-postgres-pgvector
+    restart: unless-stopped
+    shm_size: 256m
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-matchajob_db}
+      POSTGRES_USER: ${POSTGRES_USER:-matchajob_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-matchajob_password}
+    ports:
+      - "${POSTGRES_HOST_PORT:-5433}:${POSTGRES_CONTAINER_PORT:-5432}"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-matchajob_user} -d ${POSTGRES_DB:-matchajob_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    networks:
+      - matchajob_network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: matchajob-frontend-dev
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_HOST_PORT:-5173}:${FRONTEND_CONTAINER_PORT:-5173}"
+    environment:
+      - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:8081/api}
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+    networks:
+      - matchajob_network
+
+volumes:
+  postgres_data:
+    name: matchajob_postgres_data
+
+networks:
+  matchajob_network:
+    name: matchajob_network
+    driver: bridge
