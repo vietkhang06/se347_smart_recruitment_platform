@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 import Card from "react-bootstrap/Card";
@@ -8,15 +8,21 @@ import Badge from "react-bootstrap/Badge";
 import Modal from "react-bootstrap/Modal";
 import { useAuth } from "../../../context/AuthContext";
 import { useToast } from "../../../context/ToastContext";
+import { mockStore } from "../../../services/mockStore";
 
 export default function ProfileView() {
   const { logout } = useAuth();
   const { showToast } = useToast();
 
-  const [name, setName] = useState("Nguyễn Lan Anh");
-  const [roleTitle, setRoleTitle] = useState("Talent Acquisition Lead");
-  const [email, setEmail] = useState("lananh@fpt.com");
-  const [phone, setPhone] = useState("090 123 4567");
+  const [initialProfile] = useState(() => mockStore.getEmployerProfile());
+
+  const [name, setName] = useState(initialProfile.name || "Nguyễn Lan Anh");
+  const [roleTitle, setRoleTitle] = useState(initialProfile.roleTitle || "Talent Acquisition Lead");
+  const [department, setDepartment] = useState(initialProfile.department || "Phòng Tuyển dụng & Thu hút nhân tài");
+  const [email, setEmail] = useState(initialProfile.email || "lananh@fpt.com");
+  const [phone, setPhone] = useState(initialProfile.phone || "090 123 4567");
+  const [workingHours, setWorkingHours] = useState(initialProfile.workingHours || "Thứ Hai – Thứ Sáu (08:30 – 17:30)");
+  const [workLocation, setWorkLocation] = useState(initialProfile.workLocation || "Tòa nhà FPT Tân Thuận, KCX Tân Thuận, Quận 7, TP.HCM");
 
   const [twoFactor, setTwoFactor] = useState(true);
   const [deviceAlert, setDeviceAlert] = useState(true);
@@ -26,9 +32,27 @@ export default function ProfileView() {
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
 
+  const getInitials = (fullName) => {
+    if (!fullName) return "HR";
+    const parts = fullName.trim().split(" ");
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
+
   const handleSaveProfile = (e) => {
-    e.preventDefault();
-    showToast("Đã lưu thông tin hồ sơ tài khoản tuyển dụng thành công!");
+    if (e) e.preventDefault();
+    mockStore.saveEmployerProfile({
+      ...mockStore.getEmployerProfile(),
+      name,
+      roleTitle,
+      department,
+      email,
+      phone,
+      workingHours,
+      workLocation,
+      avatar: getInitials(name)
+    });
+    showToast("Đã lưu thông tin hồ sơ HR & thông tin liên hệ tuyển dụng thành công!");
   };
 
   const handleChangePassword = (e) => {
@@ -48,7 +72,7 @@ export default function ProfileView() {
       <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
         <div>
           <h5 className="fw-bold mb-0">Hồ sơ chuyên viên tuyển dụng</h5>
-          <p className="text-muted small mb-0">Quản lý định danh cá nhân, thông tin liên hệ và cài đặt bảo mật</p>
+          <p className="text-muted small mb-0">Quản lý định danh cá nhân, thông tin liên hệ HR hiển thị trên tin tuyển dụng và cài đặt bảo mật</p>
         </div>
         <Button variant="success" size="sm" className="fw-bold" onClick={handleSaveProfile}>
           <i className="bi bi-check2 me-1"></i>Lưu thay đổi
@@ -64,15 +88,22 @@ export default function ProfileView() {
                 className="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white shadow-sm flex-shrink-0"
                 style={{ width: "60px", height: "60px", backgroundColor: "var(--primary)", fontSize: "22px" }}
               >
-                LA
+                {getInitials(name)}
               </div>
               <div>
                 <h5 className="fw-bold mb-0">{name}</h5>
                 <div className="text-muted small">{roleTitle} · FPT Digital Talent</div>
                 <Badge bg="success" className="bg-opacity-10 text-success border mt-1">
-                  Quản trị viên tuyển dụng
+                  <i className="bi bi-patch-check-fill me-1"></i>Chuyên viên tuyển dụng phụ trách
                 </Badge>
               </div>
+            </div>
+
+            <div className="alert alert-success bg-success bg-opacity-10 border-success border-opacity-25 py-2 px-3 small mb-3 text-body d-flex align-items-center gap-2">
+              <i className="bi bi-info-circle-fill text-success fs-5"></i>
+              <span>
+                Thông tin liên hệ này được liên kết trực tiếp với mục <strong>"Thông tin liên hệ HR"</strong> ở cuối mỗi tin tuyển dụng công khai để ứng viên thuận tiện trao đổi.
+              </span>
             </div>
 
             <Form onSubmit={handleSaveProfile}>
@@ -95,6 +126,14 @@ export default function ProfileView() {
                     required
                   />
                 </Col>
+                <Col md={12}>
+                  <Form.Label className="small fw-semibold">Phòng ban / Bộ phận</Form.Label>
+                  <Form.Control
+                    type="text"
+                    value={department}
+                    onChange={(e) => setDepartment(e.target.value)}
+                  />
+                </Col>
                 <Col md={6}>
                   <Form.Label className="small fw-semibold">Email làm việc</Form.Label>
                   <Form.Control
@@ -110,6 +149,22 @@ export default function ProfileView() {
                     type="text"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
+                  />
+                </Col>
+                <Col md={6}>
+                  <Form.Label className="small fw-semibold">Khung giờ hỗ trợ ứng viên</Form.Label>
+                  <Form.Control
+                    type="text"
+                    value={workingHours}
+                    onChange={(e) => setWorkingHours(e.target.value)}
+                  />
+                </Col>
+                <Col md={6}>
+                  <Form.Label className="small fw-semibold">Địa chỉ văn phòng làm việc</Form.Label>
+                  <Form.Control
+                    type="text"
+                    value={workLocation}
+                    onChange={(e) => setWorkLocation(e.target.value)}
                   />
                 </Col>
               </Row>
