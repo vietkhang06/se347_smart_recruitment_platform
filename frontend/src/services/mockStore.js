@@ -30,7 +30,8 @@ const STORAGE_KEYS = {
   LOGS: "matchajob_store_logs",
   EMPLOYER_PROFILE: "matchajob_store_employer_profile",
   CANDIDATE_PROFILE: "matchajob-candidate-profile",
-  PLANS: "matchajob_store_plans"
+  PLANS: "matchajob_store_plans",
+  JOB_DRAFT: "matchajob_store_job_composer_draft"
 };
 
 // Safe JSON loader
@@ -598,6 +599,63 @@ export const mockStore = {
     const chosen = next.find((p) => p.id === planId);
     this.addAuditLog("lananh@fpt.com", "UPGRADE_PLAN", chosen?.name || planId, "10.24.6.18");
     return chosen;
+  },
+
+  // ==========================================
+  // 13. HỒ SƠ CHUYÊN VIÊN HR (EMPLOYER HR PROFILE)
+  // ==========================================
+  getEmployerProfile() {
+    return load(STORAGE_KEYS.EMPLOYER_PROFILE, {
+      name: "Nguyễn Lan Anh",
+      roleTitle: "Talent Acquisition Lead",
+      email: "lananh@fpt.com",
+      phone: "090 123 4567",
+      department: "Phòng Tuyển dụng & Thu hút nhân tài",
+      company: "FPT Digital Talent",
+      workLocation: "Tòa nhà FPT Tân Thuận, KCX Tân Thuận, Quận 7, TP.HCM",
+      avatar: "LA",
+      workingHours: "Thứ Hai – Thứ Sáu (08:30 – 17:30)"
+    });
+  },
+
+  saveEmployerProfile(profile) {
+    save(STORAGE_KEYS.EMPLOYER_PROFILE, profile);
+    return profile;
+  },
+
+  // ==========================================
+  // 14. BẢN NHÁP TIN TUYỂN DỤNG (JOB COMPOSER DRAFT)
+  // ==========================================
+  getJobDraft() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEYS.JOB_DRAFT);
+      return raw ? JSON.parse(raw) : null;
+    } catch (err) {
+      console.warn("[mockStore] Failed to read job draft", err);
+      return null;
+    }
+  },
+
+  saveJobDraft(draftData) {
+    try {
+      // Bỏ thông tin HR khỏi bản nháp để luôn tự động cập nhật từ hồ sơ HR mới nhất
+      const { contact, hrProfile, ...dataWithoutHr } = draftData;
+      localStorage.setItem(STORAGE_KEYS.JOB_DRAFT, JSON.stringify(dataWithoutHr));
+      window.dispatchEvent(new CustomEvent("matchajob:store-changed", { detail: { key: STORAGE_KEYS.JOB_DRAFT, data: dataWithoutHr } }));
+      return dataWithoutHr;
+    } catch (err) {
+      console.error("[mockStore] Failed to save job draft", err);
+      return null;
+    }
+  },
+
+  clearJobDraft() {
+    try {
+      localStorage.removeItem(STORAGE_KEYS.JOB_DRAFT);
+      window.dispatchEvent(new CustomEvent("matchajob:store-changed", { detail: { key: STORAGE_KEYS.JOB_DRAFT, data: null } }));
+    } catch (err) {
+      console.error("[mockStore] Failed to clear job draft", err);
+    }
   },
 
   // Reset store to fresh mock
