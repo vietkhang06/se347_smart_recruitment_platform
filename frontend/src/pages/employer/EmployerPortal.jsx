@@ -261,6 +261,10 @@ export default function EmployerPortal() {
         show={showComposer}
         onHide={() => setShowComposer(false)}
         onJobCreated={handleJobCreated}
+        onNavigateProfile={() => {
+          setShowComposer(false);
+          handleTabChange("profile");
+        }}
       />
 
       <CandidateDetailModal

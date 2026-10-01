@@ -103,7 +103,51 @@ body {
   border-radius: 9999px;
   font-weight: 600;
   padding: 0.35rem 0.75rem;
-  font-size: 0.8rem;
+  font-size: 0.8125rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+/* Nhóm các thẻ thông tin nổi bật của tin tuyển dụng (Mức lương, Hình thức, Cấp bậc, Kinh nghiệm, Độ phù hợp) */
+.job-highlight-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.job-highlight-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  padding: 0 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background-color: var(--surface-2);
+  color: var(--text);
+  white-space: nowrap;
+  vertical-align: middle;
+  box-sizing: border-box;
+}
+
+.job-highlight-badge.badge-salary {
+  background-color: var(--primary-soft);
+  color: var(--primary);
+  border-color: rgba(45, 134, 83, 0.3);
+  font-weight: 700;
+}
+
+.job-highlight-badge.badge-match {
+  background-color: rgba(45, 134, 83, 0.08);
+  color: var(--primary);
+  border-color: rgba(45, 134, 83, 0.2);
+  font-weight: 600;
 }
 
 /* Nút thả tim yêu thích */
@@ -287,11 +331,27 @@ body {
   display: flex;
   flex-direction: column;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25);
+  transition: width 0.25s ease;
+}
+
+.composer-custom-dialog.preview-mode .modal-content {
+  width: 920px;
 }
 
 .composer-custom-dialog .modal-body {
   overflow-y: auto;
   flex: 1 1 auto;
+}
+
+.composer-draft-badge {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+.composer-draft-badge:hover {
+  background-color: var(--primary) !important;
+  color: #fff !important;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+  transform: translateY(-1px);
 }
 
 @media (max-width: 991px) {
