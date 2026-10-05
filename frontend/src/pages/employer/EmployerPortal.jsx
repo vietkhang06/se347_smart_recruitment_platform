@@ -68,8 +68,10 @@ export default function EmployerPortal() {
       refreshStoreData();
     };
     window.addEventListener("matchajob:store-changed", handleStoreChange);
+    window.addEventListener("storage", handleStoreChange);
     return () => {
       window.removeEventListener("matchajob:store-changed", handleStoreChange);
+      window.removeEventListener("storage", handleStoreChange);
     };
   }, [refreshStoreData]);
 
@@ -78,6 +80,7 @@ export default function EmployerPortal() {
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [showCandidateModal, setShowCandidateModal] = useState(false);
   const [showInterviewModal, setShowInterviewModal] = useState(false);
+  const [editingInterview, setEditingInterview] = useState(null);
   const [interviewCandidate, setInterviewCandidate] = useState(null);
 
   // Handle open candidate details
@@ -88,6 +91,7 @@ export default function EmployerPortal() {
 
   // Handle open interview modal with candidate prefilled
   const handleInviteCandidate = (candidate) => {
+    setEditingInterview(null);
     setInterviewCandidate(candidate);
     setShowInterviewModal(true);
   };
@@ -230,7 +234,9 @@ export default function EmployerPortal() {
         <InterviewsView
           interviews={interviews}
           setInterviews={setInterviews}
+          onReschedule={(iv) => { setEditingInterview(iv); setInterviewCandidate(candidates.find(c=>c.id===iv.candidateId) || null); setShowInterviewModal(true); }}
           onOpenInterviewModal={() => {
+            setEditingInterview(null);
             setInterviewCandidate(null);
             setShowInterviewModal(true);
           }}
@@ -268,7 +274,7 @@ export default function EmployerPortal() {
       />
 
       <CandidateDetailModal
-        candidate={selectedCandidate}
+        candidate={candidates.find(c => c.id === selectedCandidate?.id) || selectedCandidate}
         show={showCandidateModal}
         onHide={() => setShowCandidateModal(false)}
         onInviteInterview={(c) => {
@@ -284,6 +290,7 @@ export default function EmployerPortal() {
         onHide={() => setShowInterviewModal(false)}
         candidates={candidates}
         defaultCandidate={interviewCandidate}
+        existingInterview={editingInterview}
         onScheduleCreated={handleInterviewCreated}
       />
     </Container>

@@ -7,7 +7,9 @@ import Button from "react-bootstrap/Button";
 import Form from "react-bootstrap/Form";
 import InputGroup from "react-bootstrap/InputGroup";
 import Card from "react-bootstrap/Card";
-import { MATCHAJOB_DATA } from "../../services/data";
+
+import { getPublicJobs, isJobOpen } from "../../services/candidateService";
+import { useCandidateData } from "../../hooks/useCandidateData";
 import JobCard from "../../components/jobs/JobCard";
 
 export default function HomePage() {
@@ -23,7 +25,8 @@ export default function HomePage() {
     navigate(`/jobs?${params.toString()}`);
   };
 
-  const featuredJobs = MATCHAJOB_DATA.jobs.slice(0, 4);
+  const jobs = useCandidateData(() => getPublicJobs().filter(isJobOpen));
+  const featuredJobs = jobs.slice(0, 4);
 
   return (
     <div>
@@ -136,7 +139,7 @@ export default function HomePage() {
               </p>
             </div>
             <Button as={Link} to="/jobs" variant="outline-success" data-aos="fade-left">
-              Xem tất cả ({MATCHAJOB_DATA.jobs.length}) <i className="bi bi-arrow-right ms-1"></i>
+              Xem tất cả ({jobs.length}) <i className="bi bi-arrow-right ms-1"></i>
             </Button>
           </div>
 

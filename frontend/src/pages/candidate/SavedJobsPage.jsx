@@ -1,45 +1,52 @@
-import { Link } from "react-router-dom";
-import Container from "react-bootstrap/Container";
-import Row from "react-bootstrap/Row";
-import Col from "react-bootstrap/Col";
-import Card from "react-bootstrap/Card";
-import Button from "react-bootstrap/Button";
+import { useState } from "react";
+import { CandidateLayout, Empty } from "../../components/candidate/CandidateUI";
 import { useFavorites } from "../../context/FavoritesContext";
-import { MATCHAJOB_DATA } from "../../services/data";
+import { useCandidateData } from "../../hooks/useCandidateData";
+import { getPublicJobs, isJobOpen } from "../../services/candidateService";
 import JobCard from "../../components/jobs/JobCard";
-
 export default function SavedJobsPage() {
   const { favorites } = useFavorites();
-
-  const savedJobs = MATCHAJOB_DATA.jobs.filter(j => favorites.includes(j.id));
-
+  const jobs = useCandidateData(getPublicJobs);
+  const [onlyOpen, setOnlyOpen] = useState(false);
+  const saved = jobs.filter((j) => favorites.includes(j.id));
+  const visible = saved.filter((j) => !onlyOpen || isJobOpen(j));
   return (
-    <Container className="py-5">
-      <div className="mb-4">
-        <h1 className="fw-bold mb-1">Cơ hội việc làm đã lưu</h1>
-        <p className="text-muted">Theo dõi các vị trí tuyển dụng bạn đang quan tâm ({savedJobs.length} vị trí)</p>
+    <CandidateLayout
+      title="Việc làm đã lưu"
+      subtitle="Giữ lại những cơ hội bạn muốn cân nhắc."
+    >
+      <div className="d-flex justify-content-between gap-2 flex-wrap mb-3">
+        <strong>{saved.length} công việc đã lưu</strong>
+        <label className="form-check">
+          <input
+            type="checkbox"
+            className="form-check-input"
+            checked={onlyOpen}
+            onChange={(e) => setOnlyOpen(e.target.checked)}
+          />{" "}
+          Chỉ hiện tin đang tuyển
+        </label>
       </div>
-
-      {savedJobs.length === 0 ? (
-        <Card className="matcha-card p-5 text-center border-0 shadow-sm" data-aos="zoom-in">
-          <div className="fs-1 text-danger mb-2"><i className="bi bi-heart"></i></div>
-          <h4 className="fw-bold">Bạn chưa lưu công việc nào</h4>
-          <p className="text-muted small">Hãy bấm biểu tượng trái tim tại các tin tuyển dụng để xem lại tại đây bất kỳ lúc nào.</p>
-          <div>
-            <Button as={Link} to="/jobs" variant="success">
-              Khám phá việc làm ngay
-            </Button>
-          </div>
-        </Card>
-      ) : (
-        <Row className="g-4">
-          {savedJobs.map((job, idx) => (
-            <Col lg={6} key={job.id}>
-              <JobCard job={job} aosDelay={idx * 80} />
-            </Col>
+      {visible.length ? (
+        <div className="row g-3">
+          {visible.map((job) => (
+            <div className="col-lg-6" key={job.id}>
+              <JobCard job={job} />
+            </div>
           ))}
-        </Row>
+        </div>
+      ) : (
+        <Empty
+          title={
+            saved.length
+              ? "Không có tin đang tuyển trong danh sách"
+              : "Bạn chưa lưu công việc nào"
+          }
+          text="Nhấn biểu tượng trái tim ở tin tuyển dụng để xem lại tại đây."
+          to="/jobs"
+          action="Khám phá việc làm"
+        />
       )}
-    </Container>
+    </CandidateLayout>
   );
 }

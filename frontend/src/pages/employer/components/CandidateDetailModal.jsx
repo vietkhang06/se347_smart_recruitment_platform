@@ -1,3 +1,4 @@
+import { downloadCandidateCV, safeUrl } from "../../../services/candidateService";
 import Modal from "react-bootstrap/Modal";
 import Button from "react-bootstrap/Button";
 import Badge from "react-bootstrap/Badge";
@@ -67,7 +68,7 @@ export default function CandidateDetailModal({
           <div>
             <div className="small text-muted mb-1">Mức độ tương thích AI (Job Matching):</div>
             <span className="fs-5 fw-bold text-success">
-              <i className="bi bi-stars me-1"></i>{candidate.match || 90}% Phù hợp với JD
+              <i className="bi bi-stars me-1"></i>{candidate.ownerEmail ? "Chưa có kết quả phân tích" : `${candidate.match ?? 90}% Phù hợp với JD`}
             </span>
           </div>
 
@@ -77,11 +78,13 @@ export default function CandidateDetailModal({
               size="sm"
               style={{ width: 140 }}
               value={candidate.stage || "Mới"}
+              disabled={candidate.stage === "Đã rút"}
               onChange={handleStageSelect}
             >
               {STAGES_PIPELINE.map((stg) => (
                 <option key={stg} value={stg}>{stg}</option>
               ))}
+              <option value="Đã rút">Đã rút</option>
               <option value="Đã từ chối">Đã từ chối</option>
             </Form.Select>
           </div>
@@ -97,6 +100,8 @@ export default function CandidateDetailModal({
           </div>
         )}
 
+        {candidate.coverLetter && <section className="p-3 border rounded mb-3"><strong>Thư giới thiệu</strong><p style={{whiteSpace:"pre-wrap"}} className="mb-0">{candidate.coverLetter}</p></section>}
+        {safeUrl(candidate.portfolio) && <a href={safeUrl(candidate.portfolio)} target="_blank" rel="noreferrer" className="d-block mb-3">Xem portfolio ứng viên</a>}
         {/* Bio summary */}
         {candidate.bio && (
           <div className="p-3 rounded bg-surface border mb-3 small">
@@ -110,14 +115,14 @@ export default function CandidateDetailModal({
           <Col sm={6}>
             <div className="small text-muted">Địa điểm sinh sống:</div>
             <div className="fw-semibold">
-              <i className="bi bi-geo-alt text-danger me-1"></i>{candidate.location || "TP. Hồ Chí Minh"}
+              <i className="bi bi-geo-alt text-danger me-1"></i>{candidate.location || (candidate.ownerEmail ? "Chưa cung cấp" : "TP. Hồ Chí Minh")}
             </div>
           </Col>
           <Col sm={6}>
             <div className="small text-muted">Trình độ học vấn:</div>
             <div className="fw-semibold">
               <i className="bi bi-mortarboard text-primary me-1"></i>
-              {candidate.education || "Cử nhân ĐH Bách Khoa TP.HCM"}
+              {candidate.education || (candidate.ownerEmail ? "Chưa cung cấp" : "Cử nhân ĐH Bách Khoa TP.HCM")}
             </div>
           </Col>
           <Col sm={6}>
@@ -156,7 +161,7 @@ export default function CandidateDetailModal({
                 <p className="text-muted mb-0">{w.desc}</p>
               </div>
             ))
-          ) : (
+          ) : candidate.ownerEmail ? <p className="text-muted small">Ứng viên chưa bổ sung kinh nghiệm.</p> : (
             <div className="p-3 rounded border bg-surface small">
               <div className="fw-bold mb-1">2023 - Nay: Senior Role tại Tech Corp</div>
               <p className="text-muted mb-0">Chịu trách nhiệm thiết kế kiến trúc, tối ưu hóa giao diện và phát hành tính năng định kỳ.</p>
@@ -193,13 +198,13 @@ export default function CandidateDetailModal({
         <Button
           variant="outline-secondary"
           size="sm"
-          onClick={() => showToast("Đã tải xuống CV ứng viên (.PDF)")}
+          onClick={async () => { try { await downloadCandidateCV(candidate); } catch (e) { showToast(e.message); } }}
         >
           <i className="bi bi-download me-1"></i>Tải CV (.PDF)
         </Button>
 
         <div className="d-flex gap-2">
-          {!rejecting && candidate.stage !== "Đã từ chối" && (
+          {!rejecting && !["Đã từ chối", "Đã rút"].includes(candidate.stage) && (
             <Button
               variant="outline-danger"
               size="sm"
@@ -212,6 +217,7 @@ export default function CandidateDetailModal({
           <Button
             variant="success"
             size="sm"
+            disabled={["Đã rút", "Đã từ chối"].includes(candidate.stage)}
             onClick={() => {
               onHide();
               if (onInviteInterview) onInviteInterview(candidate);

@@ -86,7 +86,7 @@ export default function PipelineView({ candidates, setCandidates, onOpenCandidat
                       <div key={c.id} className="kanban-card">
                         <div className="d-flex justify-content-between align-items-start mb-2">
                           <strong className="small text-truncate me-1">{c.name}</strong>
-                          <span className="badge bg-success bg-opacity-10 text-success small">{c.match}%</span>
+                          <span className="badge bg-success bg-opacity-10 text-success small">{c.ownerEmail ? "Chưa phân tích" : `${c.match}%`}</span>
                         </div>
                         <div className="text-muted small mb-2 text-truncate">{c.appliedJobTitle || c.role}</div>
 

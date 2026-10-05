@@ -13,6 +13,7 @@ import { mockStore } from "../../../services/mockStore";
 const CustomThreeDotsToggle = forwardRef(({ onClick }, ref) => (
   <button
     ref={ref}
+    aria-label="Thao tác lịch hẹn"
     type="button"
     className="btn btn-sm border-0 rounded-circle p-0 d-inline-flex align-items-center justify-content-center"
     style={{ width: "32px", height: "32px", backgroundColor: "var(--surface-2)", color: "var(--text)" }}
@@ -26,7 +27,7 @@ const CustomThreeDotsToggle = forwardRef(({ onClick }, ref) => (
 ));
 CustomThreeDotsToggle.displayName = "CustomThreeDotsToggle";
 
-export default function InterviewsView({ interviews, setInterviews, onOpenInterviewModal }) {
+export default function InterviewsView({ interviews, setInterviews, onOpenInterviewModal, onReschedule }) {
   const { showToast } = useToast();
 
   // Status & Date Filters
@@ -35,8 +36,8 @@ export default function InterviewsView({ interviews, setInterviews, onOpenInterv
   const [showCalendarDropdown, setShowCalendarDropdown] = useState(false);
 
   // Calendar Navigation State (Month 0-indexed: 8 is September)
-  const [calYear, setCalYear] = useState(2026);
-  const [calMonth, setCalMonth] = useState(8);
+  const [calYear, setCalYear] = useState(new Date().getFullYear());
+  const [calMonth, setCalMonth] = useState(new Date().getMonth());
 
   // Multi-row Selection
   const [selectedIds, setSelectedIds] = useState([]);
@@ -105,7 +106,7 @@ export default function InterviewsView({ interviews, setInterviews, onOpenInterv
   // Status updates & cancel single
   const handleCancelInterview = (id, candidateName) => {
     mockStore.cancelInterview(id);
-    setInterviews((prev) => prev.filter((iv) => iv.id !== id));
+    setInterviews(mockStore.getInterviews());
     setSelectedIds((prev) => prev.filter((item) => item !== id));
     showToast(`Đã hủy lịch phỏng vấn với ${candidateName}`);
   };
@@ -152,6 +153,7 @@ export default function InterviewsView({ interviews, setInterviews, onOpenInterv
   // Filter count options
   const filterOptions = [
     { key: "all", label: "Tất cả", count: interviews.length },
+    ...["Chờ xác nhận", "Đề nghị đổi lịch", "Ứng viên từ chối", "Đã hủy"].map(status=>({key:status,label:status,count:interviews.filter(iv=>iv.status===status).length})),
     { key: "Sắp diễn ra", label: "Sắp diễn ra", count: interviews.filter((iv) => iv.status === "Sắp diễn ra").length },
     { key: "Đã xác nhận", label: "Đã xác nhận", count: interviews.filter((iv) => iv.status === "Đã xác nhận").length },
     { key: "Hoàn tất", label: "Hoàn tất", count: interviews.filter((iv) => iv.status === "Hoàn tất").length }
@@ -498,7 +500,7 @@ export default function InterviewsView({ interviews, setInterviews, onOpenInterv
                           </a>
                         )}
                       </td>
-                      <td className="text-start text-muted small">{iv.people}</td>
+                      <td className="text-start text-muted small">{iv.people}{iv.candidateNote && <div className="mt-2 text-body" style={{whiteSpace:"pre-wrap"}}><strong>Phản hồi ứng viên:</strong> {iv.candidateNote}</div>}</td>
                       <td className="text-center">
                         <span
                           className={`status-badge ${
@@ -506,7 +508,7 @@ export default function InterviewsView({ interviews, setInterviews, onOpenInterv
                               ? "status-badge-secondary"
                               : iv.status === "Sắp diễn ra"
                               ? "status-badge-primary"
-                              : iv.status === "Chờ xác nhận"
+                              : ["Chờ xác nhận", "Đề nghị đổi lịch", "Ứng viên từ chối", "Đã hủy"].includes(iv.status)
                               ? "status-badge-warning"
                               : "status-badge-success"
                           }`}
@@ -523,7 +525,8 @@ export default function InterviewsView({ interviews, setInterviews, onOpenInterv
                                 <i className="bi bi-box-arrow-up-right me-2 text-primary"></i>Mở link Meet
                               </Dropdown.Item>
                             )}
-                            <Dropdown.Item onClick={() => handleUpdateStatus(iv.id, "Đã xác nhận")} className="small py-2">
+                            {!["Đã hủy", "Hoàn tất"].includes(iv.status) && onReschedule && <Dropdown.Item onClick={() => onReschedule(iv)} className="small py-2">Đổi lịch / cập nhật lịch hẹn</Dropdown.Item>}
+                            <Dropdown.Item disabled={["Đã hủy", "Hoàn tất"].includes(iv.status)} onClick={() => handleUpdateStatus(iv.id, "Đã xác nhận")} className="small py-2">
                               <i className="bi bi-check2-circle me-2 text-success"></i>Đánh dấu Đã xác nhận
                             </Dropdown.Item>
                             <Dropdown.Item onClick={() => handleUpdateStatus(iv.id, "Hoàn tất")} className="small py-2">

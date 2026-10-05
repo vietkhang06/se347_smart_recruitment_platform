@@ -178,13 +178,13 @@ export default function CandidatesView({ candidates, onOpenCandidate, onInviteCa
 
                   <div className="d-flex justify-content-between align-items-center pt-2 border-top mt-auto">
                     <span className="text-success fw-bold small">
-                      <i className="bi bi-stars me-1"></i>{c.match}% Phù hợp
+                      <i className="bi bi-stars me-1"></i>{c.ownerEmail ? "Chưa phân tích AI" : `${c.match}% Phù hợp`}
                     </span>
                     <div className="d-flex gap-1">
                       <Button variant="outline-secondary" size="sm" onClick={() => onOpenCandidate(c)}>
                         Hồ sơ
                       </Button>
-                      <Button variant="outline-success" size="sm" onClick={() => onInviteCandidate(c)}>
+                      <Button variant="outline-success" size="sm" disabled={["Đã rút", "Đã từ chối"].includes(c.stage)} onClick={() => onInviteCandidate(c)}>
                         Mời
                       </Button>
                     </div>

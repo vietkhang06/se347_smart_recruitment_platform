@@ -142,12 +142,14 @@ export default function Header() {
                 <i className="bi bi-shield-lock me-2 text-purple"></i>Quản trị viên (Admin)
               </NavDropdown.Item>
               <NavDropdown.Divider />
+              <NavDropdown.Item as={Link} to="/candidate/dashboard">Tổng quan ứng viên</NavDropdown.Item>
               <NavDropdown.Item as={Link} to="/candidate/profile">
                 <i className="bi bi-person-badge me-2 text-success"></i>Hồ sơ ứng viên
               </NavDropdown.Item>
               <NavDropdown.Item as={Link} to="/candidate/saved">
                 <i className="bi bi-heart me-2 text-danger"></i>Việc đã lưu ({favorites.length})
               </NavDropdown.Item>
+              <NavDropdown.Item as={Link} to="/candidate/interviews"><i className="bi bi-calendar3 me-2"/>Lịch phỏng vấn</NavDropdown.Item>
               <NavDropdown.Item as={Link} to="/candidate/applications">
                 <i className="bi bi-send-check me-2 text-info"></i>Đơn ứng tuyển
               </NavDropdown.Item>
@@ -199,7 +201,7 @@ export default function Header() {
                 ) : user.role === "admin" ? (
                   <NavDropdown.Item as={Link} to="/admin">Trang quản trị</NavDropdown.Item>
                 ) : (
-                  <NavDropdown.Item as={Link} to="/candidate/profile">Hồ sơ cá nhân</NavDropdown.Item>
+                  <NavDropdown.Item as={Link} to="/candidate/dashboard">Tổng quan ứng viên</NavDropdown.Item>
                 )}
                 <NavDropdown.Item onClick={() => { logout(); navigate("/"); }}>
                   <i className="bi bi-box-arrow-right me-2 text-danger"></i>Đăng xuất

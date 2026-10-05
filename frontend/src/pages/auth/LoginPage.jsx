@@ -32,7 +32,9 @@ export default function LoginPage() {
     } else if (role === "admin") {
       navigate("/admin");
     } else {
-      navigate("/");
+      const target = searchParams.get("redirect");
+      const safeTarget = target && /^\/(jobs(?:\/[^?#]*)?|candidate\/(profile|saved|applications|interviews))(?:[?#].*)?$/.test(target);
+      navigate(safeTarget ? target : "/candidate/profile");
     }
   };
 

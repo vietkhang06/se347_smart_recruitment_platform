@@ -1,3 +1,4 @@
+import { MOCK_IT_JOBS } from "../mock/mockITJobs";
 import {
   MOCK_COMPANIES,
   MOCK_USERS,
@@ -82,8 +83,44 @@ export const mockStore = {
   // ==========================================
   // 2. TIN TUYỂN DỤNG (JOBS)
   // ==========================================
-  getJobs() {
-    return load(STORAGE_KEYS.JOBS, MOCK_JOBS);
+   getJobs() {
+    const jobs = load(STORAGE_KEYS.JOBS, MOCK_JOBS);
+
+    const migrationKey = "matchajob_seed_it_jobs_v1";
+
+    if (localStorage.getItem(migrationKey)) {
+      return jobs;
+    }
+
+    // Chỉ thêm tin chưa tồn tại, không ghi đè dữ liệu cũ.
+    const ids = new Set(
+      jobs.map((job) => String(job.id)),
+    );
+
+    const additionalJobs = MOCK_IT_JOBS.filter(
+      (job) => !ids.has(job.id),
+    );
+
+    const next = [...jobs, ...additionalJobs];
+
+    try {
+      localStorage.setItem(
+        STORAGE_KEYS.JOBS,
+        JSON.stringify(next),
+      );
+
+      // Đánh dấu đã bổ sung để tin HR xóa không tự xuất hiện lại.
+      localStorage.setItem(migrationKey, "done");
+    } catch (error) {
+      console.warn(
+        "[mockStore] Không thể bổ sung tin CNTT mẫu",
+        error,
+      );
+
+      return jobs;
+    }
+
+    return next;
   },
 
   getJobById(id) {
@@ -187,6 +224,7 @@ export const mockStore = {
 
   updateCandidateStage(candidateId, newStage, note = "") {
     const candidates = this.getCandidates();
+    if (candidates.find(c => c.id === Number(candidateId))?.stage === "Đã rút") return;
     const updatedCandidates = candidates.map((c) => {
       if (c.id === Number(candidateId)) {
         return { ...c, stage: newStage };
@@ -203,6 +241,8 @@ export const mockStore = {
         return {
           ...app,
           stage: newStage,
+          updatedAt: new Date().toISOString(),
+          history: [...(app.history || []), {stage:newStage, at:new Date().toISOString()}],
           step: targetStep,
           statusBadge: newStage === "Đề nghị" ? "is-success" : newStage === "Phỏng vấn" ? "is-success" : "is-warning"
         };
@@ -216,6 +256,7 @@ export const mockStore = {
 
   rejectCandidate(candidateId, reason = "") {
     const candidates = this.getCandidates();
+    if (candidates.find(c => c.id === Number(candidateId))?.stage === "Đã rút") return;
     const updatedCandidates = candidates.map((c) => {
       if (c.id === Number(candidateId)) {
         return { ...c, stage: "Đã từ chối", rejectReason: reason };
@@ -227,7 +268,7 @@ export const mockStore = {
     const apps = this.getApplications();
     const updatedApps = apps.map((app) => {
       if (app.candidateId === Number(candidateId)) {
-        return { ...app, stage: "Không phù hợp", statusBadge: "is-danger" };
+        return { ...app, stage: "Không phù hợp", rejectReason: reason, statusBadge: "is-danger", updatedAt: new Date().toISOString(), history: [...(app.history || []), {stage:"Không phù hợp", at:new Date().toISOString()}] };
       }
       return app;
     });
@@ -309,7 +350,8 @@ export const mockStore = {
     const interviews = this.getInterviews();
     const newInterview = {
       ...interviewData,
-      id: interviewData.id || `INT-${Math.floor(310 + Math.random() * 90)}`,
+      id: interviewData.id || `INT-${crypto.randomUUID()}`,
+      createdAt: new Date().toISOString(),
       status: interviewData.status || "Đã lên lịch"
     };
 
@@ -332,14 +374,14 @@ export const mockStore = {
 
   updateInterview(id, updates) {
     const interviews = this.getInterviews();
-    const next = interviews.map((iv) => (iv.id === id ? { ...iv, ...updates } : iv));
+    const next = interviews.map((iv) => (iv.id === id ? { ...iv, ...updates, updatedAt: new Date().toISOString() } : iv));
     save(STORAGE_KEYS.INTERVIEWS, next);
   },
 
   cancelInterview(id) {
     const interviews = this.getInterviews();
     const target = interviews.find((iv) => iv.id === id);
-    const next = interviews.filter((iv) => iv.id !== id);
+    const next = interviews.map((iv) => iv.id === id ? { ...iv, status: "Đã hủy", updatedAt:new Date().toISOString() } : iv);
     save(STORAGE_KEYS.INTERVIEWS, next);
     if (target) {
       this.addAuditLog("lananh@fpt.com", "CANCEL_INTERVIEW", id, "10.24.6.18");
@@ -659,8 +701,13 @@ export const mockStore = {
   },
 
   // Reset store to fresh mock
-  resetAll() {
-    Object.values(STORAGE_KEYS).forEach((k) => localStorage.removeItem(k));
+    resetAll() {
+    localStorage.removeItem("matchajob_seed_it_jobs_v1");
+
+    Object.values(STORAGE_KEYS).forEach((key) => {
+      localStorage.removeItem(key);
+    });
+
     window.location.reload();
-  }
+  },
 };

@@ -4,9 +4,13 @@ import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 import Card from "react-bootstrap/Card";
 import Button from "react-bootstrap/Button";
-import { MATCHAJOB_DATA } from "../../services/data";
+import { mockStore } from "../../services/mockStore";
+import { useCandidateData } from "../../hooks/useCandidateData";
+import { isJobOpen } from "../../services/candidateService";
 
 export default function CompaniesPage() {
+  const companies = useCandidateData(() => mockStore.getCompanies());
+  const jobs = useCandidateData(() => mockStore.getJobs());
   return (
     <Container className="py-5">
       <div className="text-center mb-5" data-aos="fade-down">
@@ -17,7 +21,7 @@ export default function CompaniesPage() {
       </div>
 
       <Row className="g-4">
-        {MATCHAJOB_DATA.companies.map((company, idx) => (
+        {companies.map((company, idx) => (
           <Col lg={4} md={6} key={company.name}>
             <Card 
               className="matcha-card p-4 h-100 border-0 shadow-sm"
@@ -40,16 +44,16 @@ export default function CompaniesPage() {
               </div>
 
               <p className="text-muted small my-3 flex-grow-1">
-                {company.desc}
+                {company.about}
               </p>
 
               <div className="d-flex justify-content-between align-items-center pt-3 border-top mt-auto">
                 <span className="text-success fw-bold small">
-                  <i className="bi bi-briefcase me-1"></i>{company.jobs} vị trí đang tuyển
+                  <i className="bi bi-briefcase me-1"></i>{jobs.filter(j=>j.companyId===company.id && isJobOpen(j)).length} vị trí đang tuyển
                 </span>
                 <Button 
                   as={Link} 
-                  to={`/jobs?q=${company.name}`} 
+                  to={`/jobs?q=${encodeURIComponent(company.name)}`} 
                   variant="outline-success" 
                   size="sm"
                   className="fw-medium"

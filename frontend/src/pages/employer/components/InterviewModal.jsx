@@ -7,35 +7,44 @@ import Col from "react-bootstrap/Col";
 import { useToast } from "../../../context/ToastContext";
 import { mockStore } from "../../../services/mockStore";
 
-export default function InterviewModal({ show, onHide, candidates = [], onScheduleCreated, defaultCandidate = null }) {
+export default function InterviewModal({ show, onHide, candidates = [], onScheduleCreated, defaultCandidate = null, existingInterview = null }) {
   const { showToast } = useToast();
 
   const [selectedCandidate, setSelectedCandidate] = useState("");
   const [role, setRole] = useState("Senior Product Designer");
-  const [date, setDate] = useState("22/09");
-  const [time, setTime] = useState("14:00");
-  const [type, setType] = useState("Google Meet (Trực tuyến)");
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
+  const [type, setType] = useState("Phỏng vấn chuyên môn (Google Meet)");
   const [interviewers, setInterviewers] = useState("Nguyễn Lan Anh (Lead HR) + Tech Lead");
   const [meetingLink, setMeetingLink] = useState("https://meet.google.com/mj-interview-demo");
   const [note, setNote] = useState("Phỏng vấn vòng chuyên môn kỹ thuật và trao đổi định hướng.");
 
   useEffect(() => {
     if (defaultCandidate) {
-      setSelectedCandidate(defaultCandidate.name);
+      setSelectedCandidate(String(defaultCandidate.id));
       setRole(defaultCandidate.appliedJobTitle || defaultCandidate.role || "Senior Product Designer");
     } else if (candidates.length > 0) {
-      setSelectedCandidate(candidates[0].name);
+      setSelectedCandidate(String(candidates[0].id));
       setRole(candidates[0].appliedJobTitle || candidates[0].role || "Senior Product Designer");
     }
   }, [defaultCandidate, show, candidates]);
 
+  useEffect(() => {
+    if (!show) return;
+    setDate(existingInterview?.date && /^\d{4}-\d{2}-\d{2}$/.test(existingInterview.date) ? existingInterview.date : "");
+    setTime(existingInterview?.time || "");
+    if (existingInterview) {setType(existingInterview.type);setInterviewers(existingInterview.people || "");setMeetingLink(existingInterview.meetingLink || "");setNote(existingInterview.note || "");}
+  }, [show, existingInterview]);
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    const candidateObj = candidates.find((c) => c.name === selectedCandidate) || defaultCandidate;
+    const candidateObj = candidates.find((c) => String(c.id) === selectedCandidate) || defaultCandidate;
 
-    const newInterview = mockStore.createInterview({
+    if (!candidateObj || ["Đã rút", "Đã từ chối"].includes(candidateObj.stage)) { showToast("Chọn hồ sơ đang tham gia tuyển dụng."); return; }
+    if (new Date(`${date}T${time}`) <= new Date()) { showToast("Chọn thời gian phỏng vấn trong tương lai."); return; }
+    const payload = {
       candidateId: candidateObj?.id,
-      candidate: selectedCandidate,
+      candidate: candidateObj?.name,
       jobId: candidateObj?.appliedJobId || "JOB-2048",
       role,
       date,
@@ -43,12 +52,19 @@ export default function InterviewModal({ show, onHide, candidates = [], onSchedu
       type,
       people: interviewers,
       meetingLink: type.includes("Meet") || type.includes("Teams") ? meetingLink : "",
-      status: "Đã xác nhận",
-      note
-    });
+      status: "Chờ xác nhận",
+      note,
+      candidateResponse: "",
+      candidateNote: ""
+    };
+    let newInterview;
+    if(existingInterview) {
+      mockStore.updateInterview(existingInterview.id, payload);
+      newInterview = {...existingInterview, ...payload};
+    } else newInterview = mockStore.createInterview(payload);
 
     if (onScheduleCreated) onScheduleCreated(newInterview);
-    showToast(`Đã lên lịch phỏng vấn thành công với ${selectedCandidate} vào lúc ${time} ngày ${date}`);
+    showToast(`Đã lên lịch phỏng vấn thành công với ${candidateObj?.name} vào lúc ${time} ngày ${date}`);
     onHide();
   };
 
@@ -56,7 +72,7 @@ export default function InterviewModal({ show, onHide, candidates = [], onSchedu
     <Modal show={show} onHide={onHide} centered>
       <Modal.Header closeButton>
         <Modal.Title className="fw-bold fs-5">
-          <i className="bi bi-calendar-plus text-success me-2"></i>Tạo lịch phỏng vấn mới
+          <i className="bi bi-calendar-plus text-success me-2"></i>{existingInterview ? "Đổi lịch phỏng vấn" : "Tạo lịch phỏng vấn mới"}
         </Modal.Title>
       </Modal.Header>
       <Form onSubmit={handleSubmit}>
@@ -64,16 +80,17 @@ export default function InterviewModal({ show, onHide, candidates = [], onSchedu
           <Form.Group className="mb-3">
             <Form.Label className="small fw-semibold">Ứng viên tham gia</Form.Label>
             <Form.Select
+              disabled={Boolean(existingInterview)}
               value={selectedCandidate}
               onChange={(e) => {
                 const cName = e.target.value;
                 setSelectedCandidate(cName);
-                const found = candidates.find((c) => c.name === cName);
+                const found = candidates.find((c) => String(c.id) === cName);
                 if (found) setRole(found.appliedJobTitle || found.role);
               }}
             >
               {candidates.map((c) => (
-                <option key={c.id} value={c.name}>
+                <option key={c.id} value={c.id}>
                   {c.name} — {c.appliedJobTitle || c.role} ({c.match}% match)
                 </option>
               ))}
@@ -94,8 +111,8 @@ export default function InterviewModal({ show, onHide, candidates = [], onSchedu
             <Col sm={6}>
               <Form.Label className="small fw-semibold">Ngày phỏng vấn</Form.Label>
               <Form.Control
-                type="text"
-                placeholder="DD/MM (ví dụ 22/09)"
+                type="date"
+                min={new Date().toLocaleDateString("sv-SE")}
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
                 required
@@ -104,8 +121,7 @@ export default function InterviewModal({ show, onHide, candidates = [], onSchedu
             <Col sm={6}>
               <Form.Label className="small fw-semibold">Giờ bắt đầu</Form.Label>
               <Form.Control
-                type="text"
-                placeholder="HH:mm (ví dụ 14:00)"
+                type="time"
                 value={time}
                 onChange={(e) => setTime(e.target.value)}
                 required
