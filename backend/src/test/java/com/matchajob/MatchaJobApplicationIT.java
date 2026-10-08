@@ -22,7 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Excluded from standard unit tests (`mvn test`).
  * Executed via integration profile: `mvn verify -Pintegration-test`.
  */
-@SpringBootTest
+@SpringBootTest(classes = MatchaJobApplication.class)
 @ActiveProfiles("test")
 @Tag("integration")
 class MatchaJobApplicationIT {
