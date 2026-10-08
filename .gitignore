@@ -16,6 +16,7 @@ frontend/.env.*.local
 node_modules/
 package-lock.json
 target/
+backend/target/
 dist/
 build/
 .cache/
@@ -24,9 +25,11 @@ temp/
 
 # Python virtualenv & cache
 .venv/
+ai-worker/.venv/
 venv/
 __pycache__/
 *.pyc
+.pytest_cache/
 
 # Logs & debugging
 *.log
@@ -51,10 +54,9 @@ $RECYCLE.BIN/
 .AppleDouble
 .LSOverride
 
-# docs/ - allow documentation while keeping draft notes excluded
-docs/*
+# docs/ - exclude documentation files per project config
+docs/**
 !docs/.gitkeep
-!docs/*.md
 FE_WORKFLOW.md
 FE_UI_FLOW.md
 README_FE.md

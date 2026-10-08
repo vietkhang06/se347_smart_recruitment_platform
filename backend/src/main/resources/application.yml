@@ -1,0 +1,23 @@
+server:
+  port: ${BACKEND_CONTAINER_PORT:8080}
+  servlet:
+    context-path: /api
+  error:
+    include-message: always
+
+spring:
+  application:
+    name: matchajob-backend
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics
+  endpoint:
+    health:
+      show-details: when_authorized
+      probes:
+        enabled: true

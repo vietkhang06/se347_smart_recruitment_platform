@@ -12,13 +12,22 @@ import { MATCHAJOB_DATA } from "../../services/data";
 import { useFavorites } from "../../context/FavoritesContext";
 import { useToast } from "../../context/ToastContext";
 import { storage } from "../../services/storage";
+import { mockStore } from "../../services/mockStore";
+import HRContactCard from "../../components/common/HRContactCard";
 
 export default function JobDetailPage() {
   const { id } = useParams();
   const { isFavorite, toggleFavorite } = useFavorites();
   const { showToast } = useToast();
 
-  const job = MATCHAJOB_DATA.jobs.find(j => j.id === parseInt(id)) || MATCHAJOB_DATA.jobs[0];
+  // Find job from mockStore or MATCHAJOB_DATA
+  const jobFromStore = mockStore.getJobById(id);
+  const jobFromData = MATCHAJOB_DATA.jobs.find(
+    (j) => String(j.id) === String(id) || j.id === parseInt(id)
+  );
+  const job = jobFromStore || jobFromData || MATCHAJOB_DATA.jobs[0];
+
+  const hrProfile = mockStore.getEmployerProfile();
   const fav = isFavorite(job.id);
 
   // Apply Modal state
@@ -57,10 +66,10 @@ export default function JobDetailPage() {
           <Card className="matcha-card p-4 mb-4 border-0 shadow-sm" data-aos="fade-up">
             <div className="d-flex align-items-center gap-3 mb-3">
               <div 
-                className="rounded-3 d-flex align-items-center justify-content-center fw-bold text-white fs-3 shadow-sm"
+                className="rounded-3 d-flex align-items-center justify-content-center fw-bold text-white fs-3 shadow-sm flex-shrink-0"
                 style={{ width: "64px", height: "64px", backgroundColor: "var(--primary)" }}
               >
-                {job.logo}
+                {job.logo || "FP"}
               </div>
               <div>
                 <h1 className="h3 fw-bold mb-1">{job.title}</h1>
@@ -72,44 +81,126 @@ export default function JobDetailPage() {
               </div>
             </div>
 
-            <div className="d-flex flex-wrap gap-2 my-3 pb-3 border-bottom">
-              <span className="badge-matcha fs-6">{job.salary}</span>
-              <Badge bg="secondary" className="bg-opacity-10 text-body border p-2">{job.type}</Badge>
-              <Badge bg="secondary" className="bg-opacity-10 text-body border p-2">{job.category}</Badge>
-              <Badge bg="secondary" className="bg-opacity-10 text-body border p-2">Kinh nghiệm: {job.exp}</Badge>
-              <Badge bg="success" className="bg-opacity-10 text-success border p-2">
-                <i className="bi bi-stars me-1"></i>{job.match}% Phù hợp
-              </Badge>
+            {/* Badges row: salary, type, category, exp, match (Căn giữa tuyệt đối & kích cỡ hài hòa) */}
+            <div className="job-highlight-group my-3 pb-3 border-bottom">
+              <span className="job-highlight-badge badge-salary">
+                {String(job.salary || "Thỏa thuận")
+                  .replace(/(\d+),000,000\s*-\s*(\d+),000,000\s*Triệu VNĐ/i, "$1 - $2 Triệu VNĐ")
+                  .replace(/(\d+),000,000\s*Triệu VNĐ/i, "$1 Triệu VNĐ")}
+              </span>
+              <span className="job-highlight-badge">{job.type}</span>
+              <span className="job-highlight-badge">{job.category || job.team || "Chuyên môn"}</span>
+              <span className="job-highlight-badge">Kinh nghiệm: {job.exp || "1+ năm"}</span>
+              <span className="job-highlight-badge badge-match">
+                <i className="bi bi-stars me-1 text-success"></i>{job.match || 95}% Phù hợp
+              </span>
             </div>
+
+            {/* 3 Summary Cards if available */}
+            {job.summary && (
+              <div className="row g-2 mb-4">
+                <div className="col-md-4">
+                  <div className="p-3 border rounded-3 bg-surface h-100">
+                    <div className="fw-bold small text-warning mb-1">💡 Kiến thức ngành</div>
+                    <div className="small text-muted">{job.summary.industry}</div>
+                  </div>
+                </div>
+                <div className="col-md-4">
+                  <div className="p-3 border rounded-3 bg-surface h-100">
+                    <div className="fw-bold small text-primary mb-1">📐 Kỹ năng cần có</div>
+                    <div className="small text-muted">{job.summary.required}</div>
+                  </div>
+                </div>
+                <div className="col-md-4">
+                  <div className="p-3 border rounded-3 bg-surface h-100">
+                    <div className="fw-bold small text-success mb-1">✏️ Kỹ năng nên có</div>
+                    <div className="small text-muted">{job.summary.preferred}</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Skills Tags if available */}
+            {(job.reqTags?.length > 0 || job.specTags?.length > 0) && (
+              <div className="p-3 rounded-3 mb-4 bg-surface-2 border">
+                <strong className="d-block small mb-2 text-muted">TIÊU CHÍ VÀ CHUYÊN MÔN:</strong>
+                <div className="d-flex flex-wrap gap-2">
+                  {job.reqTags?.map((t) => (
+                    <Badge bg="success" className="bg-opacity-10 text-success p-2" key={t}>
+                      {t}
+                    </Badge>
+                  ))}
+                  {job.specTags?.map((t) => (
+                    <Badge bg="secondary" className="bg-opacity-10 text-body p-2" key={t}>
+                      <i className="bi bi-tag-fill me-1"></i>{t}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="content-detail py-2">
               <h5 className="fw-bold mb-3">Mô tả công việc</h5>
-              <p className="text-muted leading-relaxed">
-                {job.desc} Chúng tôi đang tìm kiếm những chuyên gia có niềm đam mê mạnh mẽ với việc xây dựng sản phẩm xuất sắc, giải quyết bài toán phức tạp và mang lại giá trị cao nhất cho hàng triệu người sử dụng.
-              </p>
+              {job.description ? (
+                <div className="text-muted leading-relaxed" dangerouslySetInnerHTML={{ __html: job.description }} />
+              ) : (
+                <p className="text-muted leading-relaxed">
+                  {job.desc} Chúng tôi đang tìm kiếm những chuyên gia có niềm đam mê mạnh mẽ với việc xây dựng sản phẩm xuất sắc, giải quyết bài toán phức tạp và mang lại giá trị cao nhất cho hàng triệu người sử dụng.
+                </p>
+              )}
 
-              <h5 className="fw-bold mt-4 mb-3">Trách nhiệm chính</h5>
-              <ul className="text-muted d-flex flex-column gap-2">
-                <li>Tham gia định hướng giải pháp kỹ thuật và tối ưu trải nghiệm tương tác.</li>
-                <li>Hợp tác chặt chẽ cùng Product Manager, Designer và đội ngũ phát triển sản phẩm.</li>
-                <li>Đảm bảo chất lượng sản phẩm theo các tiêu chuẩn cao nhất về hiệu năng, bảo mật và khả năng mở rộng.</li>
-                <li>Nghiên cứu và ứng dụng các công nghệ, công cụ mới nhằm nâng cao hiệu suất làm việc của nhóm.</li>
-              </ul>
+              <h5 className="fw-bold mt-4 mb-3">Yêu cầu ứng viên</h5>
+              {job.requirements ? (
+                <div className="text-muted leading-relaxed" dangerouslySetInnerHTML={{ __html: job.requirements }} />
+              ) : (
+                <ul className="text-muted d-flex flex-column gap-2">
+                  <li>Kinh nghiệm làm việc từ {job.exp} trong lĩnh vực tương đương.</li>
+                  <li>Kỹ năng giao tiếp và làm việc nhóm tốt, tư duy phản biện và giải quyết vấn đề hiệu quả.</li>
+                  <li>Có tinh thần tự chủ, trách nhiệm cao trong công việc và tinh thần học hỏi công nghệ liên tục.</li>
+                </ul>
+              )}
 
-              <h5 className="fw-bold mt-4 mb-3">Yêu cầu chuyên môn</h5>
-              <ul className="text-muted d-flex flex-column gap-2">
-                <li>Kinh nghiệm làm việc từ {job.exp} trong lĩnh vực tương đương.</li>
-                <li>Kỹ năng giao tiếp và làm việc nhóm tốt, tư duy phản biện và giải quyết vấn đề hiệu quả.</li>
-                <li>Có tinh thần tự chủ, trách nhiệm cao trong công việc và tinh thần học hỏi công nghệ liên tục.</li>
-              </ul>
+              <h5 className="fw-bold mt-4 mb-3">Quyền lợi & Đãi ngộ</h5>
+              {job.benefits ? (
+                <div className="text-muted leading-relaxed" dangerouslySetInnerHTML={{ __html: job.benefits }} />
+              ) : (
+                <ul className="text-muted d-flex flex-column gap-2">
+                  <li>Mức thu nhập cạnh tranh từ <strong>{job.salary}</strong> + Thưởng hiệu suất cuối năm.</li>
+                  <li>Gói bảo hiểm sức khỏe cao cấp cho nhân viên và người thân.</li>
+                  <li>Môi trường làm việc mở, trang bị thiết bị hiện đại (MacBook Pro, màn hình 4K).</li>
+                  <li>Chế độ làm việc linh hoạt (Flexible hours, Hybrid working).</li>
+                </ul>
+              )}
 
-              <h5 className="fw-bold mt-4 mb-3">Quyền lợi đãi ngộ</h5>
-              <ul className="text-muted d-flex flex-column gap-2">
-                <li>Mức thu nhập cạnh tranh từ <strong>{job.salary}</strong> + Thưởng hiệu suất cuối năm.</li>
-                <li>Gói bảo hiểm sức khỏe cao cấp cho nhân viên và người thân.</li>
-                <li>Môi trường làm việc mở, trang bị thiết bị hiện đại (MacBook Pro, màn hình 4K).</li>
-                <li>Chế độ làm việc linh hoạt (Flexible hours, Hybrid working).</li>
-              </ul>
+              {/* Working Schedule & Location */}
+              {(job.schedule || job.address) && (
+                <div className="mt-4">
+                  <h5 className="fw-bold mb-3">Thời gian & Địa điểm làm việc</h5>
+                  {job.schedule ? (
+                    <div className="text-muted leading-relaxed" dangerouslySetInnerHTML={{ __html: job.schedule }} />
+                  ) : (
+                    <p className="text-muted">
+                      <i className="bi bi-geo-alt-fill text-danger me-2"></i>
+                      {job.address || job.location}
+                    </p>
+                  )}
+                  {job.mapLink && (
+                    <div className="mt-2">
+                      <a href={job.mapLink} target="_blank" rel="noreferrer" className="btn btn-outline-success btn-sm">
+                        <i className="bi bi-map me-1"></i>Chỉ đường qua Google Maps ↗
+                      </a>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* THÔNG TIN LIÊN HỆ HR (CỐ ĐỊNH Ở CUỐI) */}
+              <div className="mt-4">
+                <HRContactCard
+                  contact={job.contact || hrProfile}
+                  title="Thông tin liên hệ HR phụ trách"
+                />
+              </div>
             </div>
           </Card>
         </Col>
@@ -152,8 +243,17 @@ export default function JobDetailPage() {
                 <strong>{job.type}</strong>
               </div>
               <div>
-                <span className="text-muted d-block">Ngày đăng tin</span>
-                <strong>{job.posted}</strong>
+                <span className="text-muted d-block">Hạn nộp hồ sơ</span>
+                <strong>{job.deadline || "15/10/2026"}</strong>
+              </div>
+              <div>
+                <span className="text-muted d-block">Mức thu nhập</span>
+                <strong className="text-success">{job.salary}</strong>
+              </div>
+              <div>
+                <span className="text-muted d-block">HR phụ trách</span>
+                <strong>{job.contact?.name || hrProfile.name}</strong>
+                <div className="text-muted">{job.contact?.email || hrProfile.email}</div>
               </div>
             </div>
           </Card>
