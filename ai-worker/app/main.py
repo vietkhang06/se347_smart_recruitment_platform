@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from app.api.health import router as health_router
+from app.api.cv import router as cv_router
 from app.core.config import get_settings
 from app.core.logging import logger, setup_logging
 from app.schemas.errors import ProblemDetail
@@ -47,6 +48,7 @@ def create_application() -> FastAPI:
 
     # Register routers
     app.include_router(health_router)
+    app.include_router(cv_router)
 
     # Global RFC 7807 Exception Handlers
     @app.exception_handler(StarletteHTTPException)
