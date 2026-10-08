@@ -154,17 +154,17 @@ Write-Host "`n[4/5] Checking Backend & AI Worker Status..." -ForegroundColor Yel
 
 $backendRunning = Test-PortOccupied 8081
 if ($backendRunning) {
-    $backendStatusText = "READY (Port 8081)"
+    $backendStatusText = "READY (Port 8081 - http://localhost:8081/api)"
 } else {
-    $backendStatusText = "STANDBY (Port 8081 - Cho ban giao source code)"
+    $backendStatusText = "NOT RUNNING (Port 8081 - Chạy 'mvn spring-boot:run' hoặc 'docker compose up -d backend')"
 }
 Write-Host "  -> Backend Status   : $backendStatusText" -ForegroundColor $(if ($backendRunning) { "Green" } else { "Gray" })
 
 $aiWorkerRunning = Test-PortOccupied 8001
 if ($aiWorkerRunning) {
-    $aiStatusText = "READY (Port 8001)"
+    $aiStatusText = "READY (Port 8001 - http://localhost:8001)"
 } else {
-    $aiStatusText = "STANDBY (Port 8001 - Cho ban giao source code)"
+    $aiStatusText = "NOT RUNNING (Port 8001 - Chạy '.venv\Scripts\python -m uvicorn app.main:app' hoặc 'docker compose up -d ai-worker')"
 }
 Write-Host "  -> AI Worker Status : $aiStatusText" -ForegroundColor $(if ($aiWorkerRunning) { "Green" } else { "Gray" })
 

@@ -22,14 +22,14 @@ Trước khi bắt đầu, đảm bảo máy phát triển đã cài đặt:
 | :--- | :---: | :---: | :---: | :--- | :--- |
 | **Frontend UI** | `3000` (Next.js) | `5173` (Vite) | `5173` | `http://localhost:5173` | ✅ Sẵn sàng (Active) |
 | **Database** | `5432` (PostgreSQL) | `5433` | `5432` | `localhost:5433` | ✅ Healthy (`pg_isready`) |
-| **Backend API** | `8080` (Spring Boot) | `8081` | `8080` | `http://localhost:8081/api` | Chờ bàn giao source code |
-| **AI Worker** | `8000` (FastAPI) | `8001` | `8000` | `http://localhost:8001` | Chờ bàn giao source code |
+| **Backend API** | `8080` (Spring Boot) | `8081` | `8080` | `http://localhost:8081/api` | Mã nguồn hoàn tất (Chờ Docker runtime) |
+| **AI Worker** | `8000` (FastAPI) | `8001` | `8000` | `http://localhost:8001` | Mã nguồn hoàn tất (Chờ Docker runtime) |
 
 ### Quy tắc định tuyến mạng:
 - **Trình duyệt Web** kết nối Frontend tại: `http://localhost:5173`.
 - **Trình duyệt Web** gọi API Backend tại: `http://localhost:8081/api` (thông qua biến `VITE_API_BASE_URL`).
-- **Backend container** (khi có) kết nối Database thông qua hostname nội bộ `database:5432` trong mạng `matchajob_network`.
-- **Backend container** (khi có) gọi AI Worker thông qua hostname nội bộ `http://ai-worker:8001`.
+- **Backend container** kết nối Database thông qua hostname nội bộ `database:5432` trong mạng `matchajob_network`.
+- **Backend container** gọi AI Worker thông qua hostname nội bộ `http://ai-worker:8000`.
 - Tuyệt đối không sử dụng `localhost` cho giao tiếp giữa các container bên trong Docker network `matchajob_network`.
 
 ---
@@ -59,8 +59,8 @@ cp .env.example .env
 - `POSTGRES_PASSWORD`: Mật khẩu database (`matchajob_password`).
 - `BACKEND_HOST_PORT` / `BACKEND_CONTAINER_PORT`: Cổng Backend (`8081` / `8080`).
 - `SPRING_DATASOURCE_URL`: Chuỗi kết nối JDBC nội bộ (`jdbc:postgresql://database:5432/matchajob_db`).
-- `AI_WORKER_BASE_URL`: Endpoint nội bộ để Backend gọi AI Worker (`http://ai-worker:8001`).
-- `AI_WORKER_HOST_PORT` / `AI_WORKER_CONTAINER_PORT`: Cổng AI Worker (`8001`).
+- `AI_WORKER_BASE_URL`: Endpoint nội bộ để Backend gọi AI Worker (`http://ai-worker:8000`).
+- `AI_WORKER_HOST_PORT` / `AI_WORKER_CONTAINER_PORT`: Cổng AI Worker (`8001` trên host, `8000` trong container).
 
 > ⚠️ **Bảo mật**: Tuyệt đối không commit file `.env` hoặc các secret thực tế lên Git repository. `.env` đã được cấu hình trong `.gitignore`.
 
@@ -138,91 +138,88 @@ docker compose exec database psql -U matchajob_user -d matchajob_db -c "SELECT *
 - Mở trình duyệt tại: `http://localhost:5173`.
 - Hot reload: Chỉnh sửa bất kỳ file nào trong `frontend/src/` (ví dụ `frontend/src/App.jsx`), thay đổi sẽ được cập nhật tức thì trên trình duyệt nhờ cơ chế polling watch (`usePolling: true`) thích ứng với môi trường Windows bind-mount.
 
----
+## 6. Trạng Thái Thực Tế & Phân Định Trách Nhiệm Pha 2
 
-## 6. Trạng Thái Thực Tế & Báo Cáo Blocker
+### Bảng trạng thái dịch vụ Pha 2:
 
-### Bảng trạng thái dịch vụ:
-
-| Service | Source tồn tại | Build | Startup | Health | Connectivity | Ghi chú |
-| :--- | :---: | :---: | :---: | :---: | :---: | :--- |
-| **Database** | ✅ Có (Image) | ✅ Đã có image | ✅ Thành công | ✅ Healthy (`pg_isready`) | ✅ Kết nối cổng 5433 từ Host | Host dùng cổng 5433 tránh đụng container cũ trên 5432. Đã test `pg_isready` và pgvector v0.8.6. |
-| **Frontend** | ✅ Có | ⏳ Chờ mạng pull node image / chạy local | ✅ Sẵn sàng config | N/A (Web UI) | ✅ Cổng 5173 | Giao diện React 19 + Vite. Dockerfile.dev & config polling đã sẵn sàng. |
-| **Backend** | ❌ Chưa có | ⏸️ Chưa có source | ⏸️ Chưa có source | ⏸️ Chưa có source | ⏸️ Chưa có source | **Blocker**: Thư mục `backend/` chỉ có `.gitkeep`, chưa có mã nguồn Spring Boot / `pom.xml`. Đã cấu hình trước cổng host 8080 để tránh đụng cổng 3000 của Đồ Án 1. |
-| **AI Worker** | ❌ Chưa có | ⏸️ Chưa có source | ⏸️ Chưa có source | ⏸️ Chưa có source | ⏸️ Chưa có source | **Blocker**: Thư mục `ai-worker/` chỉ có `.gitkeep`, chưa có mã nguồn FastAPI / `requirements.txt`. Đã dự trù sẵn cổng 8000. |
+| Service | Mã nguồn (Source) | Đóng gói (Build/Package) | Unit Tests | Runtime Kiểm Thử | Trạng thái Nghiệm thu |
+| :--- | :---: | :---: | :---: | :---: | :--- |
+| **PostgreSQL Database** (`database`) | ✅ `compose.yaml` | ✅ `pgvector:pg16` | N/A | Cổng host 5433 | Chờ Docker Desktop khởi động |
+| **Backend API** (`backend`) | ✅ Java 21 / Spring Boot 3.3.4 | ✅ JAR executable (`BUILD SUCCESS`) | ✅ 7 unit tests PASSED | Actuator `/api` ready | Chờ Docker & PostgreSQL để chạy integration test |
+| **AI Worker** (`ai-worker`) | ✅ Python / FastAPI | ✅ Image Dockerfile ready | ✅ 6 unit tests PASSED | ✅ Native port 8001 (HTTP 200) | Chờ Docker runtime container |
+| **Frontend Web** (`frontend`) | ✅ React 19 + Vite | ✅ `Dockerfile.dev` | N/A | Cổng host 5173 | Sẵn sàng |
 
 ---
 
-## 7. Hướng Dẫn Bổ Sung Backend & AI Worker Khi Có Mã Nguồn
+## 7. Quy Trình Nghiệm Thu Cuối Cùng Cho Pha 2 (Final Acceptance Procedure)
 
-Khi các nhóm phụ trách bàn giao mã nguồn cho `backend/` và `ai-worker/`, thực hiện các bước sau để đưa vào Docker Compose:
+Khi người dùng khởi động Docker Desktop trên máy trạm Windows, thực hiện đúng tuần tự 11 bước sau để nghiệm thu toàn bộ Pha 2:
 
-### 7.1. Bổ sung Backend (Spring Boot)
-1. Thêm `backend/Dockerfile`:
-```dockerfile
-# Build stage
-FROM maven:3.9-eclipse-temurin-21-alpine AS build
-WORKDIR /app
-COPY pom.xml .
-RUN mvn dependency:go-offline -B
-COPY src ./src
-RUN mvn package -DskipTests -B
+### Bước 1 — Khởi động Docker Desktop
+Người dùng khởi động ứng dụng Docker Desktop trên Windows (chấp thuận thông báo cập nhật hoặc UAC nếu được yêu cầu).
 
-# Runtime stage
-FROM eclipse-temurin:21-jre-alpine
-WORKDIR /app
-COPY --from=build /app/target/*.jar app.jar
-EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "app.jar"]
+### Bước 2 — Xác thực Docker Engine sẵn sàng
+```powershell
+docker info
 ```
 
-2. Bật service trong `compose.yaml`:
-```yaml
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    restart: unless-stopped
-    ports:
-      - "${BACKEND_HOST_PORT:-8080}:${BACKEND_CONTAINER_PORT:-8080}"
-    environment:
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
-      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:postgresql://database:5432/matchajob_db}
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-matchajob_user}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-matchajob_password}
-      AI_WORKER_BASE_URL: ${AI_WORKER_BASE_URL:-http://ai-worker:8000}
-    depends_on:
-      database:
-        condition: service_healthy
-    networks:
-      - matchajob_network
+### Bước 3 — Khởi động cụm dịch vụ hệ thống
+```powershell
+cd "D:\Khai Van\KhaiVan Data\Dai Hoc\se347\repo"
+docker compose up -d --build
 ```
 
-### 7.2. Bổ sung AI Worker (FastAPI)
-1. Thêm `ai-worker/Dockerfile`:
-```dockerfile
-FROM python:3.11-slim
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-COPY . .
-EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+### Bước 4 — Kiểm tra trạng thái containers và Health Checks
+```powershell
+docker compose ps
+```
+Xác nhận các service `database`, `backend`, `ai-worker`, và `frontend` đều ở trạng thái `running` (hoặc `healthy`).
+
+### Bước 5 — Đảm bảo Test Database (`matchajob_test`) tồn tại
+Database `matchajob_test` được tự động tạo qua init script `/docker-entrypoint-initdb.d/01-init-test-db.sh` khi khởi tạo volume mới.  
+Trường hợp volume đã tồn tại từ trước, chạy script khởi tạo idempotent:
+```powershell
+.\scripts\init-test-db.ps1
+```
+Xác nhận database `matchajob_test` đã được tạo thành công (rỗng, không chứa bảng nghiệp vụ nào).
+
+### Bước 6 — Chạy kiểm thử tích hợp thực tế với PostgreSQL
+Thực thi kiểm thử tích hợp chuyên biệt kết nối trực tiếp vào PostgreSQL `matchajob_test`:
+```powershell
+cd backend
+mvn verify -Pintegration-test
+```
+*(Lưu ý: Đối với vòng lặp phát triển thường ngày không cần DB, lệnh `mvn test` chỉ chạy các unit tests độc lập).*
+
+### Bước 7 — Xác thực Flyway Migration V1
+Kiểm tra bảng lịch sử di trú trong CSDL test:
+```powershell
+docker compose exec database psql -U matchajob_user -d matchajob_test -c "SELECT version, description, success FROM flyway_schema_history;"
+```
+Xác nhận bản ghi: `1 | init extensions | t`.
+
+### Bước 8 — Xác thực Extension pgvector đã được kích hoạt
+```powershell
+docker compose exec database psql -U matchajob_user -d matchajob_test -c "SELECT extname, extversion FROM pg_extension WHERE extname = 'vector';"
+```
+Xác nhận trả về extension `vector` (ví dụ version `0.8.0` hoặc `0.8.6`).
+
+### Bước 9 — Xác thực AI Worker Health từ bên ngoài
+```powershell
+Invoke-RestMethod http://localhost:8001/health
+Invoke-RestMethod http://localhost:8001/health/live
+Invoke-RestMethod http://localhost:8001/health/ready
 ```
 
-2. Bật service trong `compose.yaml`:
-```yaml
-  ai-worker:
-    build:
-      context: ./ai-worker
-      dockerfile: Dockerfile
-    restart: unless-stopped
-    ports:
-      - "${AI_WORKER_HOST_PORT:-8000}:${AI_WORKER_CONTAINER_PORT:-8000}"
-    environment:
-      AI_PROVIDER: ${AI_PROVIDER}
-      AI_MODEL: ${AI_MODEL}
-      AI_API_KEY: ${AI_API_KEY}
-    networks:
-      - matchajob_network
+### Bước 10 — Xác thực Backend Actuator Health từ bên ngoài
+```powershell
+Invoke-RestMethod http://localhost:8081/api/actuator/health
+Invoke-RestMethod http://localhost:8081/api/actuator/health/readiness
 ```
+
+### Bước 11 — Xác thực mạng nội bộ Backend gọi sang AI Worker
+Thực hiện lệnh kiểm tra mạng nội bộ từ bên trong container Backend gọi sang container AI Worker theo địa chỉ `http://ai-worker:8000`:
+```powershell
+docker compose exec backend wget -qO- http://ai-worker:8000/health
+```
+Kết quả trả về JSON `{"status":"healthy",...}` chứng minh thông tuyến hoàn toàn mạng Docker nội bộ.

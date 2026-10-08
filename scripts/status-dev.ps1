@@ -82,17 +82,19 @@ if ((Test-HttpUrl "http://127.0.0.1:5173") -eq "READY") {
 }
 
 # 3. Check Backend (8081)
-$backendStatus = "STANDBY (Waiting for code)"
-if ((Test-HttpUrl "http://127.0.0.1:8081/api") -eq "READY") {
+$backendStatus = "NOT RUNNING"
+if ((Test-HttpUrl "http://127.0.0.1:8081/api/actuator/health") -eq "READY") {
     $backendStatus = "READY"
 } elseif (Test-PortOccupied 8081) {
     $backendStatus = "PORT OCCUPIED / STARTING"
 }
 
 # 4. Check AI Worker (8001)
-$aiStatus = "STANDBY (Waiting for code)"
-if (Test-PortOccupied 8001) {
+$aiStatus = "NOT RUNNING"
+if ((Test-HttpUrl "http://127.0.0.1:8001/health") -eq "READY") {
     $aiStatus = "READY"
+} elseif (Test-PortOccupied 8001) {
+    $aiStatus = "PORT OCCUPIED / STARTING"
 }
 
 # Display Status Summary
