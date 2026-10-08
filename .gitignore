@@ -54,10 +54,9 @@ $RECYCLE.BIN/
 .AppleDouble
 .LSOverride
 
-# docs/ - allow documentation while keeping draft notes excluded
-docs/*
+# docs/ - exclude documentation files per project config
+docs/**
 !docs/.gitkeep
-!docs/*.md
 FE_WORKFLOW.md
 FE_UI_FLOW.md
 README_FE.md

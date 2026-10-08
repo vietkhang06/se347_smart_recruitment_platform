@@ -94,11 +94,30 @@ Bảng phân chia công việc để các thành viên trong nhóm có thể ti�
 | **2** | **Chuyển đổi 13 trang HTML sang React** | ✅ **Hoàn thành** | Core Setup | Đã chuyển đổi Public, Auth, Candidate, Employer và Admin Portals. |
 | **3** | **Quản lý trạng thái Context API & Theme** | ✅ **Hoàn thành** | Core Setup | Theme Dark/Light, Auth phân quyền 3 vai trò, Toast, Favorites. |
 | **4** | **Module hóa 18 Sub-views & Modals trong Portals** | ✅ **Hoàn thành** | Core Setup | Đã chia nhỏ toàn bộ các tab và modal trong `EmployerPortal` và `AdminPortal` thành các component độc lập (`views/`, `components/`). |
-| **5** | **Nâng cấp Bộ soạn thảo tin đăng (JobComposer)** | ✅ **Hoàn thành** | Core Setup | Lịch custom dark/light hạn nộp > 7 ngày, format tiền tệ, animation tag, kéo giãn modal (resizable), validation bắt buộc điền. |
-| **6** | **Kết nối Backend REST API** | ⏳ **Chờ tiếp nhận** | Teammate A | Thay thế mock data trong `src/services/` bằng các hàm gọi API thật qua `axios`/`fetch` tới `http://localhost:3000/api`. |
-| **7** | **Tương tác Kéo-Thả (Drag & Drop) Kanban** | ⏳ **Chờ tiếp nhận** | Teammate B | Thêm tính năng kéo thả thẻ ứng viên giữa 5 cột giai đoạn tuyển dụng bằng `@hello-pangea/dnd` trong `PipelineView.jsx`. |
-| **8** | **Bộ tải lên tệp CV thực tế (File Upload)** | ⏳ **Chờ tiếp nhận** | Teammate C | Bổ sung khung chọn tệp PDF và kiểm tra định dạng/dung lượng file CV ở trang Profile và Modal Ứng tuyển. |
-| **9** | **Viết Unit Test & Kiểm thử Tự động** | ⏳ **Chờ tiếp nhận** | Teammate D | Cài đặt Vitest/React Testing Library để viết test cho Auth và Forms. |
+| **5** | **Bộ soạn thảo & Xem trước tin đăng (JobComposer & Preview)** | ✅ **Hoàn thành** | Core Setup | Lịch custom hạn nộp > 7 ngày, format lương, kéo giãn modal, đồng bộ UI xem trước toàn độ rộng chuẩn ứng viên, header 2 dòng gọn gàng, click khôi phục bản nháp với popup xác nhận, cảnh báo rời đi an toàn khi chưa hoàn thành tin đăng. |
+| **6** | **Thẻ liên hệ HR phụ trách & Đồng bộ Hồ sơ (HRContactCard)** | ✅ **Hoàn thành** | Core Setup | Component dùng chung cố định ở cuối tin đăng (cả cổng Employer và Candidate Job Detail), tự động đồng bộ theo thời gian thực từ Hồ sơ chuyên viên HR (`ProfileView`). |
+| **7** | **Kết nối Backend REST API** | ⏳ **Chờ tiếp nhận** | Teammate A | Thay thế mock data trong `src/services/` bằng các hàm gọi API thật qua `axios`/`fetch` tới `http://localhost:3000/api`. |
+| **8** | **Tương tác Kéo-Thả (Drag & Drop) Kanban** | ⏳ **Chờ tiếp nhận** | Teammate B | Thêm tính năng kéo thả thẻ ứng viên giữa 5 cột giai đoạn tuyển dụng bằng `@hello-pangea/dnd` trong `PipelineView.jsx`. |
+| **9** | **Bộ tải lên tệp CV thực tế (File Upload)** | ⏳ **Chờ tiếp nhận** | Teammate C | Bổ sung khung chọn tệp PDF và kiểm tra định dạng/dung lượng file CV ở trang Profile và Modal Ứng tuyển. |
+| **10** | **Viết Unit Test & Kiểm thử Tự động** | ⏳ **Chờ tiếp nhận** | Teammate D | Cài đặt Vitest/React Testing Library để viết test cho Auth và Forms. |
+
+---
+
+## 🌟 TÍNH NĂNG MỚI NỔI BẬT: QUẢN LÝ TIN ĐĂNG & ĐỒNG BỘ HR
+
+1. **Thẻ liên hệ HR phụ trách (`HRContactCard`)**:
+   - Tái sử dụng đồng bộ giữa trang xem chi tiết việc làm công khai của Ứng viên (`JobDetailPage`) và màn hình xem trước của Nhà tuyển dụng (`JobPreviewModal` / Tab Xem trước).
+   - Tự động lấy và cập nhật thông tin mới nhất từ Hồ sơ chuyên viên tuyển dụng (`ProfileView`: họ tên, chức danh, phòng ban, email, số điện thoại, giờ hỗ trợ, địa chỉ làm việc).
+2. **Quản lý Bản nháp & Khôi phục nhanh (`JobComposerModal`)**:
+   - Header 2 dòng tinh tế: Dòng 1 chỉ chứa huy hiệu và tiêu đề tin đăng; Dòng 2 chứa trạng thái bản nháp kèm các nút thao tác.
+   - Hỗ trợ nhấp vào nhãn **"Bản nháp đã lưu"** để mở hộp thoại xác nhận khôi phục lại dữ liệu bản nháp gần nhất.
+   - Nút **"Lưu nháp"** cho phép chủ động lưu nhanh dữ liệu biểu mẫu tại bất kỳ thời điểm nào.
+   - Nút **"Xóa nháp"** hỗ trợ đặt lại toàn bộ biểu mẫu về trạng thái mẫu ban đầu.
+3. **Cảnh báo rời đi an toàn (Safe Exit)**:
+   - Khi bấm chuyển sang chỉnh sửa thông tin HR hoặc thoát modal (nút `X`, nút `Hủy bỏ`, phím ESC) mà chưa hoàn tất đăng tin, hệ thống tự động hiển thị hộp thoại xác nhận:
+     *"Tin đăng của bạn chưa được hoàn thành, bạn có muốn rời đi không?"*
+     - **"Có, để sau làm tiếp"**: Tự động lưu bản nháp form (ngoại trừ thông tin HR) và chuyển hướng an toàn.
+     - **"Không, ở lại làm tiếp"**: Đóng cảnh báo và tiếp tục làm việc trên form.
 
 ---
 
@@ -108,3 +127,4 @@ Bảng phân chia công việc để các thành viên trong nhóm có thể ti�
 - **Hiệu ứng chuyển động:** AOS (Animate On Scroll).
 - **Điều hướng:** React Router DOM v7.
 - **Lưu trữ phiên & Dữ liệu:** `localStorage` đồng bộ hai chiều có cơ chế fallback.
+
