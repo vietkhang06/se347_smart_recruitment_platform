@@ -20,11 +20,26 @@ public class AiWorkerConfig {
     @Value("${ai-worker.read-timeout-ms:5000}")
     private int readTimeoutMs;
 
+    @Value("${ai-worker.processing-timeout-ms:60000}")
+    private int processingTimeoutMs;
+
     @Bean
     public RestClient aiWorkerRestClient() {
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(Duration.ofMillis(connectTimeoutMs));
         requestFactory.setReadTimeout(Duration.ofMillis(readTimeoutMs));
+
+        return RestClient.builder()
+                .baseUrl(baseUrl)
+                .requestFactory(requestFactory)
+                .build();
+    }
+
+    @Bean
+    public RestClient aiWorkerProcessingClient() {
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(Duration.ofMillis(connectTimeoutMs));
+        requestFactory.setReadTimeout(Duration.ofMillis(processingTimeoutMs));
 
         return RestClient.builder()
                 .baseUrl(baseUrl)

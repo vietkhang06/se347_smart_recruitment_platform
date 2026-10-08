@@ -36,7 +36,7 @@ class MatchScoreRequest(BaseModel):
     job_description: Optional[str] = ""
     job_requirements: Optional[str] = ""
     cv_text: str
-    candidate_skills: List[str] = Field(default_factory=list)
+    candidate_skills: Optional[List[str]] = Field(default_factory=list)
 
 
 class MatchScoreResponse(BaseModel):
