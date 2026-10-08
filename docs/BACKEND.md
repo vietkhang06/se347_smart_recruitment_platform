@@ -96,7 +96,7 @@ Căn cứ vào `compose.yaml`, `.env.example`, `scripts/start-dev.ps1` và `docs
 | **Framework** | Spring Boot 3.3+ (Spring Framework 6.1+) | Tiêu chuẩn phát triển backend doanh nghiệp; tương thích hoàn toàn với Java 21; tích hợp sẵn Actuator, Spring Data JPA. |
 | **Build Tool** | Apache Maven 3.9+ | Quản lý dependency chuẩn tắc; định nghĩa sẵn trong `development-environment.md`. |
 | **HTTP Client** | `RestClient` (Spring Framework 6.1+) | Client HTTP đồng bộ hiện đại, fluent API, tích hợp sẵn trong `spring-boot-starter-web`. Không cần cài thêm `WebFlux` chỉ để ping health check. |
-| **Hệ CSDL** | PostgreSQL 16 + pgvector v0.8.6 | CSDL quan hệ tin cậy hàng đầu kết hợp mở rộng vector embedding 1536/1024 chiều. |
+| **Hệ CSDL** | PostgreSQL 16 + pgvector v0.8.7 | CSDL quan hệ tin cậy hàng đầu kết hợp mở rộng vector embedding 1536/1024 chiều. |
 | **Connection Pool** | HikariCP | Connection pool mặc định của Spring Boot, tối ưu bytecode không khóa (lock-free), độ trễ kết nối cực thấp. |
 | **Schema Migration** | Flyway 10+ | Chủ sở hữu duy nhất của lược đồ CSDL (`V1__...sql`). Ngăn chặn lỗi lệch lược đồ và tự động hóa CI/CD. |
 | **Data Access** | Spring Data JPA + Spring `JdbcClient` | Lai ghép tối ưu: Spring Data JPA cho các quan hệ ORM; `JdbcClient` cho các câu lệnh SQL native truy vấn vector nhanh. |

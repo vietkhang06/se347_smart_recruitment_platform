@@ -132,7 +132,7 @@ Kiểm tra module pgvector đã sẵn sàng:
 ```bash
 docker compose exec database psql -U matchajob_user -d matchajob_db -c "SELECT * FROM pg_available_extensions WHERE name = 'vector';"
 ```
-*Kết quả:* `vector | 0.8.6 | vector data type and ivfflat and hnsw access methods`
+*Kết quả:* `vector | 0.8.7 | vector data type and ivfflat and hnsw access methods`
 
 ### 5.2. Frontend (Vite + React)
 - Mở trình duyệt tại: `http://localhost:5173`.
@@ -202,7 +202,7 @@ Xác nhận bản ghi: `1 | init extensions | t`.
 ```powershell
 docker compose exec database psql -U matchajob_user -d matchajob_test -c "SELECT extname, extversion FROM pg_extension WHERE extname = 'vector';"
 ```
-Xác nhận trả về extension `vector` (ví dụ version `0.8.0` hoặc `0.8.6`).
+Xác nhận trả về extension `vector` (phiên bản thực tế `0.8.7`).
 
 ### Bước 9 — Xác thực AI Worker Health từ bên ngoài
 ```powershell
