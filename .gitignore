@@ -16,6 +16,7 @@ frontend/.env.*.local
 node_modules/
 package-lock.json
 target/
+backend/target/
 dist/
 build/
 .cache/
@@ -24,9 +25,11 @@ temp/
 
 # Python virtualenv & cache
 .venv/
+ai-worker/.venv/
 venv/
 __pycache__/
 *.pyc
+.pytest_cache/
 
 # Logs & debugging
 *.log

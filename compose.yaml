@@ -14,6 +14,7 @@ services:
       - "${POSTGRES_HOST_PORT:-5433}:${POSTGRES_CONTAINER_PORT:-5432}"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/01-init-test-db.sh:/docker-entrypoint-initdb.d/01-init-test-db.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-matchajob_user} -d ${POSTGRES_DB:-matchajob_db}"]
       interval: 5s
@@ -44,6 +45,50 @@ services:
       resources:
         limits:
           memory: 768M
+    networks:
+      - matchajob_network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: matchajob-backend
+    restart: unless-stopped
+    ports:
+      - "${BACKEND_HOST_PORT:-8081}:${BACKEND_CONTAINER_PORT:-8080}"
+    environment:
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-dev}
+      - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL:-jdbc:postgresql://database:5432/matchajob_db}
+      - SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME:-matchajob_user}
+      - SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD:-matchajob_password}
+      - AI_WORKER_BASE_URL=${AI_WORKER_BASE_URL:-http://ai-worker:8000}
+    depends_on:
+      database:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 1024M
+    networks:
+      - matchajob_network
+
+  ai-worker:
+    build:
+      context: ./ai-worker
+      dockerfile: Dockerfile
+    container_name: matchajob-ai-worker
+    restart: unless-stopped
+    ports:
+      - "${AI_WORKER_HOST_PORT:-8001}:${AI_WORKER_CONTAINER_PORT:-8000}"
+    environment:
+      - AI_WORKER_CONTAINER_PORT=${AI_WORKER_CONTAINER_PORT:-8000}
+      - AI_PROVIDER=${AI_PROVIDER:-openai}
+      - AI_MODEL=${AI_MODEL:-gpt-4o-mini}
+      - AI_API_KEY=${AI_API_KEY:-}
+    deploy:
+      resources:
+        limits:
+          memory: 1024M
     networks:
       - matchajob_network
 
