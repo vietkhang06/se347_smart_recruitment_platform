@@ -2,7 +2,7 @@
 
 ## Tổng quan
 
-PostgreSQL 16+ | 23 bảng | 3 roles | UUID v7 PK | Soft-delete | Audit trail
+PostgreSQL 16+ | 30 bảng | 3 roles | UUID v7 PK | Soft-delete | Audit trail | pgvector
 
 ---
 
@@ -171,6 +171,13 @@ PostgreSQL 16+ | 23 bảng | 3 roles | UUID v7 PK | Soft-delete | Audit trail
 | 20 | `billing_plans` | Gói dịch vụ | ~5 |
 | 21 | `company_subscriptions` | Đăng ký gói dịch vụ | 1K–10K |
 | 22 | `guides` | Bài viết hướng dẫn nghề nghiệp | ~100 |
+| 23 | `skills` | Danh mục kỹ năng chuẩn hóa (quản trị tập trung, autocomplete) | 1K–10K |
+| 24 | `job_skills` | Bảng nối Job và Skill (M2M, cờ is_required) | 20K–200K |
+| 25 | `cv_versions` | Phiên bản CV lưu trữ, hash SHA-256 và dữ liệu trích xuất (AI) | 10K–100K |
+| 26 | `application_cv_snapshots` | Gắn kết bất biến giữa hồ sơ ứng tuyển và CV version | 20K–200K |
+| 27 | `processing_jobs` | Hàng đợi tác vụ AI bất đồng bộ (idempotency, retry, lease) | 50K–500K |
+| 28 | `embeddings` | Dense vector 1536 chiều với chỉ mục HNSW (pgvector) | 50K–500K |
+| 29 | `match_results` | Điểm tương đồng và giải trình AI match giữa ứng viên và việc làm | 20K–200K |
 
 ---
 
