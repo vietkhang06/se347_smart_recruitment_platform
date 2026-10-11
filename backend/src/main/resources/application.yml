@@ -21,3 +21,14 @@ management:
       show-details: when_authorized
       probes:
         enabled: true
+
+# Security & JWT baseline configuration
+security:
+  jwt:
+    secret: ${JWT_SECRET:dGhpc19pc19hX3Zlcnlfc2VjdXJlX2p3dF9zZWNyZXRfa2V5X2Zvcl9tYXRjaGFqb2JfZGV2XzIwMjY=}
+    expiration-ms: ${JWT_EXPIRATION_MS:3600000}
+
+# Authentication & verification policies
+app:
+  auth:
+    require-email-verification: ${REQUIRE_EMAIL_VERIFICATION:true}

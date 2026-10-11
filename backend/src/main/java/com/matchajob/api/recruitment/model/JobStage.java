@@ -1,20 +1,29 @@
 package com.matchajob.api.recruitment.model;
 
-import jakarta.persistence.*;
-import lombok.Data;
+public enum JobStage {
+    NEW("new"),
+    SCREENING("screening"),
+    TESTING("testing"),
+    INTERVIEW("interview"),
+    OFFER("offer"),
+    REJECTED("rejected");
 
-@Data
-@Entity
-@Table(name = "job_stages")
-public class JobStage {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private final String value;
 
-    private String name;
-    private Integer orderIndex;
+    JobStage(String value) {
+        this.value = value;
+    }
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "job_id")
-    private Job job;
+    public String getValue() {
+        return value;
+    }
+
+    public static JobStage fromValue(String value) {
+        for (JobStage stage : values()) {
+            if (stage.value.equalsIgnoreCase(value)) {
+                return stage;
+            }
+        }
+        throw new IllegalArgumentException("Unknown stage: " + value);
+    }
 }

@@ -5,16 +5,18 @@ import com.matchajob.api.recruitment.service.JobService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
 import java.util.List;
+import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/v1/recruitment/jobs")
+@RequestMapping("/v1/recruitment/jobs")
 @RequiredArgsConstructor
 public class JobController {
     private final JobService jobService;
 
     @GetMapping("/employer/{employerId}")
-    public ResponseEntity<List<Job>> getEmployerJobs(@PathVariable Long employerId) {
+    public ResponseEntity<List<Job>> getEmployerJobs(@PathVariable UUID employerId) {
         return ResponseEntity.ok(jobService.getJobsByEmployer(employerId));
     }
 
