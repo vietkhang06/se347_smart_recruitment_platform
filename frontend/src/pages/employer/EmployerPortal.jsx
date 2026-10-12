@@ -1,11 +1,16 @@
 import { useState, useEffect, useCallback } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import Container from "react-bootstrap/Container";
 import Badge from "react-bootstrap/Badge";
 import Button from "react-bootstrap/Button";
 import Nav from "react-bootstrap/Nav";
 import { useToast } from "../../context/ToastContext";
-import { mockStore } from "../../services/mockStore";
+import {
+  jobService,
+  applicationService,
+  companyService,
+  mockStore
+} from "../../services";
 
 // Modular Views
 import OverviewView from "./views/OverviewView";
@@ -26,6 +31,7 @@ import InterviewModal from "./components/InterviewModal";
 export default function EmployerPortal() {
   const { showToast } = useToast();
   const location = useLocation();
+  const navigate = useNavigate();
 
   // Tab state synced with URL hash
   const getInitialTab = () => {
@@ -41,26 +47,51 @@ export default function EmployerPortal() {
     if (hash) setActiveTab(hash);
   }, [location.hash]);
 
+  useEffect(() => {
+    const handleHash = () => {
+      const hash = window.location.hash.replace("#", "");
+      if (hash) setActiveTab(hash);
+    };
+    window.addEventListener("hashchange", handleHash);
+    return () => window.removeEventListener("hashchange", handleHash);
+  }, []);
+
   const handleTabChange = (tabKey) => {
     setActiveTab(tabKey);
-    window.location.hash = tabKey;
+    navigate(`/employer#${tabKey}`);
   };
 
-  // State managed via unified mockStore
+  // State managed via unified Service Adapter & Fixtures
   const [company, setCompany] = useState(() => mockStore.getCompany("COMP-01"));
   const [jobs, setJobs] = useState(() => mockStore.getEmployerJobs("COMP-01"));
   const [candidates, setCandidates] = useState(() => mockStore.getCandidates());
   const [interviews, setInterviews] = useState(() => mockStore.getInterviews());
   const [plans, setPlans] = useState(() => mockStore.getPlans());
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Reload data from store
-  const refreshStoreData = useCallback(() => {
-    setCompany(mockStore.getCompany("COMP-01"));
-    setJobs(mockStore.getEmployerJobs("COMP-01"));
-    setCandidates(mockStore.getCandidates());
-    setInterviews(mockStore.getInterviews());
-    setPlans(mockStore.getPlans());
+  // Reload data from service adapter
+  const refreshStoreData = useCallback(async () => {
+    try {
+      const [compRes, jobsRes, appsRes] = await Promise.all([
+        companyService.getCompany("COMP-01"),
+        jobService.getEmployerJobs("COMP-01"),
+        applicationService.getApplications("COMP-01")
+      ]);
+      if (compRes) setCompany(compRes);
+      if (jobsRes) setJobs(jobsRes);
+      if (appsRes) setCandidates(appsRes);
+      setInterviews(mockStore.getInterviews());
+      setPlans(mockStore.getPlans());
+    } catch (err) {
+      console.warn("[EmployerPortal] Lỗi nạp dữ liệu qua service adapter:", err);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    refreshStoreData();
+  }, [refreshStoreData]);
 
   // Listen to store changes from any component/tab
   useEffect(() => {
@@ -68,8 +99,12 @@ export default function EmployerPortal() {
       refreshStoreData();
     };
     window.addEventListener("matchajob:store-changed", handleStoreChange);
+    window.addEventListener("matchajob:jobs-changed", handleStoreChange);
+    window.addEventListener("matchajob:applications-changed", handleStoreChange);
     return () => {
       window.removeEventListener("matchajob:store-changed", handleStoreChange);
+      window.removeEventListener("matchajob:jobs-changed", handleStoreChange);
+      window.removeEventListener("matchajob:applications-changed", handleStoreChange);
     };
   }, [refreshStoreData]);
 
@@ -92,31 +127,48 @@ export default function EmployerPortal() {
     setShowInterviewModal(true);
   };
 
-  // Candidate stage transition
-  const handleCandidateStageChange = (candidateId, nextStage) => {
-    mockStore.updateCandidateStage(candidateId, nextStage);
-    const updated = mockStore.getCandidates();
-    setCandidates(updated);
-    if (selectedCandidate && selectedCandidate.id === candidateId) {
+  // Candidate stage transition (Optimistic update + Service adapter)
+  const handleCandidateStageChange = async (candidateId, nextStage) => {
+    // Optimistic UI update
+    setCandidates((prev) =>
+      prev.map((c) => (String(c.id) === String(candidateId) ? { ...c, stage: nextStage } : c))
+    );
+    if (selectedCandidate && String(selectedCandidate.id) === String(candidateId)) {
       setSelectedCandidate({ ...selectedCandidate, stage: nextStage });
+    }
+
+    try {
+      await applicationService.updateApplicationStage(candidateId, nextStage);
+      showToast(`Đã chuyển ứng viên sang giai đoạn: ${nextStage}`);
+    } catch (err) {
+      showToast(`Không thể cập nhật giai đoạn: ${err.message}`, "danger");
+      refreshStoreData();
     }
   };
 
   // Candidate reject
-  const handleCandidateReject = (candidateId, reason) => {
-    mockStore.rejectCandidate(candidateId, reason);
-    const updated = mockStore.getCandidates();
-    setCandidates(updated);
-    if (selectedCandidate && selectedCandidate.id === candidateId) {
-      setSelectedCandidate({ ...selectedCandidate, stage: "Đã từ chối" });
+  const handleCandidateReject = async (candidateId, reason) => {
+    setCandidates((prev) =>
+      prev.map((c) => (String(c.id) === String(candidateId) ? { ...c, stage: "Từ chối" } : c))
+    );
+    if (selectedCandidate && String(selectedCandidate.id) === String(candidateId)) {
+      setSelectedCandidate({ ...selectedCandidate, stage: "Từ chối" });
+    }
+    try {
+      await applicationService.updateApplicationStage(candidateId, "Từ chối", reason);
+      showToast("Đã cập nhật trạng thái từ chối ứng viên");
+    } catch {
+      refreshStoreData();
     }
   };
 
   // Handle job created
-  const handleJobCreated = (newJob) => {
-    setJobs(mockStore.getEmployerJobs("COMP-01"));
+  const handleJobCreated = async () => {
+    const updatedJobs = await jobService.getEmployerJobs("COMP-01");
+    setJobs(updatedJobs);
     setActiveTab("jobs");
     window.location.hash = "jobs";
+    showToast("Đăng tin tuyển dụng thành công!");
   };
 
   // Handle interview created
@@ -244,7 +296,10 @@ export default function EmployerPortal() {
       {activeTab === "company" && (
         <CompanyView
           companyData={company}
-          onCompanyUpdated={(updated) => setCompany(updated)}
+          onCompanyUpdated={async (updated) => {
+            await companyService.updateCompany(company.id, updated);
+            setCompany(updated);
+          }}
         />
       )}
 

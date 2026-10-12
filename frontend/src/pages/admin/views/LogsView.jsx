@@ -25,11 +25,13 @@ export default function LogsView({ logs: initialLogs }) {
   }, []);
 
   const filteredLogs = logs.filter((l) => {
+    const q = (search || "").toLowerCase().trim();
     const matchSearch =
-      l.action.toLowerCase().includes(search.toLowerCase()) ||
-      l.actor.toLowerCase().includes(search.toLowerCase()) ||
-      l.target.toLowerCase().includes(search.toLowerCase()) ||
-      l.ip.toLowerCase().includes(search.toLowerCase());
+      !q ||
+      (l.action || "").toLowerCase().includes(q) ||
+      (l.actor || "").toLowerCase().includes(q) ||
+      (l.target || "").toLowerCase().includes(q) ||
+      (l.ip || "").toLowerCase().includes(q);
 
     const matchAction =
       actionFilter === "all"
@@ -88,15 +90,15 @@ export default function LogsView({ logs: initialLogs }) {
 
       {/* Audit Logs Table */}
       <div className="table-responsive">
-        <Table hover className="align-middle mb-0">
-          <thead className="table-light">
+        <Table hover className="matcha-table align-middle mb-0">
+          <thead>
             <tr>
-              <th>Thời gian</th>
-              <th>Người thực hiện</th>
-              <th>Hành động (Action)</th>
-              <th>Đối tượng tác động</th>
-              <th>Địa chỉ IP</th>
-              <th>Trạng thái</th>
+              <th className="text-start text-nowrap" style={{ width: "160px" }}>Thời gian</th>
+              <th className="text-start text-nowrap">Người thực hiện</th>
+              <th className="text-start text-nowrap">Hành động</th>
+              <th className="text-start text-nowrap">Đối tượng tác động</th>
+              <th className="text-center text-nowrap" style={{ width: "140px" }}>Địa chỉ IP</th>
+              <th className="text-center text-nowrap" style={{ width: "110px" }}>Trạng thái</th>
             </tr>
           </thead>
           <tbody>
@@ -109,33 +111,34 @@ export default function LogsView({ logs: initialLogs }) {
             ) : (
               filteredLogs.map((l, i) => (
                 <tr key={i}>
-                  <td className="small text-muted" style={{ whiteSpace: "nowrap" }}>
-                    <i className="bi bi-clock me-1"></i>{l.time}
+                  <td className="text-start text-muted small text-nowrap">
+                    <i className="bi bi-clock me-1"></i>{l.time || l.timestamp || "Vừa xong"}
                   </td>
-                  <td className="fw-semibold">
-                    <span className="small text-body">{l.actor}</span>
+                  <td className="text-start fw-semibold text-body">{l.actor}</td>
+                  <td className="text-start">
+                    <code>{l.action}</code>
                   </td>
-                  <td>
-                    <Badge
-                      bg={
-                        l.action.includes("APPROVE") || l.action.includes("CREATE")
-                          ? "success"
-                          : l.action.includes("DELETE") || l.action.includes("REJECT") || l.action.includes("SUSPEND")
-                          ? "danger"
-                          : "primary"
-                      }
-                      className="bg-opacity-10 text-body border"
-                    >
-                      {l.action}
-                    </Badge>
-                  </td>
-                  <td><strong>{l.target}</strong></td>
-                  <td>
+                  <td className="text-start text-body">{l.target}</td>
+                  <td className="text-center">
                     <small className="text-muted font-monospace">{l.ip}</small>
                   </td>
-                  <td>
-                    <span className="badge bg-success bg-opacity-10 text-success">
-                      {l.status || "Thành công"}
+                  <td className="text-center">
+                    <span
+                      className={`status-badge ${
+                        l.status === "success" || l.status === "Thành công"
+                          ? "status-badge-success"
+                          : l.status === "flagged" || l.status === "Cảnh báo"
+                          ? "status-badge-warning"
+                          : "status-badge-danger"
+                      }`}
+                    >
+                      {l.status === "success"
+                        ? "Thành công"
+                        : l.status === "flagged"
+                        ? "Cảnh báo"
+                        : l.status === "failed"
+                        ? "Thất bại"
+                        : (l.status || "Thành công")}
                     </span>
                   </td>
                 </tr>

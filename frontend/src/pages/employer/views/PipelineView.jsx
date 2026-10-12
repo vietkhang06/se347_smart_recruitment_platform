@@ -13,11 +13,13 @@ export default function PipelineView({ candidates, setCandidates, onOpenCandidat
   const [selectedJobFilter, setSelectedJobFilter] = useState("all");
 
   // Extract unique job positions for filtering
-  const jobOptions = Array.from(new Set(candidates.map((c) => c.appliedJobTitle || c.role))).filter(Boolean);
+  const jobOptions = Array.from(
+    new Set(candidates.map((c) => c.appliedJobTitle || c.role || c.candidateRole))
+  ).filter(Boolean);
 
   const filteredCandidates = selectedJobFilter === "all"
     ? candidates
-    : candidates.filter((c) => (c.appliedJobTitle || c.role) === selectedJobFilter);
+    : candidates.filter((c) => (c.appliedJobTitle || c.role || c.candidateRole) === selectedJobFilter);
 
   const moveCandidate = (id, direction) => {
     const target = candidates.find((c) => c.id === id);
@@ -32,7 +34,7 @@ export default function PipelineView({ candidates, setCandidates, onOpenCandidat
       setCandidates((prev) =>
         prev.map((c) => (c.id === id ? { ...c, stage: nextStage } : c))
       );
-      showToast(`Đã chuyển ứng viên ${target.name} sang bước: ${nextStage}`);
+      showToast(`Đã chuyển ứng viên ${target.name || target.candidateName || "Ứng viên"} sang bước: ${nextStage}`);
     }
   };
 
@@ -85,10 +87,10 @@ export default function PipelineView({ candidates, setCandidates, onOpenCandidat
                     stageCandidates.map((c) => (
                       <div key={c.id} className="kanban-card">
                         <div className="d-flex justify-content-between align-items-start mb-2">
-                          <strong className="small text-truncate me-1">{c.name}</strong>
-                          <span className="badge bg-success bg-opacity-10 text-success small">{c.match}%</span>
+                          <strong className="small text-truncate me-1">{c.name || c.candidateName || "Ứng viên"}</strong>
+                          <span className="badge bg-success bg-opacity-10 text-success small">{c.matchScore ?? c.match ?? 0}%</span>
                         </div>
-                        <div className="text-muted small mb-2 text-truncate">{c.appliedJobTitle || c.role}</div>
+                        <div className="text-muted small mb-2 text-truncate">{c.appliedJobTitle || c.role || c.candidateRole}</div>
 
                         <div className="d-flex flex-wrap gap-1 mb-3">
                           {c.skills?.slice(0, 3).map((s) => (

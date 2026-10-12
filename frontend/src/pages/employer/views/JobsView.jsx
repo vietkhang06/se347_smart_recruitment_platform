@@ -8,7 +8,7 @@ import InputGroup from "react-bootstrap/InputGroup";
 import Dropdown from "react-bootstrap/Dropdown";
 import JobPreviewModal from "../components/JobPreviewModal";
 import { useToast } from "../../../context/ToastContext";
-import { mockStore } from "../../../services/mockStore";
+import { jobService, mockStore } from "../../../services";
 
 // Custom Dropdown Toggle without default Bootstrap arrow/caret
 const CustomThreeDotsToggle = forwardRef(({ onClick }, ref) => (
@@ -37,23 +37,29 @@ export default function JobsView({ jobs, setJobs, onOpenComposer, onNavigateCand
 
   const filteredJobs = jobs.filter((j) => {
     const matchStatus = filterStatus === "all" ? true : j.status === filterStatus;
+    const q = (searchQuery || "").toLowerCase().trim();
     const matchQuery =
-      j.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      j.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      j.location.toLowerCase().includes(searchQuery.toLowerCase());
+      !q ||
+      (j.title || "").toLowerCase().includes(q) ||
+      String(j.id || "").toLowerCase().includes(q) ||
+      (j.location || "").toLowerCase().includes(q) ||
+      (j.department || "").toLowerCase().includes(q);
     return matchStatus && matchQuery;
   });
 
-  const toggleJobStatus = (id) => {
-    const nextStatus = mockStore.toggleJobStatus(id);
-    setJobs(jobs.map((j) => (j.id === id ? { ...j, status: nextStatus } : j)));
+  const toggleJobStatus = async (id) => {
+    const job = jobs.find((j) => String(j.id) === String(id));
+    const nextStatus = job?.status === "Đang tuyển" ? "Tạm dừng" : "Đang tuyển";
+    await jobService.updateJobStatus(id, nextStatus);
+    setJobs(jobs.map((j) => (String(j.id) === String(id) ? { ...j, status: nextStatus } : j)));
     showToast(`Đã chuyển trạng thái tin sang: ${nextStatus}`);
   };
 
-  const handleDeleteJob = (id) => {
-    mockStore.deleteJob(id);
-    setJobs(jobs.filter((j) => j.id !== id));
-    setSelectedJobIds((prev) => prev.filter((item) => item !== id));
+  const handleDeleteJob = async (id) => {
+    await jobService.deleteJob(id);
+    setJobs(jobs.filter((j) => String(j.id) !== String(id)));
+    setSelectedJobIds((prev) => prev.filter((item) => String(item) !== String(id)));
+    showToast("Đã xóa tin tuyển dụng thành công");
   };
 
   const handleOpenPreview = (job) => {
