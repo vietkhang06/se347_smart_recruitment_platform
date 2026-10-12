@@ -47,6 +47,10 @@ app:
   auth:
     require-email-verification: false
 
+security:
+  jwt:
+    secret: ${JWT_SECRET:dGhpc19pc19hX3Zlcnlfc2VjdXJlX2p3dF9zZWNyZXRfa2V5X2Zvcl9tYXRjaGFqb2JfZGV2XzIwMjY=}
+
 springdoc:
   api-docs:
     enabled: true

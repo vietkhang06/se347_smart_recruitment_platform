@@ -14,12 +14,6 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
         @ComponentScan.Filter(
             type = FilterType.REGEX,
             pattern = "com\\.matchajob\\.api\\..*"
-        ),
-        @ComponentScan.Filter(
-            type = FilterType.ASSIGNABLE_TYPE,
-            classes = {
-                com.matchajob.backend.BackendApplication.class
-            }
         )
     }
 )
@@ -31,13 +25,15 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
     "com.matchajob.cv",
     "com.matchajob.processing",
     "com.matchajob.matching",
-    "com.matchajob.application"
+    "com.matchajob.application",
+    "com.matchajob.user"
 })
 @EnableJpaRepositories(basePackages = {
     "com.matchajob.cv",
     "com.matchajob.processing",
     "com.matchajob.matching",
-    "com.matchajob.application"
+    "com.matchajob.application",
+    "com.matchajob.user"
 })
 public class MatchaJobApplication {
 

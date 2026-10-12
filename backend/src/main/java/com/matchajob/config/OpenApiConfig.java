@@ -8,8 +8,12 @@ import io.swagger.v3.oas.models.info.License;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import io.swagger.v3.oas.models.servers.Server;
+import org.springdoc.core.properties.SpringDocConfigProperties;
+import org.springdoc.core.properties.SwaggerUiConfigProperties;
+import org.springdoc.core.properties.SwaggerUiOAuthProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 
 import java.util.List;
 
@@ -17,6 +21,24 @@ import java.util.List;
 public class OpenApiConfig {
 
     public static final String SECURITY_SCHEME_NAME = "BearerAuth";
+
+    @Bean
+    @Primary
+    public SwaggerUiConfigProperties swaggerUiConfigProperties() {
+        return new SwaggerUiConfigProperties();
+    }
+
+    @Bean
+    @Primary
+    public SwaggerUiOAuthProperties swaggerUiOAuthProperties() {
+        return new SwaggerUiOAuthProperties();
+    }
+
+    @Bean
+    @Primary
+    public SpringDocConfigProperties springDocConfigProperties() {
+        return new SpringDocConfigProperties();
+    }
 
     @Bean
     public OpenAPI customOpenAPI() {
