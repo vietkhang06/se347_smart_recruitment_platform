@@ -1,32 +1,27 @@
 package com.matchajob.application;
 
 import com.matchajob.MatchaJobApplication;
-import com.matchajob.application.controller.ApplicationController;
 import com.matchajob.application.dto.*;
+import com.matchajob.cv.model.ApplicationCvSnapshot;
 import com.matchajob.application.model.ApplicationEntity;
 import com.matchajob.application.model.ApplicationStatusHistory;
+import com.matchajob.cv.repository.ApplicationCvSnapshotRepository;
 import com.matchajob.application.repository.ApplicationRepository;
 import com.matchajob.application.repository.ApplicationStatusHistoryRepository;
 import com.matchajob.application.service.ApplicationService;
-import com.matchajob.client.stub.AiWorkerStub;
-import com.matchajob.cv.model.ApplicationCvSnapshot;
 import com.matchajob.cv.model.CvVersion;
-import com.matchajob.cv.repository.ApplicationCvSnapshotRepository;
 import com.matchajob.cv.repository.CvVersionRepository;
 import com.matchajob.matching.model.MatchResult;
 import com.matchajob.matching.repository.MatchResultRepository;
+import com.matchajob.client.stub.AiWorkerStub;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.web.server.ResponseStatusException;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -35,8 +30,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * End-to-end integration tests for the Application recruitment workflow.
- * Uses the deterministic AI Worker Stub (ai-stub profile) for completely offline testing.
+ * End-to-end integration tests for the Application workflow:
+ * - Apply for job with CV version snapshot
+ * - Status transition lifecycle (new -> screening -> interview -> offer -> hired)
+ * - Candidate ranking sorted by AI match score
+ * - Audit history tracking
+ *
  * Runs against real PostgreSQL schema with Flyway V5.
  */
 @SpringBootTest(classes = MatchaJobApplication.class)
@@ -44,9 +43,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Tag("integration")
 @DisplayName("Application Workflow Integration Tests")
 class ApplicationWorkflowIT {
-
-    @Autowired
-    private ApplicationController applicationController;
 
     @Autowired
     private ApplicationService applicationService;
@@ -118,12 +114,12 @@ class ApplicationWorkflowIT {
             INSERT INTO companies (id, owner_id, name)
             VALUES (?, ?, 'Test Corp ' || ?)
             """)
-            .params(companyId, employerUserId, companyId.toString().substring(0, 8))
+            .params(companyId, employerUserId, companyId)
             .update();
 
         jdbcClient.sql("""
-            INSERT INTO jobs (id, company_id, created_by, title, status, work_type, salary_mode)
-            VALUES (?, ?, ?, 'Senior Backend Engineer', ?, 'full_time', 'negotiable')
+            INSERT INTO jobs (id, company_id, created_by, title, status, work_type, salary_mode, salary_min, salary_max)
+            VALUES (?, ?, ?, 'Backend Engineer', ?, 'full_time', 'range', 1000, 2000)
             """)
             .params(jobId, companyId, employerUserId, status)
             .update();
@@ -172,11 +168,9 @@ class ApplicationWorkflowIT {
                 .coverLetter("I am very interested in this Backend position.")
                 .build();
 
-        ResponseEntity<ApplicationResponse> response = applicationController.submitApplication(
+        ApplicationResponse body = applicationService.applyForJob(
                 cand.candidateId(), cand.userId(), request);
 
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-        ApplicationResponse body = response.getBody();
         assertThat(body).isNotNull();
         assertThat(body.getApplicationId()).isNotNull();
         assertThat(body.getCandidateId()).isEqualTo(cand.candidateId());
@@ -203,7 +197,7 @@ class ApplicationWorkflowIT {
     }
 
     @Test
-    @DisplayName("Submit application fails with 409 Conflict when duplicate application is attempted")
+    @DisplayName("Submit application fails with DuplicateApplicationException when duplicate application is attempted")
     void submitApplication_duplicateFailsWithConflict() {
         CandidateFixture cand = createCandidateFixture();
         UUID employerId = createEmployerUser();
@@ -217,18 +211,14 @@ class ApplicationWorkflowIT {
                 .build();
 
         // First apply succeeds
-        ResponseEntity<ApplicationResponse> first = applicationController.submitApplication(
+        ApplicationResponse first = applicationService.applyForJob(
                 cand.candidateId(), cand.userId(), request);
-        assertThat(first.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(first).isNotNull();
 
-        // Second apply to same job throws 409 Conflict
-        assertThatThrownBy(() -> applicationController.submitApplication(cand.candidateId(), cand.userId(), request))
-                .isInstanceOf(ResponseStatusException.class)
-                .satisfies(ex -> {
-                    ResponseStatusException rse = (ResponseStatusException) ex;
-                    assertThat(rse.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
-                    assertThat(rse.getReason()).contains("already applied");
-                });
+        // Second apply to same job throws DuplicateApplicationException
+        assertThatThrownBy(() -> applicationService.applyForJob(cand.candidateId(), cand.userId(), request))
+                .isInstanceOf(ApplicationService.DuplicateApplicationException.class)
+                .hasMessageContaining("already applied");
     }
 
     @Test
@@ -244,12 +234,9 @@ class ApplicationWorkflowIT {
                 .cvVersionId(cvVersionId)
                 .build();
 
-        assertThatThrownBy(() -> applicationController.submitApplication(cand.candidateId(), cand.userId(), request))
-                .isInstanceOf(ResponseStatusException.class)
-                .satisfies(ex -> {
-                    ResponseStatusException rse = (ResponseStatusException) ex;
-                    assertThat(rse.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-                });
+        assertThatThrownBy(() -> applicationService.applyForJob(cand.candidateId(), cand.userId(), request))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("not accepting applications");
     }
 
     @Test
@@ -265,51 +252,46 @@ class ApplicationWorkflowIT {
                 .cvVersionId(cvVersionId)
                 .build();
 
-        ApplicationResponse app = applicationController.submitApplication(
-                cand.candidateId(), cand.userId(), applyReq).getBody();
+        ApplicationResponse app = applicationService.applyForJob(
+                cand.candidateId(), cand.userId(), applyReq);
         UUID appId = app.getApplicationId();
 
         // 1. Transition: new -> screening
-        ResponseEntity<StageUpdateResponse> r1 = applicationController.updateApplicationStage(
+        StageUpdateResponse r1 = applicationService.updateStage(
                 appId, employerId,
                 ApplicationStageUpdateRequest.builder().toStage("screening").reason("Good resume").build());
-        assertThat(r1.getBody().getCurrentStage()).isEqualTo("screening");
+        assertThat(r1.getCurrentStage()).isEqualTo("screening");
 
         // 2. Transition: screening -> interview
-        ResponseEntity<StageUpdateResponse> r2 = applicationController.updateApplicationStage(
+        StageUpdateResponse r2 = applicationService.updateStage(
                 appId, employerId,
                 ApplicationStageUpdateRequest.builder().toStage("interview").reason("Passed screening call").build());
-        assertThat(r2.getBody().getCurrentStage()).isEqualTo("interview");
+        assertThat(r2.getCurrentStage()).isEqualTo("interview");
 
         // 3. Transition: interview -> offer
-        ResponseEntity<StageUpdateResponse> r3 = applicationController.updateApplicationStage(
+        StageUpdateResponse r3 = applicationService.updateStage(
                 appId, employerId,
                 ApplicationStageUpdateRequest.builder().toStage("offer").reason("Passed tech interview").build());
-        assertThat(r3.getBody().getCurrentStage()).isEqualTo("offer");
+        assertThat(r3.getCurrentStage()).isEqualTo("offer");
 
         // 4. Transition: offer -> hired (Terminal state)
-        ResponseEntity<StageUpdateResponse> r4 = applicationController.updateApplicationStage(
+        StageUpdateResponse r4 = applicationService.updateStage(
                 appId, employerId,
                 ApplicationStageUpdateRequest.builder().toStage("hired").reason("Candidate accepted offer").build());
-        assertThat(r4.getBody().getCurrentStage()).isEqualTo("hired");
+        assertThat(r4.getCurrentStage()).isEqualTo("hired");
 
         // 5. Verify full history (5 entries: initial new + 4 transitions)
-        ResponseEntity<List<ApplicationHistoryResponse>> histResp = applicationController.getApplicationHistory(appId);
-        List<ApplicationHistoryResponse> history = histResp.getBody();
+        List<ApplicationHistoryResponse> history = applicationService.getApplicationHistory(appId, null);
         assertThat(history).hasSize(5);
         assertThat(history.get(0).getToStage()).isEqualTo("hired");
         assertThat(history.get(4).getToStage()).isEqualTo("new");
 
         // 6. Verify terminal state prevents further transitions
-        assertThatThrownBy(() -> applicationController.updateApplicationStage(
+        assertThatThrownBy(() -> applicationService.updateStage(
                 appId, employerId,
                 ApplicationStageUpdateRequest.builder().toStage("screening").reason("Reopen").build()))
-                .isInstanceOf(ResponseStatusException.class)
-                .satisfies(ex -> {
-                    ResponseStatusException rse = (ResponseStatusException) ex;
-                    assertThat(rse.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-                    assertThat(rse.getReason()).contains("terminal stage");
-                });
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("terminal stage");
     }
 
     @Test
@@ -323,13 +305,13 @@ class ApplicationWorkflowIT {
         UUID cv1 = createCvVersionFixture(cand1.candidateId());
         UUID cv2 = createCvVersionFixture(cand2.candidateId());
 
-        ApplicationResponse app1 = applicationController.submitApplication(
+        ApplicationResponse app1 = applicationService.applyForJob(
                 cand1.candidateId(), cand1.userId(),
-                ApplicationApplyRequest.builder().jobId(jobId).cvVersionId(cv1).build()).getBody();
+                ApplicationApplyRequest.builder().jobId(jobId).cvVersionId(cv1).build());
 
-        ApplicationResponse app2 = applicationController.submitApplication(
+        ApplicationResponse app2 = applicationService.applyForJob(
                 cand2.candidateId(), cand2.userId(),
-                ApplicationApplyRequest.builder().jobId(jobId).cvVersionId(cv2).build()).getBody();
+                ApplicationApplyRequest.builder().jobId(jobId).cvVersionId(cv2).build());
 
         // Seed match results: Candidate 1 gets 60, Candidate 2 gets 95
         matchResultRepository.save(MatchResult.builder()
@@ -355,11 +337,9 @@ class ApplicationWorkflowIT {
                 .build());
 
         // Get rankings
-        ResponseEntity<ApplicationRankingResponse> rankResp = applicationController.getJobRanking(
-                jobId, null, null);
+        ApplicationRankingResponse ranking = applicationService.getJobRankings(
+                jobId, null, null, null);
 
-        assertThat(rankResp.getStatusCode()).isEqualTo(HttpStatus.OK);
-        ApplicationRankingResponse ranking = rankResp.getBody();
         assertThat(ranking).isNotNull();
         assertThat(ranking.getTotalCandidates()).isEqualTo(2);
 

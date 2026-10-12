@@ -19,10 +19,13 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * REST controller for the application workflow endpoints.
+ * Controller for Candidate job applications, stage workflow, history, and ranking.
  *
- * Identity is derived authoritatively from the JWT Authentication principal.
- * Client-provided headers (X-Candidate-Id, X-User-Id) are accepted for backwards compatibility but strictly ignored.
+ * Identity & Ownership Rules (Phase 4A):
+ * - POST /v1/applications: Identity strictly derived from JWT principal (candidate profile id).
+ * - PATCH /v1/applications/{applicationId}/stage: Identity strictly derived from JWT principal (HR user id).
+ *   Requires employer ownership of the job associated with the application.
+ * - Legacy headers X-Candidate-Id and X-User-Id are ignored if supplied.
  */
 @RestController
 @RequestMapping("/v1")
@@ -56,23 +59,6 @@ public class ApplicationController {
 
         log.info("POST /v1/applications — candidate={}, user={}, job={}", candidateId, userId, request.getJobId());
 
-        return submitApplicationInternal(candidateId, userId, request);
-    }
-
-    /**
-     * Programmatic overload for internal integration tests.
-     */
-    public ResponseEntity<ApplicationResponse> submitApplication(
-            UUID candidateId,
-            UUID userId,
-            ApplicationApplyRequest request) {
-        return submitApplicationInternal(candidateId, userId, request);
-    }
-
-    private ResponseEntity<ApplicationResponse> submitApplicationInternal(
-            UUID candidateId,
-            UUID userId,
-            ApplicationApplyRequest request) {
         try {
             ApplicationResponse response = applicationService.applyForJob(candidateId, userId, request);
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
@@ -101,23 +87,6 @@ public class ApplicationController {
         UUID userId = SecurityUtils.extractUserId(authentication);
         log.info("PATCH /v1/applications/{}/stage — toStage={}, user={}", applicationId, request.getToStage(), userId);
 
-        return updateApplicationStageInternal(applicationId, userId, request);
-    }
-
-    /**
-     * Programmatic overload for internal integration tests.
-     */
-    public ResponseEntity<StageUpdateResponse> updateApplicationStage(
-            UUID applicationId,
-            UUID userId,
-            ApplicationStageUpdateRequest request) {
-        return updateApplicationStageInternal(applicationId, userId, request);
-    }
-
-    private ResponseEntity<StageUpdateResponse> updateApplicationStageInternal(
-            UUID applicationId,
-            UUID userId,
-            ApplicationStageUpdateRequest request) {
         try {
             StageUpdateResponse response = applicationService.updateStage(applicationId, userId, request);
             return ResponseEntity.ok(response);
@@ -150,14 +119,6 @@ public class ApplicationController {
         }
     }
 
-    /**
-     * Programmatic overload for internal integration tests.
-     */
-    public ResponseEntity<List<ApplicationHistoryResponse>> getApplicationHistory(
-            @PathVariable UUID applicationId) {
-        return getApplicationHistory(applicationId, null);
-    }
-
     // =========================================================================
     // GET /v1/jobs/{jobId}/applications/ranking — Ranked candidates for a job
     // =========================================================================
@@ -178,16 +139,6 @@ public class ApplicationController {
                     ? HttpStatus.NOT_FOUND : HttpStatus.BAD_REQUEST;
             throw new ResponseStatusException(status, ex.getMessage(), ex);
         }
-    }
-
-    /**
-     * Programmatic overload for internal integration tests.
-     */
-    public ResponseEntity<ApplicationRankingResponse> getJobRanking(
-            UUID jobId,
-            String stage,
-            Integer minScore) {
-        return getJobRanking(jobId, null, stage, minScore);
     }
 
     // =========================================================================
