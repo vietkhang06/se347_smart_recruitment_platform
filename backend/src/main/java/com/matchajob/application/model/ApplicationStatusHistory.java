@@ -2,6 +2,8 @@ package com.matchajob.application.model;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -38,6 +40,7 @@ public class ApplicationStatusHistory {
     @Column(name = "reason", columnDefinition = "TEXT")
     private String reason;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "metadata", columnDefinition = "JSONB")
     @Builder.Default
     private String metadata = "{}";

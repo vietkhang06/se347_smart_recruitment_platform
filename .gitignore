@@ -88,3 +88,8 @@ scratch/
 !docs/contracts/fixtures/**
 !docs/contracts/owner-packets/
 !docs/contracts/owner-packets/**
+
+# Auth & ERD v2 Documentation
+!docs/ERD_v2.md
+!docs/Auth_API_Contract_v2.md
+!docs/Implementation_Checklist_Batch_3.md

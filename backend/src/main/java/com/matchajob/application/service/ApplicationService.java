@@ -20,6 +20,9 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.matchajob.security.ResourceOwnershipService;
+import org.springframework.security.access.AccessDeniedException;
+
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -41,6 +44,29 @@ public class ApplicationService {
     private final ProcessingJobService processingJobService;
     private final ApplicationStateMachine stateMachine;
     private final JdbcClient jdbcClient;
+    private final ResourceOwnershipService resourceOwnershipService;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public ApplicationService(
+            ApplicationRepository applicationRepository,
+            ApplicationStatusHistoryRepository historyRepository,
+            CvVersionRepository cvVersionRepository,
+            ApplicationCvSnapshotRepository snapshotRepository,
+            MatchResultRepository matchResultRepository,
+            ProcessingJobService processingJobService,
+            ApplicationStateMachine stateMachine,
+            JdbcClient jdbcClient,
+            ResourceOwnershipService resourceOwnershipService) {
+        this.applicationRepository = applicationRepository;
+        this.historyRepository = historyRepository;
+        this.cvVersionRepository = cvVersionRepository;
+        this.snapshotRepository = snapshotRepository;
+        this.matchResultRepository = matchResultRepository;
+        this.processingJobService = processingJobService;
+        this.stateMachine = stateMachine;
+        this.jdbcClient = jdbcClient;
+        this.resourceOwnershipService = resourceOwnershipService;
+    }
 
     public ApplicationService(
             ApplicationRepository applicationRepository,
@@ -51,14 +77,8 @@ public class ApplicationService {
             ProcessingJobService processingJobService,
             ApplicationStateMachine stateMachine,
             JdbcClient jdbcClient) {
-        this.applicationRepository = applicationRepository;
-        this.historyRepository = historyRepository;
-        this.cvVersionRepository = cvVersionRepository;
-        this.snapshotRepository = snapshotRepository;
-        this.matchResultRepository = matchResultRepository;
-        this.processingJobService = processingJobService;
-        this.stateMachine = stateMachine;
-        this.jdbcClient = jdbcClient;
+        this(applicationRepository, historyRepository, cvVersionRepository, snapshotRepository,
+             matchResultRepository, processingJobService, stateMachine, jdbcClient, null);
     }
 
     // =========================================================================
@@ -91,7 +111,7 @@ public class ApplicationService {
         CvVersion cvVersion = cvVersionRepository.findById(cvVersionId)
                 .orElseThrow(() -> new IllegalArgumentException("CV version not found: " + cvVersionId));
         if (!cvVersion.getCandidateId().equals(candidateId)) {
-            throw new IllegalArgumentException("CV version does not belong to this candidate.");
+            throw new AccessDeniedException("CV version does not belong to this candidate.");
         }
 
         // 4. Create the application record
@@ -158,6 +178,10 @@ public class ApplicationService {
      */
     @Transactional
     public StageUpdateResponse updateStage(UUID applicationId, UUID userId, ApplicationStageUpdateRequest request) {
+        if (resourceOwnershipService != null && userId != null) {
+            resourceOwnershipService.checkEmployerApplicationOwnership(userId, applicationId);
+        }
+
         ApplicationEntity application = applicationRepository.findById(applicationId)
                 .orElseThrow(() -> new IllegalArgumentException("Application not found: " + applicationId));
 
@@ -210,7 +234,11 @@ public class ApplicationService {
     /**
      * Retrieve the full status transition history for an application.
      */
-    public List<ApplicationHistoryResponse> getApplicationHistory(UUID applicationId) {
+    public List<ApplicationHistoryResponse> getApplicationHistory(UUID applicationId, UUID userId) {
+        if (resourceOwnershipService != null && userId != null) {
+            resourceOwnershipService.checkApplicationAccess(userId, applicationId);
+        }
+
         // Verify application exists
         if (!applicationRepository.existsById(applicationId)) {
             throw new IllegalArgumentException("Application not found: " + applicationId);
@@ -229,6 +257,10 @@ public class ApplicationService {
                 .toList();
     }
 
+    public List<ApplicationHistoryResponse> getApplicationHistory(UUID applicationId) {
+        return getApplicationHistory(applicationId, null);
+    }
+
     // =========================================================================
     // 4. Get Job Application Rankings (sorted by match score)
     // =========================================================================
@@ -237,7 +269,11 @@ public class ApplicationService {
      * Get all applications for a job, ranked by match_results.overall_score DESC.
      * Joins applications with match_results and candidate_profiles/users for name.
      */
-    public ApplicationRankingResponse getJobRankings(UUID jobId, String stageFilter, Integer minScore) {
+    public ApplicationRankingResponse getJobRankings(UUID jobId, UUID userId, String stageFilter, Integer minScore) {
+        if (resourceOwnershipService != null && userId != null) {
+            resourceOwnershipService.checkEmployerJobOwnership(userId, jobId);
+        }
+
         List<ApplicationEntity> applications = applicationRepository.findByJobIdOrderByAppliedAtDesc(jobId);
 
         // Build ranking items with match result data
@@ -296,6 +332,10 @@ public class ApplicationService {
                 .totalCandidates(items.size())
                 .items(items)
                 .build();
+    }
+
+    public ApplicationRankingResponse getJobRankings(UUID jobId, String stageFilter, Integer minScore) {
+        return getJobRankings(jobId, null, stageFilter, minScore);
     }
 
     // =========================================================================
