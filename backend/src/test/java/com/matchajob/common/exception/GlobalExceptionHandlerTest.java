@@ -22,7 +22,7 @@ class GlobalExceptionHandlerTest {
 
         assertThat(problem.getStatus()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR.value());
         assertThat(problem.getTitle()).isEqualTo("Internal Server Error");
-        assertThat(problem.getDetail()).isEqualTo("Simulated failure");
+        assertThat(problem.getDetail()).isEqualTo("An unexpected server error occurred.");
         assertThat(problem.getProperties()).containsKey("timestamp");
     }
 

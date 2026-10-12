@@ -6,6 +6,7 @@ import com.matchajob.client.dto.CVExtractResponse;
 import com.matchajob.client.dto.EmbeddingsResponse;
 import com.matchajob.client.dto.MatchScoreResponse;
 import com.matchajob.cv.controller.CvController;
+import com.matchajob.cv.dto.CvUploadResponse;
 import com.matchajob.cv.model.CvVersion;
 import com.matchajob.cv.repository.CvVersionRepository;
 import com.matchajob.cv.service.CvProcessingOrchestrator;
@@ -24,6 +25,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.ResourceAccessException;
@@ -172,11 +176,15 @@ class CvProcessingIT {
         when(aiWorkerClient.generateEmbeddings(anyList())).thenReturn(embeddingsResponse);
 
         // Execute synchronous upload & processing
-        ResponseEntity<Map<String, Object>> response = cvController.uploadCv(candidateId, file, true);
+        ResponseEntity<CvUploadResponse> response = cvController.uploadCv(
+                candidateId,
+                authenticationForCandidate(candidateId),
+                file,
+                true);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
-        UUID cvVersionId = (UUID) response.getBody().get("cv_version_id");
-        UUID processingJobId = (UUID) response.getBody().get("processing_job_id");
+        UUID cvVersionId = Objects.requireNonNull(response.getBody()).cvVersionId();
+        UUID processingJobId = response.getBody().processingJobId();
 
         // Verify CvVersion persisted and updated to "extracted"
         Optional<CvVersion> cvOpt = cvVersionRepository.findById(cvVersionId);
@@ -200,14 +208,14 @@ class CvProcessingIT {
         UUID entityId = UUID.randomUUID();
         String idempotencyKey = "retry_test_" + entityId;
 
-        CvStorageService.StorageResult stored = storageService.store(
+        CvStorageService.StorageResult stored = storageService.store(candidateId,
                 new MockMultipartFile("file", "test.pdf", "application/pdf", createSamplePdfBytes())
         );
 
         // Create sample CvVersion
         CvVersion cv = cvVersionRepository.save(CvVersion.builder()
                 .candidateId(candidateId)
-                .filePath(stored.filePath())
+                .filePath(stored.objectKey())
                 .fileName(stored.fileName())
                 .fileSizeBytes(stored.fileSizeBytes())
                 .mimeType(stored.mimeType())
@@ -239,13 +247,13 @@ class CvProcessingIT {
         UUID entityId = UUID.randomUUID();
         String idempotencyKey = "perm_fail_" + entityId;
 
-        CvStorageService.StorageResult stored = storageService.store(
+        CvStorageService.StorageResult stored = storageService.store(candidateId,
                 new MockMultipartFile("file", "corrupt.pdf", "application/pdf", createSamplePdfBytes())
         );
 
         CvVersion cv = cvVersionRepository.save(CvVersion.builder()
                 .candidateId(candidateId)
-                .filePath(stored.filePath())
+                .filePath(stored.objectKey())
                 .fileName(stored.fileName())
                 .fileSizeBytes(stored.fileSizeBytes())
                 .mimeType(stored.mimeType())
@@ -330,5 +338,16 @@ class CvProcessingIT {
                 "Microservices backend"
         );
         assertThat(duplicateCall.getId()).isEqualTo(result.getId());
+    }
+
+    private Authentication authenticationForCandidate(UUID candidateId) {
+        UUID userId = jdbcClient.sql("SELECT user_id FROM candidate_profiles WHERE id = ?")
+                .param(candidateId)
+                .query(UUID.class)
+                .single();
+        return new UsernamePasswordAuthenticationToken(
+                userId,
+                null,
+                List.of(new SimpleGrantedAuthority("ROLE_CANDIDATE")));
     }
 }

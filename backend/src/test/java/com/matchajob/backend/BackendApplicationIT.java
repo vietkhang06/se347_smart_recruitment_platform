@@ -7,8 +7,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 @SpringBootTest(classes = MatchaJobApplication.class)
 class BackendApplicationIT {
 
-	@Test
-	void contextLoads() {
-	}
-
+    @Test
+    void contextLoads() {
+    }
 }

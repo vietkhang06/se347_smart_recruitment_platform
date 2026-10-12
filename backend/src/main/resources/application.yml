@@ -10,6 +10,15 @@ spring:
     name: matchajob-backend
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
+  servlet:
+    multipart:
+      max-file-size: ${MATCHAJOB_CV_MAX_FILE_SIZE:10MB}
+      max-request-size: ${MATCHAJOB_CV_MAX_REQUEST_SIZE:11MB}
+
+matchajob:
+  upload-dir: ${MATCHAJOB_UPLOAD_DIR:target/uploads/cv}
+  cv:
+    max-file-size: ${MATCHAJOB_CV_MAX_FILE_SIZE:10MB}
 
 management:
   endpoints:
@@ -21,13 +30,14 @@ management:
       show-details: when_authorized
       probes:
         enabled: true
+      group:
+        readiness:
+          include: readinessState,db,pgVector
 
-# Security & JWT baseline configuration
 security:
   jwt:
     expiration-ms: ${JWT_EXPIRATION_MS:3600000}
 
-# Authentication & verification policies
 app:
   auth:
     require-email-verification: ${REQUIRE_EMAIL_VERIFICATION:true}

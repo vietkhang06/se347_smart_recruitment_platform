@@ -14,7 +14,6 @@ frontend/.env.*.local
 
 # Dependencies & Build artifacts
 node_modules/
-package-lock.json
 target/
 backend/target/
 dist/
@@ -57,6 +56,10 @@ $RECYCLE.BIN/
 # docs/ - exclude documentation files per project config
 docs/**
 !docs/.gitkeep
+!docs/contracts/
+!docs/contracts/**
+!docs/weekly/
+!docs/weekly/**
 FE_WORKFLOW.md
 FE_UI_FLOW.md
 README_FE.md
