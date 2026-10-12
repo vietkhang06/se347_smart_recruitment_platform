@@ -1,8 +1,8 @@
 # Báo cáo triển khai Tuần 1 — Docker, Health Check và CV Storage
 
-Ngày kiểm tra: 12/10/2026  
-Nhánh kiểm tra: `main`  
-Commit nền: `080d8c17e9dea8de421b2d7075f00d46d3e263b7`
+Ngày kiểm tra ban đầu: 12/10/2026
+Cập nhật tích hợp Auth/JWT: 13/10/2026
+Nhánh kiểm tra: `feat/devops-docker-health-cv-storage` sau khi hợp nhất `origin/main`
 
 ## 1. Mục tiêu công việc
 
@@ -12,7 +12,7 @@ Tuần 1 tập trung vào ba nền tảng kỹ thuật:
 2. Đối chiếu health check với endpoint thật trong source và cải thiện script vận hành cục bộ.
 3. Làm chắc nền tảng lưu CV: kiểm tra loại tệp, lưu bền vững, metadata phiên bản, tải/xem tệp và hợp đồng API.
 
-Phạm vi không bao gồm triển khai JWT/RBAC hoàn chỉnh, S3/MinIO, hàng đợi, Kubernetes, matching/ranking hay viết lại kiến trúc. Các thay đổi được giữ nhỏ và tương thích với prefix hiện tại `/api/v1/candidates`.
+Phạm vi tuần 1 không tự triển khai Auth/JWT, S3/MinIO, hàng đợi, Kubernetes, matching/ranking hay viết lại kiến trúc. Khi hợp nhất `main`, lớp Auth/JWT và ownership do thành viên Backend tài khoản phát triển được tích hợp vào endpoint CV mà không thay đổi prefix `/api/v1/candidates`.
 
 ## 2. Hiện trạng trước khi thực hiện
 
@@ -70,7 +70,7 @@ Trong Docker, Backend dùng DNS theo service name `database` và `ai-worker`, kh
 | Ghi file không nguyên tử | `CvStorageService` | Ghi thẳng file đích | Có thể để lại tệp dở | Đã sửa bằng file tạm và atomic move khi filesystem hỗ trợ |
 | Có thể để file rác khi DB lỗi | `CvController` | File được ghi trước transaction DB | Orphan file | Đã sửa: dọn object khi đăng ký CV/job thất bại |
 | API lộ đường dẫn nội bộ và dữ liệu trích xuất | `CvController` | Trả JPA entity trực tiếp | Rò rỉ chi tiết nội bộ/CV | Đã sửa bằng DTO public |
-| `candidateId` không được dùng để scope endpoint chi tiết | `CvController`, `CvVersionRepository` | Tìm CV chỉ theo ID | Có thể đọc nhầm CV của candidate khác | Đã sửa ở mức quan hệ dữ liệu; Auth vẫn là blocker |
+| `candidateId` không được dùng để scope endpoint chi tiết | `CvController`, `CvVersionRepository` | Tìm CV chỉ theo ID | Có thể đọc nhầm CV của candidate khác | Đã sửa bằng truy vấn candidate-scoped và ownership JWT |
 | Chưa có download/preview | `CvController` | Chưa triển khai | Frontend không lấy được tệp đã lưu | Đã bổ sung endpoint nhỏ nhất, candidate-scoped |
 | MIME chỉ dựa vào khai báo client | `CvStorageService` | Chưa đối chiếu extension/signature | Có thể nhận sai loại tệp | Đã sửa: extension + MIME + magic bytes |
 | Reset DB có thể xóa mọi volume | `scripts/reset-db-dev.ps1` | Dùng `down -v` | Nguy cơ xóa CV | Đã sửa: chỉ xóa `matchajob_postgres_data` |
@@ -79,7 +79,7 @@ Trong Docker, Backend dùng DNS theo service name `database` và `ai-worker`, kh
 | Backend readiness mặc định chưa buộc kiểm tra DB/pgvector | `application.yml` | Actuator probe group chưa khai báo contributor | Có thể báo ready dù DB hỏng sau startup | Đã thêm `readinessState,db,pgVector`; Flyway lỗi vẫn làm startup fail |
 | Script start/status kiểm tra endpoint chưa chính xác | `scripts/start-dev.ps1`, `status-dev.ps1` | Kiểm tra port hoặc endpoint tổng quát | Có thể báo READY sai | Đã dùng readiness endpoint thật |
 | CV status không chuyển sang `failed` khi processing job thất bại | `CvProcessingOrchestrator`, `ProcessingJobService` | Hiện chỉ job chuyển `FAILED`; CV giữ `uploaded` | UI phải đọc job để biết lỗi | Chưa sửa để tránh thay đổi workflow AI ngoài phạm vi; cần Đại Hưng/Khải Vạn thống nhất state machine |
-| Chưa có JWT/RBAC | Auth module và CV endpoints | Module thành viên khác chưa hoàn thành | URL candidate vẫn chưa chứng minh ownership | Blocker/phụ thuộc Backend tài khoản |
+| Nhánh CV ban đầu chưa có JWT/RBAC | Auth module và CV endpoints | Hai nhánh phát triển độc lập | URL candidate từng chưa chứng minh ownership | Đã giải quyết khi merge: giữ Auth/JWT và `ResourceOwnershipService`, bỏ overload bỏ qua xác thực |
 | Có nhiều Spring application/config cũ trong repo | Backend source/config | Di sản cấu trúc cũ | Rủi ro cấu hình chồng chéo | Ngoài phạm vi tuần này; Maven hiện chỉ định main class đang dùng |
 | Frontend có nhiều lint warning và bundle lớn | Frontend source | Nợ kỹ thuật giao diện | Rủi ro maintainability/performance | Ngoài phạm vi tuần này; build vẫn pass |
 
@@ -99,7 +99,7 @@ Trong Docker, Backend dùng DNS theo service name `database` và `ai-worker`, kh
 
 - `CvStorageService`: sanitize tên hiển thị, chặn traversal, kiểm tra PDF/DOCX bằng extension + MIME + magic bytes, stream file, tính SHA-256 trong một lượt, ghi file tạm rồi move, trả logical object key thay vì physical path.
 - `CvRegistrationService`: gom thao tác tạo `CvVersion` và `ProcessingJob` vào transaction Spring thật sự.
-- `CvController`: trả DTO an toàn, dọn file nếu transaction đăng ký thất bại, scope metadata/download theo candidate, bổ sung download/preview.
+- `CvController`: trả DTO an toàn, dọn file nếu transaction đăng ký thất bại, scope metadata/download theo candidate, bổ sung download/preview và bắt buộc kiểm tra JWT/ownership.
 - `CvVersionRepository`: thêm truy vấn theo đồng thời CV ID và candidate ID.
 - `GlobalExceptionHandler`: chuẩn hóa lỗi 400/404/413 và không trả nội dung exception nội bộ trong lỗi 500.
 - Test mới kiểm tra storage và controller; test cũ được cập nhật để tương thích contract mới.
@@ -117,7 +117,7 @@ Trong Docker, Backend dùng DNS theo service name `database` và `ai-worker`, kh
 
 ### Hành vi đã triển khai
 
-1. Client gửi `multipart/form-data` tới `POST /api/v1/candidates/{candidateId}/cv`.
+1. Client gửi Bearer JWT và `multipart/form-data` tới `POST /api/v1/candidates/{candidateId}/cv`; Backend xác minh user sở hữu candidate profile trước khi ghi tệp.
 2. Spring chặn request vượt `max-request-size`; service kiểm tra rỗng, dung lượng, extension, MIME và magic bytes.
 3. Tên gốc được chuyển về basename và sanitize; server tự tạo object key `candidates/{candidateId}/{uuid}.pdf|docx`.
 4. Tệp được stream vào file tạm dưới storage root, đồng thời tính SHA-256; sau khi hợp lệ mới move sang object đích.
@@ -125,12 +125,12 @@ Trong Docker, Backend dùng DNS theo service name `database` và `ai-worker`, kh
 6. Nếu bước DB thất bại, controller cố gắng xóa object vừa ghi.
 7. Worker/orchestrator hiện có sẽ đọc object, gọi AI Worker để extract, gọi embeddings và lưu kết quả. Khi thành công CV chuyển `extracted`, job chuyển `COMPLETED`.
 8. Khi job lỗi, job có thể quay lại `PENDING` theo backoff hoặc chuyển `FAILED`. CV hiện chưa chuyển `failed`; đây là thiếu sót đã ghi nhận.
-9. `GET /api/v1/candidates/{candidateId}/cv` trả danh sách version mới nhất trước, không trả storage path/raw text/parsed data.
-10. `GET .../{cvVersionId}/download` đối chiếu candidate–version, resolve object key bên trong storage root và trả binary với `attachment` hoặc `inline`.
+9. `GET /api/v1/candidates/{candidateId}/cv` chỉ cho candidate owner và trả danh sách version mới nhất trước, không trả storage path/raw text/parsed data.
+10. Metadata/download đối chiếu candidate–version và cho phép candidate owner hoặc employer đủ điều kiện xem hồ sơ ứng tuyển; download resolve object key bên trong storage root và trả binary với `attachment` hoặc `inline`.
 
 ### Hành vi mới ở mức contract/chưa hoàn chỉnh
 
-- `401/403` và ownership thật chỉ là contract; chưa thể thực thi khi JWT/RBAC chưa có.
+- `401/403` và ownership đã được thực thi sau khi hợp nhất Auth/JWT; admin chưa có cơ chế truy cập CV riêng và không được tự động bypass.
 - Quy tắc bỏ qua hoặc hợp nhất file trùng SHA-256 chưa được chốt; hiện mỗi upload hợp lệ tạo version mới.
 - Xóa version, chọn version active và cleanup object mất metadata chưa nằm trong tuần 1.
 - Trạng thái CV `failed` là trạng thái mục tiêu nhưng hiện job status mới là nguồn xác định lỗi xử lý.
@@ -144,9 +144,9 @@ Contract chi tiết nằm tại `docs/contracts/cv-storage-contract.md`. Tóm t�
 | `POST` | `/api/v1/candidates/{candidateId}/cv` | `202`, metadata upload + processing job ID | Đã triển khai |
 | `GET` | `/api/v1/candidates/{candidateId}/cv` | `200`, danh sách metadata | Đã triển khai |
 | `GET` | `/api/v1/candidates/{candidateId}/cv/{cvVersionId}` | `200`, metadata một version | Đã triển khai và scope theo candidate |
-| `GET` | `/api/v1/candidates/{candidateId}/cv/{cvVersionId}/download` | `200`, PDF/DOCX binary | Đã triển khai; Auth còn blocker |
+| `GET` | `/api/v1/candidates/{candidateId}/cv/{cvVersionId}/download` | `200`, PDF/DOCX binary | Đã triển khai với JWT/ownership |
 
-Lỗi dùng RFC 7807 `application/problem+json`: `400` validation, `404` metadata/object không tồn tại, `413` vượt multipart limit; `401/403` được dành cho Auth/RBAC tương lai. API không trả absolute filesystem path.
+Lỗi dùng RFC 7807 `application/problem+json`: `400` validation, `401` chưa xác thực, `403` sai quyền sở hữu/vai trò, `404` metadata/object không tồn tại và `413` vượt multipart limit. API không trả absolute filesystem path.
 
 ## 8. Cấu hình Docker và biến môi trường
 
@@ -170,6 +170,9 @@ Lỗi dùng RFC 7807 `application/problem+json`: `400` validation, `404` metadat
 | `MATCHAJOB_UPLOAD_DIR` | backend | `/data/cv` trong Compose | Root lưu CV | Không |
 | `MATCHAJOB_CV_MAX_FILE_SIZE` | backend | `10MB` | Giới hạn một file | Không |
 | `MATCHAJOB_CV_MAX_REQUEST_SIZE` | backend | `11MB` | Giới hạn multipart request | Không |
+| `JWT_SECRET` | backend | placeholder development | Ký/xác minh JWT | Có; production bắt buộc thay bằng secret riêng |
+| `JWT_EXPIRATION_MS` | backend | `3600000` | Thời hạn JWT (ms) | Tùy chính sách môi trường |
+| `REQUIRE_EMAIL_VERIFICATION` | backend | `false` trong Compose dev | Bật/tắt yêu cầu xác minh email | Có; production nên là `true` |
 | `AI_WORKER_HOST_PORT` | ai-worker | `8001` | Port AI trên host | Có |
 | `AI_WORKER_CONTAINER_PORT` | ai-worker | `8000` | Port Uvicorn trong container | Không |
 | `APP_ENV` | ai-worker | `development` | Nhãn môi trường/health response | Có |
@@ -190,10 +193,11 @@ Lỗi dùng RFC 7807 `application/problem+json`: `400` validation, `404` metadat
 | Recreate Backend và kiểm tra volume CV | Chưa xác minh | Không thể chạy container khi daemon tắt |
 | `backend\\mvnw.cmd test` | Pass | `16` test, `0` failure, `0` error; `BUILD SUCCESS` |
 | `backend\\mvnw.cmd test` ngay sau khi thêm readiness group | Fail rồi đã sửa | Test context chủ động loại DataSource nên contributor `db` không tồn tại; thêm test-only `validate-group-membership=false`, lần chạy cuối pass 16/16. Cấu hình runtime vẫn validate contributor. |
+| `backend\\mvnw.cmd clean test` sau khi hợp nhất Auth/JWT | Pass | `228` test, `0` failure, `0` error; integration test được tách khỏi unit-test lifecycle đúng mục đích |
 | `python -m pytest` lần đầu | Fail do môi trường | Không collect được vì thiếu `pydantic_settings` |
-| Cài `pydantic-settings==2.3.4` vào thư mục tạm rồi `python -m pytest` | Pass | `12 passed`, 1 cảnh báo deprecation; repository không bị sửa |
+| Cài dependency vào thư mục tạm rồi `python -m pytest tests` sau merge | Pass | `23 passed`, 1 cảnh báo deprecation; gồm health/CV/contract fixtures |
 | `npm install --legacy-peer-deps --omit=optional ...` | Pass | Cài 70 package; sau đó bổ sung native bindings platform vào local `node_modules` |
-| `npm run build` | Pass | Vite build 348 module; có cảnh báo chunk JS `956.17 kB` lớn hơn 500 kB |
+| `npm run build` sau merge | Pass | Vite build 378 module; có cảnh báo chunk JS `1,020.21 kB` lớn hơn 500 kB |
 | `npm run lint` | Pass có cảnh báo | Exit code 0; nhiều warning tồn tại sẵn về unused/state/effect/immutability |
 | `npm ci --dry-run --no-audit --no-fund` | Pass | Lockfile đồng bộ với `package.json`, trạng thái `up to date` |
 | PowerShell parser cho `scripts/*.ps1` | Pass | 6/6 script parse hợp lệ |
@@ -212,9 +216,9 @@ Không có lệnh nào được báo Pass nếu chưa chạy thành công. Runti
 
 ### Phụ thuộc Auth/RBAC
 
-- Route đã scope CV theo candidate trong database nhưng chưa biết danh tính người gọi.
-- Không được mở endpoint CV công khai trên production trước khi Backend tài khoản bổ sung JWT, ownership và `401/403`.
-- Owner phù hợp: Backend tài khoản/hồ sơ, phối hợp Backend CV.
+- JWT và ownership đã được tích hợp cho candidate/employer; unit/controller test đã xác minh đường gọi bắt buộc đi qua `ResourceOwnershipService`.
+- Còn thiếu chính sách admin truy cập CV, audit log cho thao tác tải/xem và integration test HTTP đầy đủ với PostgreSQL thật.
+- Owner phù hợp: Backend tài khoản/hồ sơ phối hợp Backend CV.
 
 ### Phụ thuộc AI Worker
 
@@ -330,9 +334,9 @@ Script reset mới chỉ xóa `matchajob_postgres_data` và giữ `matchajob_cv_
 | 7. CV dùng persistent volume | Đạt ở cấu hình; persistence runtime chưa xác minh | Named volume `matchajob_cv_storage` |
 | 8. Storage directory cấu hình được | Đạt | `MATCHAJOB_UPLOAD_DIR`/`matchajob.upload-dir` |
 | 9. Contract đủ upload/download/version/status/storage/validation/auth | Đạt | `docs/contracts/cv-storage-contract.md` |
-| 10. Không phá hành vi processing hiện có | Đạt theo unit test; integration DB chưa xác minh | 16/16 Backend test pass |
+| 10. Không phá hành vi processing hiện có | Đạt theo unit test; integration DB chưa xác minh | `mvnw.cmd clean test`: 228 test pass |
 | 11. Test liên quan pass hoặc lỗi được ghi đúng | Đạt có điều kiện | Backend, AI, Frontend pass; Docker runtime chưa xác minh |
 | 12. Không thêm hạ tầng/feature ngoài phạm vi | Đạt | Không thêm S3, Redis, broker, Kubernetes |
 | 13. Có báo cáo tiếng Việt khớp thay đổi/lệnh | Đạt | File báo cáo này |
 
-Kết luận: phần code/config/contract của task tuần 1 đã được triển khai và kiểm thử tĩnh/unit thành công. Chưa đủ bằng chứng để kết luận “toàn bộ môi trường Docker chạy hoàn chỉnh” hoặc “CV tồn tại sau recreate container” cho đến khi bật Docker Desktop, chạy đủ bốn service, thực hiện upload bằng dữ liệu tổng hợp và kiểm tra lại named volume. Auth/RBAC vẫn là blocker bắt buộc trước khi cho phép truy cập CV trong môi trường ngoài nhóm phát triển.
+Kết luận: phần code/config/contract của task tuần 1 đã được triển khai và kiểm thử tĩnh/unit thành công; Auth/JWT và ownership từ `main` đã được hợp nhất mà vẫn giữ storage/download/DTO của nhánh CV. Chưa đủ bằng chứng để kết luận “toàn bộ môi trường Docker chạy hoàn chỉnh” hoặc “CV tồn tại sau recreate container” cho đến khi bật Docker Desktop, chạy đủ bốn service, thực hiện upload bằng dữ liệu tổng hợp và kiểm tra lại named volume. Các blocker còn lại là runtime Compose/DB integration, chính sách admin và audit log, không còn là thiếu JWT cơ bản.

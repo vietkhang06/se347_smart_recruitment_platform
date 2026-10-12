@@ -25,6 +25,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.ResourceAccessException;
@@ -68,6 +71,11 @@ class CvProcessingIT {
 
     @MockBean
     private AiWorkerClient aiWorkerClient;
+
+    @org.junit.jupiter.api.BeforeEach
+    void setUp() {
+        jdbcClient.sql("DELETE FROM embeddings WHERE entity_type = 'cv_version'").update();
+    }
 
     private byte[] createSamplePdfBytes() {
         return "%PDF-1.4 Mock PDF content for test extraction".getBytes(StandardCharsets.UTF_8);
@@ -168,7 +176,11 @@ class CvProcessingIT {
         when(aiWorkerClient.generateEmbeddings(anyList())).thenReturn(embeddingsResponse);
 
         // Execute synchronous upload & processing
-        ResponseEntity<CvUploadResponse> response = cvController.uploadCv(candidateId, file, true);
+        ResponseEntity<CvUploadResponse> response = cvController.uploadCv(
+                candidateId,
+                authenticationForCandidate(candidateId),
+                file,
+                true);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
         UUID cvVersionId = Objects.requireNonNull(response.getBody()).cvVersionId();
@@ -326,5 +338,16 @@ class CvProcessingIT {
                 "Microservices backend"
         );
         assertThat(duplicateCall.getId()).isEqualTo(result.getId());
+    }
+
+    private Authentication authenticationForCandidate(UUID candidateId) {
+        UUID userId = jdbcClient.sql("SELECT user_id FROM candidate_profiles WHERE id = ?")
+                .param(candidateId)
+                .query(UUID.class)
+                .single();
+        return new UsernamePasswordAuthenticationToken(
+                userId,
+                null,
+                List.of(new SimpleGrantedAuthority("ROLE_CANDIDATE")));
     }
 }

@@ -58,7 +58,7 @@ export default function UserDetailModal({ show, onHide, user, onToggleStatus, on
               backgroundColor: user.role === "Nhà tuyển dụng" ? "var(--primary)" : user.role === "Quản trị viên" ? "#0f172a" : "var(--purple)"
             }}
           >
-            {name.slice(0, 2).toUpperCase()}
+            {(user.avatar || name || user.name || user.fullName || "US").slice(0, 2).toUpperCase()}
           </div>
           <div className="overflow-hidden">
             <h6 className="fw-bold mb-0 text-truncate">{name}</h6>

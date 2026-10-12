@@ -35,7 +35,7 @@ export default function AdminProfileView() {
     <div data-aos="fade-up">
       <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
         <div>
-          <h5 className="fw-bold mb-0">Hồ sơ Quản trị viên Cấp cao (Super Admin)</h5>
+          <h5 className="fw-bold mb-0">Hồ sơ Quản trị viên Cấp cao</h5>
           <p className="text-muted small mb-0">Thông tin cá nhân, phạm vi quyền hạn và chứng thực tài khoản bảo mật</p>
         </div>
         <Button variant="success" size="sm" className="fw-bold" onClick={handleSave}>
@@ -57,9 +57,9 @@ export default function AdminProfileView() {
               <div>
                 <h5 className="fw-bold mb-0">{name}</h5>
                 <div className="text-muted small">Platform Administrator · MatchaJob Core Team</div>
-                <Badge bg="dark" className="border text-warning mt-1">
-                  <i className="bi bi-shield-lock-fill me-1"></i>SUPER ADMIN (Level 5)
-                </Badge>
+                <span className="status-badge status-badge-purple mt-1">
+                  <i className="bi bi-shield-lock-fill me-1"></i>Quản trị viên (Level 5)
+                </span>
               </div>
             </div>
 

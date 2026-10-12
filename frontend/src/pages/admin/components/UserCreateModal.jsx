@@ -29,7 +29,7 @@ export default function UserCreateModal({ show, onHide, onUserCreated }) {
       phone,
       role,
       companyName: role === "Nhà tuyển dụng" ? (companyName || name) : "",
-      avatar: name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase() || "US"
+      avatar: (name.trim().split(" ").filter(Boolean).map(w => w[0]).join("").slice(0, 2).toUpperCase()) || "US"
     });
 
     if (onUserCreated) onUserCreated(newUser);

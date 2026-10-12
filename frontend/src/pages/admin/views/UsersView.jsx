@@ -5,8 +5,10 @@ import Table from "react-bootstrap/Table";
 import Badge from "react-bootstrap/Badge";
 import Form from "react-bootstrap/Form";
 import InputGroup from "react-bootstrap/InputGroup";
+import Dropdown from "react-bootstrap/Dropdown";
 import UserDetailModal from "../components/UserDetailModal";
 import UserCreateModal from "../components/UserCreateModal";
+import CustomThreeDotsToggle from "../../../components/common/CustomThreeDotsToggle";
 import { useToast } from "../../../context/ToastContext";
 import { mockStore } from "../../../services/mockStore";
 
@@ -15,16 +17,19 @@ export default function UsersView({ users, setUsers }) {
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [selectedUserIds, setSelectedUserIds] = useState([]);
 
   const [selectedUser, setSelectedUser] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   const filteredUsers = users.filter((u) => {
+    const q = (search || "").toLowerCase().trim();
     const matchSearch =
-      u.name.toLowerCase().includes(search.toLowerCase()) ||
-      u.email.toLowerCase().includes(search.toLowerCase()) ||
-      u.id.toLowerCase().includes(search.toLowerCase());
+      !q ||
+      (u.name || "").toLowerCase().includes(q) ||
+      (u.email || "").toLowerCase().includes(q) ||
+      String(u.id || "").toLowerCase().includes(q);
 
     const matchRole = roleFilter === "all" ? true : u.role === roleFilter;
 
@@ -38,10 +43,57 @@ export default function UsersView({ users, setUsers }) {
     return matchSearch && matchRole && matchStatus;
   });
 
+  const isAllSelected = filteredUsers.length > 0 && selectedUserIds.length === filteredUsers.length;
+  const isPartiallySelected = selectedUserIds.length > 0 && selectedUserIds.length < filteredUsers.length;
+
+  const handleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedUserIds([]);
+    } else {
+      setSelectedUserIds(filteredUsers.map((u) => u.id));
+    }
+  };
+
+  const handleToggleSelectUser = (id) => {
+    setSelectedUserIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleBulkLock = () => {
+    selectedUserIds.forEach((id) => mockStore.setUserStatus(id, "Tạm khóa"));
+    setUsers(mockStore.getUsers());
+    showToast(`Đã tạm khóa ${selectedUserIds.length} tài khoản người dùng`);
+    setSelectedUserIds([]);
+  };
+
+  const handleBulkActivate = () => {
+    selectedUserIds.forEach((id) => mockStore.setUserStatus(id, "Hoạt động"));
+    setUsers(mockStore.getUsers());
+    showToast(`Đã kích hoạt ${selectedUserIds.length} tài khoản người dùng`);
+    setSelectedUserIds([]);
+  };
+
+  const handleBulkDelete = () => {
+    selectedUserIds.forEach((id) => mockStore.deleteUser(id));
+    setUsers(mockStore.getUsers());
+    showToast(`Đã xóa ${selectedUserIds.length} tài khoản người dùng`);
+    setSelectedUserIds([]);
+  };
+
   const toggleUserStatus = (id) => {
     const newStatus = mockStore.toggleUserStatus(id);
     setUsers(mockStore.getUsers());
     showToast(`Đã chuyển trạng thái tài khoản sang: ${newStatus}`);
+  };
+
+  const handleDeleteUser = (id) => {
+    mockStore.deleteUser(id);
+    setUsers(mockStore.getUsers());
+    showToast(`Đã xóa tài khoản ${id}`);
+    if (selectedUserIds.includes(id)) {
+      setSelectedUserIds((prev) => prev.filter((item) => item !== id));
+    }
   };
 
   const handleOpenDetail = (user) => {
@@ -116,34 +168,110 @@ export default function UsersView({ users, setUsers }) {
         </div>
       </div>
 
+      {/* Bulk Action Banner */}
+      {selectedUserIds.length > 0 && (
+        <div
+          className="alert d-flex flex-wrap justify-content-between align-items-center py-2 px-3 mb-3 rounded-3 border"
+          style={{ backgroundColor: "var(--primary-soft)", borderColor: "var(--primary)", color: "var(--text)" }}
+        >
+          <div className="d-flex align-items-center gap-2 small fw-semibold">
+            <i className="bi bi-check2-circle fs-5 text-success"></i>
+            <span>Đã chọn <strong className="text-success">{selectedUserIds.length}</strong> tài khoản người dùng</span>
+          </div>
+          <div className="d-flex gap-2 align-items-center flex-wrap">
+            <Button
+              variant="outline-success"
+              size="sm"
+              className="rounded-pill"
+              onClick={handleBulkActivate}
+            >
+              <i className="bi bi-unlock me-1"></i>Kích hoạt đã chọn
+            </Button>
+            <Button
+              variant="outline-warning"
+              size="sm"
+              className="rounded-pill"
+              onClick={handleBulkLock}
+            >
+              <i className="bi bi-lock me-1"></i>Tạm khóa đã chọn
+            </Button>
+            <Button
+              variant="outline-danger"
+              size="sm"
+              className="rounded-pill"
+              onClick={handleBulkDelete}
+            >
+              <i className="bi bi-trash me-1"></i>Xóa đã chọn
+            </Button>
+            <Button
+              variant="link"
+              size="sm"
+              className="text-decoration-none text-muted p-0 ms-2 small"
+              onClick={() => setSelectedUserIds([])}
+            >
+              Bỏ chọn
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Users Table */}
       <div className="table-responsive">
-        <Table hover className="align-middle mb-0">
-          <thead className="table-light">
+        <Table hover className="matcha-table align-middle mb-0">
+          <thead>
             <tr>
-              <th>Mã người dùng</th>
-              <th>Họ và tên / Doanh nghiệp</th>
-              <th>Email liên hệ</th>
-              <th>Vai trò</th>
-              <th>Ngày tham gia</th>
-              <th>Trạng thái</th>
-              <th>Thao tác</th>
+              <th style={{ width: "48px", textAlign: "center" }}>
+                <Form.Check
+                  className="matcha-checkbox-wrap"
+                  type="checkbox"
+                  checked={isAllSelected}
+                  ref={(input) => {
+                    if (input) input.indeterminate = isPartiallySelected;
+                  }}
+                  onChange={handleSelectAll}
+                  aria-label="Chọn tất cả người dùng"
+                />
+              </th>
+              <th className="text-center text-nowrap" style={{ width: "110px" }}>Mã người dùng</th>
+              <th className="text-start text-nowrap">Họ và tên / Doanh nghiệp</th>
+              <th className="text-start text-nowrap">Email liên hệ</th>
+              <th className="text-center text-nowrap">Vai trò</th>
+              <th className="text-center text-nowrap">Ngày tham gia</th>
+              <th className="text-center text-nowrap">Trạng thái</th>
+              <th className="text-center text-nowrap" style={{ width: "80px" }}>Thao tác</th>
             </tr>
           </thead>
           <tbody>
             {filteredUsers.length === 0 ? (
               <tr>
-                <td colSpan="7" className="text-center py-4 text-muted">
+                <td colSpan="8" className="text-center py-4 text-muted">
                   Không tìm thấy tài khoản người dùng phù hợp.
                 </td>
               </tr>
             ) : (
               filteredUsers.map((u) => {
-                const isActive = u.status === "Hoạt động" || u.status === "Đã xác minh";
+                const isRoleAdmin = u.role === "Quản trị viên" || u.role === "admin" || u.roleCode === "admin";
+                const isRoleEmployer = u.role === "Nhà tuyển dụng" || u.role === "employer" || u.roleCode === "employer";
+                const roleLabel = isRoleAdmin ? "Quản trị viên" : isRoleEmployer ? "Nhà tuyển dụng" : "Ứng viên";
+
+                const isActive = u.status === "Hoạt động" || u.status === "Đã xác minh" || u.status === "active" || u.statusCode === "active";
+                const isPending = u.status === "Chờ xác minh" || u.status === "pending" || u.statusCode === "pending";
+                const statusLabel = isActive ? "Hoạt động" : isPending ? "Chờ xác minh" : (u.status || "Tạm khóa");
+                const isSelected = selectedUserIds.includes(u.id);
+
                 return (
-                  <tr key={u.id}>
-                    <td><code>{u.id}</code></td>
-                    <td className="fw-semibold">
+                  <tr key={u.id} className={isSelected ? "table-active" : ""}>
+                    <td className="text-center">
+                      <Form.Check
+                        className="matcha-checkbox-wrap"
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => handleToggleSelectUser(u.id)}
+                        aria-label={`Chọn tài khoản ${u.id}`}
+                      />
+                    </td>
+                    <td className="text-center"><code>{u.id}</code></td>
+                    <td className="text-start fw-semibold">
                       <div className="d-flex align-items-center gap-2">
                         <div
                           className="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold shadow-sm flex-shrink-0"
@@ -151,47 +279,83 @@ export default function UsersView({ users, setUsers }) {
                             width: "32px",
                             height: "32px",
                             fontSize: "12px",
-                            backgroundColor: u.role === "Nhà tuyển dụng" ? "var(--primary)" : u.role === "Quản trị viên" ? "#0f172a" : "var(--purple)"
+                            backgroundColor: isRoleEmployer ? "var(--primary)" : isRoleAdmin ? "#0f172a" : "var(--purple)"
                           }}
                         >
-                          {u.name.slice(0, 2).toUpperCase()}
+                          {(u.avatar || u.name || u.fullName || "US").slice(0, 2).toUpperCase()}
                         </div>
                         <div>
-                          <div className="text-body">{u.name}</div>
+                          <div className="text-body">{u.name || u.fullName || "Người dùng"}</div>
                           {u.companyName && <small className="text-muted">{u.companyName}</small>}
                         </div>
                       </div>
                     </td>
-                    <td>{u.email}</td>
-                    <td>
-                      <Badge bg={u.role === "Nhà tuyển dụng" ? "primary" : u.role === "Quản trị viên" ? "dark" : "secondary"}>
-                        {u.role}
-                      </Badge>
+                    <td className="text-start text-muted">{u.email}</td>
+                    <td className="text-center">
+                      <span
+                        className={`status-badge ${
+                          isRoleEmployer
+                            ? "status-badge-info"
+                            : isRoleAdmin
+                            ? "status-badge-purple"
+                            : "status-badge-secondary"
+                        }`}
+                      >
+                        {isRoleEmployer && <i className="bi bi-briefcase me-1"></i>}
+                        {isRoleAdmin && <i className="bi bi-shield-check me-1"></i>}
+                        {!isRoleEmployer && !isRoleAdmin && <i className="bi bi-person me-1"></i>}
+                        {roleLabel}
+                      </span>
                     </td>
-                    <td className="text-muted small">{u.joined}</td>
-                    <td>
-                      <Badge bg={isActive ? "success" : u.status === "Chờ xác minh" ? "warning" : "danger"}>
-                        {u.status}
-                      </Badge>
+                    <td className="text-center text-muted small">{u.joined || u.createdAt || "Mới gia nhập"}</td>
+                    <td className="text-center">
+                      <span
+                        className={`status-badge ${
+                          isActive
+                            ? "status-badge-success"
+                            : isPending
+                            ? "status-badge-warning"
+                            : "status-badge-danger"
+                        }`}
+                      >
+                        {statusLabel}
+                      </span>
                     </td>
-                    <td>
-                      <div className="d-flex gap-1">
-                        <Button
-                          variant="outline-secondary"
-                          size="sm"
-                          onClick={() => handleOpenDetail(u)}
-                        >
-                          Chi tiết
-                        </Button>
-                        <Button
-                          variant={isActive ? "outline-danger" : "outline-success"}
-                          size="sm"
-                          title={isActive ? "Khóa tài khoản" : "Mở khóa tài khoản"}
-                          onClick={() => toggleUserStatus(u.id)}
-                        >
-                          <i className={`bi ${isActive ? "bi-lock" : "bi-unlock"}`}></i>
-                        </Button>
-                      </div>
+                    <td className="text-center">
+                      <Dropdown align="end">
+                        <Dropdown.Toggle as={CustomThreeDotsToggle} />
+                        <Dropdown.Menu className="matcha-dropdown-menu py-2">
+                          <Dropdown.Item
+                            onClick={() => handleOpenDetail(u)}
+                            className="small py-2"
+                          >
+                            <i className="bi bi-person-lines-fill text-primary me-2"></i>Xem chi tiết hồ sơ
+                          </Dropdown.Item>
+                          <Dropdown.Item
+                            onClick={() => toggleUserStatus(u.id)}
+                            className={`small py-2 ${isActive ? "text-warning" : "text-success"}`}
+                          >
+                            <i className={`bi ${isActive ? "bi-lock text-warning" : "bi-unlock text-success"} me-2`}></i>
+                            {isActive ? "Tạm khóa tài khoản" : "Mở khóa tài khoản"}
+                          </Dropdown.Item>
+                          <Dropdown.Divider />
+                          <Dropdown.Item
+                            onClick={() => {
+                              navigator.clipboard?.writeText(u.email);
+                              showToast(`Đã sao chép email ${u.email}`);
+                            }}
+                            className="small py-2"
+                          >
+                            <i className="bi bi-envelope text-secondary me-2"></i>Sao chép email
+                          </Dropdown.Item>
+                          <Dropdown.Item
+                            onClick={() => handleDeleteUser(u.id)}
+                            className="small py-2 text-danger"
+                          >
+                            <i className="bi bi-trash text-danger me-2"></i>Xóa tài khoản
+                          </Dropdown.Item>
+                        </Dropdown.Menu>
+                      </Dropdown>
                     </td>
                   </tr>
                 );

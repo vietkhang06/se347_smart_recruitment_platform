@@ -8,7 +8,7 @@
 - Default maximum file size: 10 MB
 - Error media type: `application/problem+json`
 
-Authentication is not implemented in the current backend. The routes enforce that the requested CV row belongs to the `candidateId` in the route, but they cannot yet prove that the authenticated user owns that candidate profile. JWT/RBAC must add that check without changing these routes or response shapes.
+Authentication is implemented with Bearer JWT. The controller derives the user ID from the authenticated principal and applies resource-ownership checks; the `candidateId` in the route is never trusted as identity by itself. Candidate upload/list is limited to the owning profile. Metadata/download is allowed to the candidate owner or to an employer who manages a job receiving an application from that candidate.
 
 ## Data model
 
@@ -71,6 +71,7 @@ Example:
 
 ```bash
 curl -X POST "http://localhost:8081/api/v1/candidates/CANDIDATE_UUID/cv" \
+  -H "Authorization: Bearer JWT_TOKEN" \
   -F "file=@synthetic-resume.pdf;type=application/pdf"
 ```
 
@@ -92,7 +93,8 @@ Errors:
 | Status | Condition |
 |---|---|
 | `400` | Empty file, unsupported extension, MIME mismatch, invalid signature or invalid identifier. |
-| `403` | Reserved for authenticated ownership/RBAC failure. |
+| `401` | Missing, invalid or expired JWT. |
+| `403` | Authenticated user does not own the candidate profile. |
 | `413` | Multipart request exceeds the configured request limit. |
 | `500` | Storage or persistence failure. The backend attempts to remove an orphan file if database registration fails. |
 
@@ -122,7 +124,8 @@ Example validation error:
 - Response: an array of public CV metadata, newest first.
 
 ```bash
-curl "http://localhost:8081/api/v1/candidates/CANDIDATE_UUID/cv"
+curl -H "Authorization: Bearer JWT_TOKEN" \
+  "http://localhost:8081/api/v1/candidates/CANDIDATE_UUID/cv"
 ```
 
 ```json
@@ -141,14 +144,15 @@ curl "http://localhost:8081/api/v1/candidates/CANDIDATE_UUID/cv"
 ]
 ```
 
-An empty list is returned when the candidate has no CV version. `401` and `403` are contract-only until JWT/RBAC exists. Example future access-denied response:
+An empty list is returned when the candidate has no CV version. Missing authentication returns `401`; a valid identity that does not own the candidate profile returns `403`. Example access-denied response:
 
 ```json
 {
-  "type": "https://matchajob.com/errors/access-denied",
-  "title": "Access denied",
+  "type": "https://matchajob.com/errors/forbidden",
+  "title": "Forbidden",
   "status": 403,
-  "detail": "You may not view CV versions for this candidate.",
+  "detail": "Access is denied: insufficient permissions or invalid role",
+  "code": "FORBIDDEN",
   "timestamp": "2026-10-12T02:00:00Z"
 }
 ```
@@ -166,10 +170,12 @@ An empty list is returned when the candidate has no CV version. `401` and `403` 
 - Success: `200 OK`
 - Response: public CV metadata.
 - `404 Not Found`: the version does not exist or does not belong to the route candidate.
-- `403 Forbidden`: reserved for authenticated ownership/RBAC failure.
+- `401 Unauthorized`: JWT is missing, invalid or expired.
+- `403 Forbidden`: the authenticated user is neither the candidate owner nor an eligible reviewing employer.
 
 ```bash
-curl "http://localhost:8081/api/v1/candidates/CANDIDATE_UUID/cv/CV_VERSION_UUID"
+curl -H "Authorization: Bearer JWT_TOKEN" \
+  "http://localhost:8081/api/v1/candidates/CANDIDATE_UUID/cv/CV_VERSION_UUID"
 ```
 
 The success response has the public metadata shape shown in **Data model**. Example error:
@@ -186,7 +192,7 @@ The success response has the public metadata shape shown in **Data model**. Exam
 
 ## 4. Download or preview CV content
 
-**Implementation:** implemented; authenticated ownership remains blocked by the Auth/JWT module.
+**Implementation:** implemented with authenticated ownership checks.
 
 - Method: `GET`
 - Route: `/api/v1/candidates/{candidateId}/cv/{cvVersionId}/download`
@@ -200,7 +206,8 @@ The success response has the public metadata shape shown in **Data model**. Exam
 - Headers: safe UTF-8 `Content-Disposition`, `Cache-Control: no-store`.
 
 ```bash
-curl -OJ "http://localhost:8081/api/v1/candidates/CANDIDATE_UUID/cv/CV_VERSION_UUID/download"
+curl -OJ -H "Authorization: Bearer JWT_TOKEN" \
+  "http://localhost:8081/api/v1/candidates/CANDIDATE_UUID/cv/CV_VERSION_UUID/download"
 ```
 
 Errors:
@@ -208,7 +215,8 @@ Errors:
 | Status | Condition |
 |---|---|
 | `400` | `disposition` is not `attachment` or `inline`. |
-| `403` | Reserved for authenticated ownership/RBAC failure. |
+| `401` | Missing, invalid or expired JWT. |
+| `403` | Authenticated user is neither the candidate owner nor an eligible reviewing employer. |
 | `404` | Metadata does not match the candidate, or the stored object no longer exists. |
 
 The success body is the binary CV content. Example invalid-query response:
@@ -245,14 +253,12 @@ Unexpected server errors use a generic detail and do not expose stack traces or 
 4. Duplicate SHA-256 values are recorded but are not rejected during Week 1; product rules for duplicate versions remain a later decision.
 5. Deletion and active-version selection are not part of the Week 1 contract.
 
-## Authorization integration contract
-
-When Auth/JWT is available:
+## Authorization rules
 
 - Candidate: upload/list/view/download only their own versions.
 - Employer: view/download only through an application for a job owned by their company.
-- Admin: access only through an audited administrative use case.
+- Admin: no CV-specific bypass is implemented; an audited administrative use case must be designed separately.
 - A path `candidateId` must never be trusted as identity by itself.
 - Unauthorized identity returns `401`; authenticated but disallowed access returns `403`.
 
-Until then, these endpoints are suitable for controlled development and integration testing only, not production exposure.
+These checks cover route-level authentication and current ownership rules. Production readiness still requires runtime integration tests, audit logging and an explicit administrative-access policy.

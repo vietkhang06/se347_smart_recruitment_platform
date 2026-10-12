@@ -22,18 +22,23 @@ export default function CandidateDetailModal({
 
   if (!candidate) return null;
 
+  const candidateDisplayName = candidate.name || candidate.candidateName || "Ứng viên";
+  const candidateDisplayInitials = candidate.initials || candidate.candidateInitials || "UV";
+  const candidateDisplayRole = candidate.appliedJobTitle || candidate.role || candidate.candidateRole || "Ứng viên";
+  const candidateDisplayMatch = candidate.matchScore ?? candidate.match ?? 90;
+
   const handleStageSelect = (e) => {
     const nextStage = e.target.value;
     if (onStageChange) {
       onStageChange(candidate.id, nextStage);
-      showToast(`Đã chuyển ứng viên ${candidate.name} sang bước: ${nextStage}`);
+      showToast(`Đã chuyển ứng viên ${candidateDisplayName} sang bước: ${nextStage}`);
     }
   };
 
   const handleConfirmReject = () => {
     if (onRejectCandidate) {
       onRejectCandidate(candidate.id, rejectReason);
-      showToast(`Đã từ chối ứng viên ${candidate.name}`);
+      showToast(`Đã từ chối ứng viên ${candidateDisplayName}`);
       setRejecting(false);
       onHide();
     }
@@ -47,15 +52,15 @@ export default function CandidateDetailModal({
             className="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white shadow-sm flex-shrink-0"
             style={{ width: "52px", height: "52px", backgroundColor: "var(--primary)", fontSize: "1.2rem" }}
           >
-            {candidate.initials}
+            {candidateDisplayInitials}
           </div>
           <div>
             <div className="d-flex align-items-center gap-2">
-              <Modal.Title className="fw-bold fs-5 mb-0">{candidate.name}</Modal.Title>
+              <Modal.Title className="fw-bold fs-5 mb-0">{candidateDisplayName}</Modal.Title>
               {candidate.userId && <code className="small">{candidate.userId}</code>}
             </div>
             <span className="text-muted small">
-              {candidate.role} · {candidate.experience} kinh nghiệm
+              {candidateDisplayRole} · {candidate.experience || "Chưa cập nhật"} kinh nghiệm
             </span>
           </div>
         </div>
@@ -67,7 +72,7 @@ export default function CandidateDetailModal({
           <div>
             <div className="small text-muted mb-1">Mức độ tương thích AI (Job Matching):</div>
             <span className="fs-5 fw-bold text-success">
-              <i className="bi bi-stars me-1"></i>{candidate.match || 90}% Phù hợp với JD
+              <i className="bi bi-stars me-1"></i>{candidateDisplayMatch}% Phù hợp với JD
             </span>
           </div>
 
@@ -124,14 +129,14 @@ export default function CandidateDetailModal({
             <div className="small text-muted">Email liên hệ:</div>
             <div className="fw-semibold">
               <i className="bi bi-envelope text-muted me-1"></i>
-              {candidate.email || `${candidate.name.toLowerCase().replace(/\s+/g, '')}@gmail.com`}
+              {candidate.candidateEmail || candidate.email || `${candidateDisplayName.toLowerCase().replace(/\s+/g, '')}@gmail.com`}
             </div>
           </Col>
           <Col sm={6}>
             <div className="small text-muted">Số điện thoại:</div>
             <div className="fw-semibold">
               <i className="bi bi-telephone text-muted me-1"></i>
-              {candidate.phone || "0909 123 456"}
+              {candidate.candidatePhone || candidate.phone || "0909 123 456"}
             </div>
           </Col>
         </Row>

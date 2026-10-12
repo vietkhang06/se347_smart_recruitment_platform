@@ -24,7 +24,7 @@ Dự án hiện đã hoàn tất khởi tạo và chuyển đổi nền tảng s
 ### Lựa chọn 1: Khởi chạy phiên bản React Mới (Khuyên dùng)
 ```bash
 # 1. Chuyển vào thư mục Frontend_React
-cd Frontend_React
+cd frontend
 
 # 2. Cài đặt các thư viện (chỉ cần chạy lần đầu)
 npm install
@@ -96,7 +96,7 @@ Bảng phân chia công việc để các thành viên trong nhóm có thể ti�
 | **4** | **Module hóa 18 Sub-views & Modals trong Portals** | ✅ **Hoàn thành** | Core Setup | Đã chia nhỏ toàn bộ các tab và modal trong `EmployerPortal` và `AdminPortal` thành các component độc lập (`views/`, `components/`). |
 | **5** | **Bộ soạn thảo & Xem trước tin đăng (JobComposer & Preview)** | ✅ **Hoàn thành** | Core Setup | Lịch custom hạn nộp > 7 ngày, format lương, kéo giãn modal, đồng bộ UI xem trước toàn độ rộng chuẩn ứng viên, header 2 dòng gọn gàng, click khôi phục bản nháp với popup xác nhận, cảnh báo rời đi an toàn khi chưa hoàn thành tin đăng. |
 | **6** | **Thẻ liên hệ HR phụ trách & Đồng bộ Hồ sơ (HRContactCard)** | ✅ **Hoàn thành** | Core Setup | Component dùng chung cố định ở cuối tin đăng (cả cổng Employer và Candidate Job Detail), tự động đồng bộ theo thời gian thực từ Hồ sơ chuyên viên HR (`ProfileView`). |
-| **7** | **Kết nối Backend REST API** | ⏳ **Chờ tiếp nhận** | Teammate A | Thay thế mock data trong `src/services/` bằng các hàm gọi API thật qua `axios`/`fetch` tới `http://localhost:3000/api`. |
+| **7** | **Kiến trúc Service Adapter & Kết nối Backend** | ✅ **Hoàn thành** | Core Setup | Kiến trúc Service Adapter (Hexagonal Ports & Adapters), 5 View Models chuẩn hóa, Mappers hai chiều, Fixtures độc lập và Native Fetch Client (chuyển đổi linh hoạt `VITE_DATA_SOURCE=mock/api`). |
 | **8** | **Tương tác Kéo-Thả (Drag & Drop) Kanban** | ⏳ **Chờ tiếp nhận** | Teammate B | Thêm tính năng kéo thả thẻ ứng viên giữa 5 cột giai đoạn tuyển dụng bằng `@hello-pangea/dnd` trong `PipelineView.jsx`. |
 | **9** | **Bộ tải lên tệp CV thực tế (File Upload)** | ⏳ **Chờ tiếp nhận** | Teammate C | Bổ sung khung chọn tệp PDF và kiểm tra định dạng/dung lượng file CV ở trang Profile và Modal Ứng tuyển. |
 | **10** | **Viết Unit Test & Kiểm thử Tự động** | ⏳ **Chờ tiếp nhận** | Teammate D | Cài đặt Vitest/React Testing Library để viết test cho Auth và Forms. |

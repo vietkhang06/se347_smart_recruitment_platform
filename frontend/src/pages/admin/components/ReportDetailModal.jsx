@@ -34,12 +34,12 @@ export default function ReportDetailModal({ show, onHide, report, onResolve }) {
               {report.severity}
             </Badge>
           </div>
-          <h6 className="fw-bold text-danger mb-1">{report.subject}</h6>
+          <h6 className="fw-bold text-danger mb-1">{report.subject || report.targetTitle || "Báo cáo vi phạm"}</h6>
           <div className="small text-muted">
-            Đối tượng bị phản ánh: <strong>{report.target}</strong>
+            Đối tượng bị phản ánh: <strong>{report.target || report.targetTitle || "Doanh nghiệp / Tin đăng"}</strong>
           </div>
           <div className="small text-muted">
-            Người gửi báo cáo: {report.reporter} · Cách đây {report.age}
+            Người gửi báo cáo: {report.reporter || report.reporterName || "Ẩn danh"} · {report.age ? `Cách đây ${report.age}` : (report.createdAt || "Gần đây")}
           </div>
         </div>
 

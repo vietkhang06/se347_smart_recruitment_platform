@@ -52,10 +52,10 @@ export default function AdminOverviewView({ adminData, onNavigateTab }) {
                 onClick={() => onNavigateTab("reports")}
               >
                 <div className="d-flex justify-content-between align-items-center mb-1">
-                  <strong className="text-danger small">
-                    <i className="bi bi-shield-slash me-1"></i>3 Báo cáo nghiêm trọng
+                  <strong className="alert-title-danger small d-flex align-items-center gap-1">
+                    <i className="bi bi-shield-slash-fill"></i>3 Báo cáo nghiêm trọng
                   </strong>
-                  <span className="badge bg-danger">SLA 38p</span>
+                  <span className="status-badge status-badge-danger" style={{ fontSize: "11px", padding: "1px 8px" }}>SLA 38p</span>
                 </div>
                 <div className="small text-muted">Có dấu hiệu thu phí ứng tuyển trái phép</div>
               </div>
@@ -65,10 +65,10 @@ export default function AdminOverviewView({ adminData, onNavigateTab }) {
                 onClick={() => onNavigateTab("moderation")}
               >
                 <div className="d-flex justify-content-between align-items-center mb-1">
-                  <strong className="text-warning small">
-                    <i className="bi bi-clock-history me-1"></i>8 Doanh nghiệp chờ xác minh
+                  <strong className="alert-title-warning small d-flex align-items-center gap-1">
+                    <i className="bi bi-clock-history"></i>8 Doanh nghiệp chờ xác minh
                   </strong>
-                  <span className="badge bg-warning">Quá 24h</span>
+                  <span className="status-badge status-badge-warning" style={{ fontSize: "11px", padding: "1px 8px" }}>Quá 24h</span>
                 </div>
                 <div className="small text-muted">Hồ sơ pháp lý cần đối soát mã số thuế</div>
               </div>
@@ -78,10 +78,10 @@ export default function AdminOverviewView({ adminData, onNavigateTab }) {
                 onClick={() => onNavigateTab("moderation")}
               >
                 <div className="d-flex justify-content-between align-items-center mb-1">
-                  <strong className="text-primary small">
-                    <i className="bi bi-card-checklist me-1"></i>26 Tin đăng chờ duyệt
+                  <strong className="alert-title-info small d-flex align-items-center gap-1">
+                    <i className="bi bi-card-checklist"></i>26 Tin đăng chờ duyệt
                   </strong>
-                  <span className="badge bg-secondary">Tự động flag</span>
+                  <span className="status-badge status-badge-info" style={{ fontSize: "11px", padding: "1px 8px" }}>Tự động flag</span>
                 </div>
                 <div className="small text-muted">Kiểm tra mức lương và tính minh bạch</div>
               </div>
@@ -107,24 +107,24 @@ export default function AdminOverviewView({ adminData, onNavigateTab }) {
         </div>
 
         <div className="table-responsive">
-          <Table hover className="align-middle mb-0">
-            <thead className="table-light">
+          <Table hover className="matcha-table align-middle mb-0">
+            <thead>
               <tr>
-                <th>Thời gian</th>
-                <th>Người thực hiện</th>
-                <th>Hành động</th>
-                <th>Đối tượng tác động</th>
-                <th>Địa chỉ IP</th>
+                <th className="text-start text-nowrap" style={{ width: "160px" }}>Thời gian</th>
+                <th className="text-start text-nowrap">Người thực hiện</th>
+                <th className="text-start text-nowrap">Hành động</th>
+                <th className="text-start text-nowrap">Đối tượng tác động</th>
+                <th className="text-center text-nowrap" style={{ width: "140px" }}>Địa chỉ IP</th>
               </tr>
             </thead>
             <tbody>
               {adminData.logs.slice(0, 3).map((l, i) => (
                 <tr key={i}>
-                  <td className="small text-muted">{l.time}</td>
-                  <td className="fw-semibold">{l.actor}</td>
-                  <td><code>{l.action}</code></td>
-                  <td>{l.target}</td>
-                  <td><small className="text-muted">{l.ip}</small></td>
+                  <td className="text-start text-muted small text-nowrap">{l.time || l.timestamp || "Vừa xong"}</td>
+                  <td className="text-start fw-semibold text-body">{l.actor}</td>
+                  <td className="text-start"><code>{l.action}</code></td>
+                  <td className="text-start text-body">{l.target}</td>
+                  <td className="text-center"><small className="text-muted font-monospace">{l.ip}</small></td>
                 </tr>
               ))}
             </tbody>

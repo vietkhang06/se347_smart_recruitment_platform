@@ -8,11 +8,11 @@ import java.util.UUID;
 
 @Getter
 @Setter
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-@Entity
-@Table(name = "applications")
+// Note: applications table is officially mapped by com.matchajob.application.model.ApplicationEntity.
+// This class is retained as a non-entity domain object to prevent duplicate entity mapping conflicts.
 public class Application {
 
     @Id

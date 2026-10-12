@@ -8,10 +8,8 @@ import java.util.UUID;
 @Getter
 @Setter
 @NoArgsConstructor
-@AllArgsConstructor
-@Builder
-@Entity
-@Table(name = "job_stages")
+// Note: table 'job_stages' does not exist in Flyway schema V1-V5.
+// Class retained as non-entity domain object.
 public class JobStage {
 
     @Id

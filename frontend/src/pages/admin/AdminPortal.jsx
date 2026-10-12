@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import { useState, useEffect, useCallback } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import Container from "react-bootstrap/Container";
 import Badge from "react-bootstrap/Badge";
 import Button from "react-bootstrap/Button";
 import Nav from "react-bootstrap/Nav";
+import { adminService, jobService, mockStore } from "../../services";
 import { MATCHAJOB_MOCK } from "../../services/mockData";
-import { mockStore } from "../../services/mockStore";
 import { useToast } from "../../context/ToastContext";
 
 // Modular Admin Views
@@ -22,6 +22,7 @@ import AdminProfileView from "./views/AdminProfileView";
 export default function AdminPortal() {
   const { showToast } = useToast();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const getInitialTab = () => {
     const hash = window.location.hash.replace("#", "");
@@ -36,11 +37,21 @@ export default function AdminPortal() {
     if (hash) setActiveTab(hash);
   }, [location.hash]);
 
+  useEffect(() => {
+    const handleHash = () => {
+      const hash = window.location.hash.replace("#", "");
+      if (hash) setActiveTab(hash);
+    };
+    window.addEventListener("hashchange", handleHash);
+    return () => window.removeEventListener("hashchange", handleHash);
+  }, []);
+
   const handleTabChange = (tabKey) => {
     setActiveTab(tabKey);
-    window.location.hash = tabKey;
+    navigate(`/admin#${tabKey}`);
   };
 
+  // State managed via adminService & Fixtures
   const [reviews, setReviews] = useState(() => mockStore.getReviews());
   const [users, setUsers] = useState(() => mockStore.getUsers());
   const [reports, setReports] = useState(() => mockStore.getReports());
@@ -48,21 +59,40 @@ export default function AdminPortal() {
   const [notifications, setNotifications] = useState(() => mockStore.getNotifications());
   const [logs, setLogs] = useState(() => mockStore.getAuditLogs());
 
+  const refreshAdminData = useCallback(async () => {
+    try {
+      const [revData, usrData, repData, catData, logData] = await Promise.all([
+        adminService.getReviews(),
+        adminService.getUsers(),
+        adminService.getReports(),
+        adminService.getCategories(),
+        adminService.getAuditLogs()
+      ]);
+      if (revData) setReviews(revData);
+      if (usrData) setUsers(usrData);
+      if (repData) setReports(repData);
+      if (catData) setCategories(catData);
+      if (logData) setLogs(logData);
+      setNotifications(mockStore.getNotifications());
+    } catch (err) {
+      console.warn("[AdminPortal] Lỗi nạp dữ liệu qua adminService:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshAdminData();
+  }, [refreshAdminData]);
+
   useEffect(() => {
     const handleStoreChange = () => {
-      setReviews(mockStore.getReviews());
-      setUsers(mockStore.getUsers());
-      setReports(mockStore.getReports());
-      setCategories(mockStore.getCategories());
-      setNotifications(mockStore.getNotifications());
-      setLogs(mockStore.getAuditLogs());
+      refreshAdminData();
     };
 
     window.addEventListener("matchajob:store-changed", handleStoreChange);
     return () => {
       window.removeEventListener("matchajob:store-changed", handleStoreChange);
     };
-  }, []);
+  }, [refreshAdminData]);
 
   const pendingReviewsCount = reviews.filter(
     (r) => r.status === "Chờ duyệt" || r.status === "Cần kiểm tra" || r.status === "Chờ xác minh"
@@ -95,9 +125,9 @@ export default function AdminPortal() {
         <div>
           <div className="d-flex align-items-center gap-2 mb-1 flex-wrap">
             <h2 className="fw-bold mb-0 fs-3">Trung tâm Điều hành Quản trị</h2>
-            <Badge bg="dark" className="border">
-              <i className="bi bi-shield-fill-check me-1 text-warning"></i>SUPER ADMIN
-            </Badge>
+            <span className="status-badge status-badge-purple">
+              <i className="bi bi-shield-fill-check me-1"></i>Quản trị hệ thống
+            </span>
           </div>
           <p className="text-muted small mb-0">Giám sát toàn cảnh hệ thống, kiểm duyệt nội dung và an ninh vận hành</p>
         </div>

@@ -117,7 +117,7 @@ export default function CompanyView({ companyData, onCompanyUpdated }) {
                 className="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold shadow position-absolute start-0 bottom-0 ms-4 translate-middle-y"
                 style={{ width: "68px", height: "68px", backgroundColor: "#0f172a", fontSize: "1.5rem", border: "3px solid #fff" }}
               >
-                {name.slice(0, 2).toUpperCase()}
+                {(name || "CP").slice(0, 2).toUpperCase()}
               </div>
             </div>
 
@@ -266,7 +266,7 @@ export default function CompanyView({ companyData, onCompanyUpdated }) {
                 className="rounded-3 d-flex align-items-center justify-content-center text-white fw-bold shadow-sm"
                 style={{ width: "48px", height: "48px", backgroundColor: "var(--primary)" }}
               >
-                {name.slice(0, 2).toUpperCase()}
+                {(name || "CP").slice(0, 2).toUpperCase()}
               </div>
               <div className="overflow-hidden">
                 <div className="fw-bold text-truncate">{name}</div>

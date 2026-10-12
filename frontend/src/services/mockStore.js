@@ -395,6 +395,20 @@ export const mockStore = {
     return newStatus;
   },
 
+  setUserStatus(id, status) {
+    const users = this.getUsers();
+    const next = users.map((u) => (u.id === id ? { ...u, status } : u));
+    save(STORAGE_KEYS.USERS, next);
+    this.addAuditLog("admin@matchajob.vn", "UPDATE_USER_STATUS", `${id} -> ${status}`, "10.24.6.18");
+  },
+
+  deleteUser(id) {
+    const users = this.getUsers();
+    const next = users.filter((u) => u.id !== id);
+    save(STORAGE_KEYS.USERS, next);
+    this.addAuditLog("admin@matchajob.vn", "DELETE_USER", id, "10.24.6.18");
+  },
+
   // ==========================================
   // 7. KIỂM DUYỆT (ADMIN MODERATION)
   // ==========================================

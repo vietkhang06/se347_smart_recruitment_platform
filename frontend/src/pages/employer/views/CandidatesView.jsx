@@ -34,23 +34,33 @@ export default function CandidatesView({ candidates, onOpenCandidate, onInviteCa
   const [stageFilter, setStageFilter] = useState("all");
   const [matchFilter, setMatchFilter] = useState("all");
 
-  const jobOptions = Array.from(new Set(candidates.map((c) => c.appliedJobTitle || c.role))).filter(Boolean);
+  const jobOptions = Array.from(
+    new Set(candidates.map((c) => c.appliedJobTitle || c.role || c.candidateRole))
+  ).filter(Boolean);
 
   const filteredCandidates = candidates.filter((c) => {
-    const matchSearch =
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.role.toLowerCase().includes(search.toLowerCase()) ||
-      (c.skills && c.skills.some((s) => s.toLowerCase().includes(search.toLowerCase())));
+    const name = (c.candidateName || c.name || "").toLowerCase();
+    const role = (c.candidateRole || c.role || "").toLowerCase();
+    const skills = Array.isArray(c.skills) ? c.skills : [];
+    const searchLower = (search || "").toLowerCase().trim();
 
-    const matchJob = jobFilter === "all" ? true : (c.appliedJobTitle || c.role) === jobFilter;
+    const matchSearch =
+      !searchLower ||
+      name.includes(searchLower) ||
+      role.includes(searchLower) ||
+      skills.some((s) => (s || "").toLowerCase().includes(searchLower));
+
+    const candidateJob = c.appliedJobTitle || c.role || c.candidateRole || "";
+    const matchJob = jobFilter === "all" ? true : candidateJob === jobFilter;
     const matchStage = stageFilter === "all" ? true : (c.stage || "Mới") === stageFilter;
 
+    const score = Number(c.matchScore ?? c.match ?? 0);
     const matchScore =
       matchFilter === "all"
         ? true
         : matchFilter === "90"
-        ? (c.match || 0) >= 90
-        : (c.match || 0) >= 80 && (c.match || 0) < 90;
+        ? score >= 90
+        : score >= 80 && score < 90;
 
     return matchSearch && matchJob && matchStage && matchScore;
   });
@@ -150,11 +160,11 @@ export default function CandidatesView({ candidates, onOpenCandidate, onInviteCa
                         className="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white shadow-sm flex-shrink-0"
                         style={{ width: "42px", height: "42px", backgroundColor: "var(--primary)" }}
                       >
-                        {c.initials}
+                        {c.initials || c.candidateInitials || "UV"}
                       </div>
                       <div className="overflow-hidden">
-                        <h6 className="fw-bold mb-0 text-truncate">{c.name}</h6>
-                        <div className="text-muted small text-truncate">{c.appliedJobTitle || c.role}</div>
+                        <h6 className="fw-bold mb-0 text-truncate">{c.name || c.candidateName || "Ứng viên"}</h6>
+                        <div className="text-muted small text-truncate">{c.appliedJobTitle || c.role || c.candidateRole}</div>
                       </div>
                     </div>
                     {/* Badge trạng thái với màu sắc chuyên biệt cho 5 giai đoạn */}
@@ -164,7 +174,7 @@ export default function CandidatesView({ candidates, onOpenCandidate, onInviteCa
                   </div>
 
                   <div className="small text-muted mb-2">
-                    <i className="bi bi-geo-alt me-1 text-danger"></i>{c.location || "TP.HCM"} · <i className="bi bi-briefcase me-1"></i>{c.experience}
+                    <i className="bi bi-geo-alt me-1 text-danger"></i>{c.location || "TP.HCM"} · <i className="bi bi-briefcase me-1"></i>{c.experience || "Chưa cập nhật"}
                   </div>
 
                   {/* Hiển thị đầy đủ 5 kỹ năng của ứng viên - Kích thước vừa vặn tự nhiên, không bị kéo dãn */}
@@ -178,7 +188,7 @@ export default function CandidatesView({ candidates, onOpenCandidate, onInviteCa
 
                   <div className="d-flex justify-content-between align-items-center pt-2 border-top mt-auto">
                     <span className="text-success fw-bold small">
-                      <i className="bi bi-stars me-1"></i>{c.match}% Phù hợp
+                      <i className="bi bi-stars me-1"></i>{c.matchScore ?? c.match ?? 0}% Phù hợp
                     </span>
                     <div className="d-flex gap-1">
                       <Button variant="outline-secondary" size="sm" onClick={() => onOpenCandidate(c)}>

@@ -7,6 +7,8 @@ import com.matchajob.cv.repository.CvVersionRepository;
 import com.matchajob.cv.service.CvProcessingOrchestrator;
 import com.matchajob.cv.service.CvRegistrationService;
 import com.matchajob.cv.service.CvStorageService;
+import com.matchajob.security.ResourceOwnershipService;
+import com.matchajob.security.SecurityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.CacheControl;
@@ -15,6 +17,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -40,23 +43,29 @@ public class CvController {
     private final CvVersionRepository cvVersionRepository;
     private final CvRegistrationService registrationService;
     private final CvProcessingOrchestrator orchestrator;
+    private final ResourceOwnershipService resourceOwnershipService;
 
     public CvController(
             CvStorageService storageService,
             CvVersionRepository cvVersionRepository,
             CvRegistrationService registrationService,
-            CvProcessingOrchestrator orchestrator) {
+            CvProcessingOrchestrator orchestrator,
+            ResourceOwnershipService resourceOwnershipService) {
         this.storageService = storageService;
         this.cvVersionRepository = cvVersionRepository;
         this.registrationService = registrationService;
         this.orchestrator = orchestrator;
+        this.resourceOwnershipService = resourceOwnershipService;
     }
 
     @PostMapping(value = "/{candidateId}/cv", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<CvUploadResponse> uploadCv(
             @PathVariable UUID candidateId,
+            Authentication authentication,
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "sync", defaultValue = "false") boolean sync) throws IOException {
+        UUID userId = SecurityUtils.extractUserId(authentication);
+        resourceOwnershipService.checkCandidateProfileOwnership(userId, candidateId);
 
         log.info("Received CV upload for candidate {} ({} bytes)", candidateId, file.getSize());
         CvStorageService.StorageResult storageResult = storageService.store(candidateId, file);
@@ -75,13 +84,8 @@ public class CvController {
 
         CvVersion cv = registration.cv();
         CvUploadResponse response = new CvUploadResponse(
-                cv.getId(),
-                candidateId,
-                cv.getFileName(),
-                cv.getFileSizeBytes(),
-                cv.getMimeType(),
-                cv.getStatus(),
-                registration.job().getId(),
+                cv.getId(), candidateId, cv.getFileName(), cv.getFileSizeBytes(), cv.getMimeType(),
+                cv.getStatus(), registration.job().getId(),
                 "CV uploaded successfully. Processing queued.");
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
     }
@@ -89,12 +93,20 @@ public class CvController {
     @GetMapping("/{candidateId}/cv/{cvVersionId}")
     public CvVersionResponse getCvVersion(
             @PathVariable UUID candidateId,
-            @PathVariable UUID cvVersionId) {
-        return CvVersionResponse.from(findCandidateCv(candidateId, cvVersionId));
+            @PathVariable UUID cvVersionId,
+            Authentication authentication) {
+        CvVersion cv = findCandidateCv(candidateId, cvVersionId);
+        UUID userId = SecurityUtils.extractUserId(authentication);
+        resourceOwnershipService.checkCvVersionAccess(userId, candidateId, cvVersionId);
+        return CvVersionResponse.from(cv);
     }
 
     @GetMapping("/{candidateId}/cv")
-    public List<CvVersionResponse> listCandidateCvs(@PathVariable UUID candidateId) {
+    public List<CvVersionResponse> listCandidateCvs(
+            @PathVariable UUID candidateId,
+            Authentication authentication) {
+        UUID userId = SecurityUtils.extractUserId(authentication);
+        resourceOwnershipService.checkCandidateProfileOwnership(userId, candidateId);
         return cvVersionRepository.findByCandidateIdOrderByCreatedAtDesc(candidateId)
                 .stream()
                 .map(CvVersionResponse::from)
@@ -105,13 +117,18 @@ public class CvController {
     public ResponseEntity<byte[]> downloadCv(
             @PathVariable UUID candidateId,
             @PathVariable UUID cvVersionId,
+            Authentication authentication,
             @RequestParam(value = "disposition", defaultValue = "attachment") String disposition) throws IOException {
-        CvVersion cv = findCandidateCv(candidateId, cvVersionId);
-        byte[] content = storageService.readFile(cv.getFilePath());
-        boolean inline = "inline".equals(disposition.toLowerCase(Locale.ROOT));
-        if (!inline && !"attachment".equals(disposition.toLowerCase(Locale.ROOT))) {
+        String normalizedDisposition = disposition.toLowerCase(Locale.ROOT);
+        boolean inline = "inline".equals(normalizedDisposition);
+        if (!inline && !"attachment".equals(normalizedDisposition)) {
             throw new IllegalArgumentException("Disposition must be either 'attachment' or 'inline'.");
         }
+
+        CvVersion cv = findCandidateCv(candidateId, cvVersionId);
+        UUID userId = SecurityUtils.extractUserId(authentication);
+        resourceOwnershipService.checkCvVersionAccess(userId, candidateId, cvVersionId);
+        byte[] content = storageService.readFile(cv.getFilePath());
 
         ContentDisposition contentDisposition = (inline
                 ? ContentDisposition.inline()
