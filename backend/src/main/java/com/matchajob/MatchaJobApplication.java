@@ -30,12 +30,14 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
     "com.matchajob.health",
     "com.matchajob.cv",
     "com.matchajob.processing",
-    "com.matchajob.matching"
+    "com.matchajob.matching",
+    "com.matchajob.application"
 })
 @EnableJpaRepositories(basePackages = {
     "com.matchajob.cv",
     "com.matchajob.processing",
-    "com.matchajob.matching"
+    "com.matchajob.matching",
+    "com.matchajob.application"
 })
 public class MatchaJobApplication {
 
