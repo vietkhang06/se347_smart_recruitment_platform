@@ -70,3 +70,21 @@ personal/
 notes/
 scratch/
 
+# SE347 - API Contract
+!docs/API_INVENTORY.md
+!docs/MVP_SCOPE.md
+!docs/API_CONTRACT.md
+!docs/INTEGRATION_CONTRACT.md
+!docs/CONTRACT_BACKLOG.md
+!docs/CONTRACT_REVIEW_AND_FREEZE.md
+!docs/CONTRACT_TEST_PLAN.md
+!docs/CONTRACT_WORK_PACKAGE.md
+!docs/DECISION_LOG.md
+!docs/OWNER_CONTRACT_MATRIX.md
+
+# Allow contract fixtures and owner review packets
+!docs/contracts/
+!docs/contracts/fixtures/
+!docs/contracts/fixtures/**
+!docs/contracts/owner-packets/
+!docs/contracts/owner-packets/**

@@ -24,7 +24,7 @@ Dự án hiện đã hoàn tất khởi tạo và chuyển đổi nền tảng s
 ### Lựa chọn 1: Khởi chạy phiên bản React Mới (Khuyên dùng)
 ```bash
 # 1. Chuyển vào thư mục Frontend_React
-cd Frontend_React
+cd frontend
 
 # 2. Cài đặt các thư viện (chỉ cần chạy lần đầu)
 npm install
