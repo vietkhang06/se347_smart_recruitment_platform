@@ -35,6 +35,22 @@ ai-worker:
   read-timeout-ms: 5000
 
 management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics
   endpoint:
     health:
       show-details: always
+
+app:
+  auth:
+    require-email-verification: false
+
+springdoc:
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
