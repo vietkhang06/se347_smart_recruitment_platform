@@ -68,6 +68,11 @@ class CvProcessingIT {
     @MockBean
     private AiWorkerClient aiWorkerClient;
 
+    @org.junit.jupiter.api.BeforeEach
+    void setUp() {
+        jdbcClient.sql("DELETE FROM embeddings WHERE entity_type = 'cv_version'").update();
+    }
+
     private byte[] createSamplePdfBytes() {
         return "%PDF-1.4 Mock PDF content for test extraction".getBytes(StandardCharsets.UTF_8);
     }

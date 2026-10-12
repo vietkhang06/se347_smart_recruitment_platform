@@ -27,6 +27,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final String AUTHORIZATION_HEADER = "Authorization";
     private static final String BEARER_PREFIX = "Bearer ";
+    private static final java.util.Set<String> VALID_ROLES = java.util.Set.of("CANDIDATE", "EMPLOYER", "ADMIN");
 
     private final JwtTokenProvider jwtTokenProvider;
     private final UserRepository userRepository;
@@ -87,13 +88,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 // Deny suspended or unverified accounts
                 if (!isSuspended && !isUnverified) {
                     // Authority is derived authoritative from DB, NEVER trusting token claim
-                    String roleName = user.getRole() != null ? user.getRole().toUpperCase() : "CANDIDATE";
-                    var authorities = Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + roleName));
+                    String userRole = user.getRole();
+                    if (userRole == null || !VALID_ROLES.contains(userRole.toUpperCase())) {
+                        log.warn("User {} denied: role is null or not in valid roles ('{}')", userId, userRole);
+                    } else {
+                        String roleName = userRole.toUpperCase();
+                        var authorities = Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + roleName));
 
-                    var authentication = new UsernamePasswordAuthenticationToken(user, null, authorities);
-                    authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                        var authentication = new UsernamePasswordAuthenticationToken(user, null, authorities);
+                        authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
-                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                        SecurityContextHolder.getContext().setAuthentication(authentication);
+                    }
                 } else {
                     log.debug("User {} denied: suspended={}, unverified={}", userId, isSuspended, isUnverified);
                 }

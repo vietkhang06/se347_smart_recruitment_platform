@@ -223,4 +223,56 @@ class JwtAuthenticationFilterTest {
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
         verify(filterChain).doFilter(request, response);
     }
+
+    @Test
+    @DisplayName("8. User with null role in DB does not authenticate")
+    void doFilter_nullRole_denied() throws ServletException, IOException {
+        UUID userId = UUID.randomUUID();
+        String token = jwtTokenProvider.generateToken(userId, "user@example.com", "candidate");
+
+        User dbUser = User.builder()
+                .id(userId)
+                .email("user@example.com")
+                .role(null)
+                .status("active")
+                .isVerified(true)
+                .build();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(dbUser));
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("Authorization", "Bearer " + token);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+        verify(filterChain).doFilter(request, response);
+    }
+
+    @Test
+    @DisplayName("9. User with unrecognized or invalid role in DB does not authenticate")
+    void doFilter_invalidRole_denied() throws ServletException, IOException {
+        UUID userId = UUID.randomUUID();
+        String token = jwtTokenProvider.generateToken(userId, "user@example.com", "candidate");
+
+        User dbUser = User.builder()
+                .id(userId)
+                .email("user@example.com")
+                .role("SUPERADMIN")
+                .status("active")
+                .isVerified(true)
+                .build();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(dbUser));
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("Authorization", "Bearer " + token);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+        verify(filterChain).doFilter(request, response);
+    }
 }

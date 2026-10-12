@@ -2,13 +2,17 @@ package com.matchajob.application.controller;
 
 import com.matchajob.application.dto.*;
 import com.matchajob.application.service.ApplicationService;
+import com.matchajob.security.ResourceOwnershipService;
+import com.matchajob.security.SecurityUtils;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.net.URI;
 import java.util.List;
@@ -17,14 +21,8 @@ import java.util.UUID;
 /**
  * REST controller for the application workflow endpoints.
  *
- * Endpoints:
- *   POST   /v1/applications                              — Submit a new application
- *   PATCH  /v1/applications/{applicationId}/stage         — Update application stage (HR)
- *   GET    /v1/applications/{applicationId}/history       — Get status transition history
- *   GET    /v1/jobs/{jobId}/applications/ranking          — Get ranked candidates for a job
- *
- * Note: Authentication is not yet integrated. User identity is supplied via
- *       request headers (X-Candidate-Id, X-User-Id) as per Phase 3 conventions.
+ * Identity is derived authoritatively from the JWT Authentication principal.
+ * Client-provided headers (X-Candidate-Id, X-User-Id) are accepted for backwards compatibility but strictly ignored.
  */
 @RestController
 @RequestMapping("/v1")
@@ -33,9 +31,13 @@ public class ApplicationController {
     private static final Logger log = LoggerFactory.getLogger(ApplicationController.class);
 
     private final ApplicationService applicationService;
+    private final ResourceOwnershipService resourceOwnershipService;
 
-    public ApplicationController(ApplicationService applicationService) {
+    public ApplicationController(
+            ApplicationService applicationService,
+            ResourceOwnershipService resourceOwnershipService) {
         this.applicationService = applicationService;
+        this.resourceOwnershipService = resourceOwnershipService;
     }
 
     // =========================================================================
@@ -44,14 +46,45 @@ public class ApplicationController {
 
     @PostMapping("/applications")
     public ResponseEntity<ApplicationResponse> submitApplication(
-            @RequestHeader("X-Candidate-Id") UUID candidateId,
-            @RequestHeader("X-User-Id") UUID userId,
+            Authentication authentication,
+            @RequestHeader(value = "X-Candidate-Id", required = false) UUID ignoredCandidateId,
+            @RequestHeader(value = "X-User-Id", required = false) UUID ignoredUserId,
             @Valid @RequestBody ApplicationApplyRequest request) {
 
-        log.info("POST /v1/applications — candidate={}, job={}", candidateId, request.getJobId());
+        UUID userId = SecurityUtils.extractUserId(authentication);
+        UUID candidateId = resourceOwnershipService.getRequiredCandidateProfileId(userId);
 
-        ApplicationResponse response = applicationService.applyForJob(candidateId, userId, request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        log.info("POST /v1/applications — candidate={}, user={}, job={}", candidateId, userId, request.getJobId());
+
+        return submitApplicationInternal(candidateId, userId, request);
+    }
+
+    /**
+     * Programmatic overload for internal integration tests.
+     */
+    public ResponseEntity<ApplicationResponse> submitApplication(
+            UUID candidateId,
+            UUID userId,
+            ApplicationApplyRequest request) {
+        return submitApplicationInternal(candidateId, userId, request);
+    }
+
+    private ResponseEntity<ApplicationResponse> submitApplicationInternal(
+            UUID candidateId,
+            UUID userId,
+            ApplicationApplyRequest request) {
+        try {
+            ApplicationResponse response = applicationService.applyForJob(candidateId, userId, request);
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        } catch (ApplicationService.DuplicateApplicationException ex) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, ex.getMessage(), ex);
+        } catch (IllegalStateException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        } catch (IllegalArgumentException ex) {
+            HttpStatus status = ex.getMessage() != null && ex.getMessage().toLowerCase().contains("not found")
+                    ? HttpStatus.NOT_FOUND : HttpStatus.BAD_REQUEST;
+            throw new ResponseStatusException(status, ex.getMessage(), ex);
+        }
     }
 
     // =========================================================================
@@ -61,13 +94,40 @@ public class ApplicationController {
     @PatchMapping("/applications/{applicationId}/stage")
     public ResponseEntity<StageUpdateResponse> updateApplicationStage(
             @PathVariable UUID applicationId,
-            @RequestHeader("X-User-Id") UUID userId,
+            Authentication authentication,
+            @RequestHeader(value = "X-User-Id", required = false) UUID ignoredUserId,
             @Valid @RequestBody ApplicationStageUpdateRequest request) {
 
-        log.info("PATCH /v1/applications/{}/stage — toStage={}", applicationId, request.getToStage());
+        UUID userId = SecurityUtils.extractUserId(authentication);
+        log.info("PATCH /v1/applications/{}/stage — toStage={}, user={}", applicationId, request.getToStage(), userId);
 
-        StageUpdateResponse response = applicationService.updateStage(applicationId, userId, request);
-        return ResponseEntity.ok(response);
+        return updateApplicationStageInternal(applicationId, userId, request);
+    }
+
+    /**
+     * Programmatic overload for internal integration tests.
+     */
+    public ResponseEntity<StageUpdateResponse> updateApplicationStage(
+            UUID applicationId,
+            UUID userId,
+            ApplicationStageUpdateRequest request) {
+        return updateApplicationStageInternal(applicationId, userId, request);
+    }
+
+    private ResponseEntity<StageUpdateResponse> updateApplicationStageInternal(
+            UUID applicationId,
+            UUID userId,
+            ApplicationStageUpdateRequest request) {
+        try {
+            StageUpdateResponse response = applicationService.updateStage(applicationId, userId, request);
+            return ResponseEntity.ok(response);
+        } catch (IllegalStateException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        } catch (IllegalArgumentException ex) {
+            HttpStatus status = ex.getMessage() != null && ex.getMessage().toLowerCase().contains("not found")
+                    ? HttpStatus.NOT_FOUND : HttpStatus.BAD_REQUEST;
+            throw new ResponseStatusException(status, ex.getMessage(), ex);
+        }
     }
 
     // =========================================================================
@@ -76,10 +136,26 @@ public class ApplicationController {
 
     @GetMapping("/applications/{applicationId}/history")
     public ResponseEntity<List<ApplicationHistoryResponse>> getApplicationHistory(
-            @PathVariable UUID applicationId) {
+            @PathVariable UUID applicationId,
+            Authentication authentication) {
 
-        List<ApplicationHistoryResponse> history = applicationService.getApplicationHistory(applicationId);
-        return ResponseEntity.ok(history);
+        UUID userId = authentication != null ? SecurityUtils.extractUserId(authentication) : null;
+        try {
+            List<ApplicationHistoryResponse> history = applicationService.getApplicationHistory(applicationId, userId);
+            return ResponseEntity.ok(history);
+        } catch (IllegalArgumentException ex) {
+            HttpStatus status = ex.getMessage() != null && ex.getMessage().toLowerCase().contains("not found")
+                    ? HttpStatus.NOT_FOUND : HttpStatus.BAD_REQUEST;
+            throw new ResponseStatusException(status, ex.getMessage(), ex);
+        }
+    }
+
+    /**
+     * Programmatic overload for internal integration tests.
+     */
+    public ResponseEntity<List<ApplicationHistoryResponse>> getApplicationHistory(
+            @PathVariable UUID applicationId) {
+        return getApplicationHistory(applicationId, null);
     }
 
     // =========================================================================
@@ -89,11 +165,29 @@ public class ApplicationController {
     @GetMapping("/jobs/{jobId}/applications/ranking")
     public ResponseEntity<ApplicationRankingResponse> getJobRanking(
             @PathVariable UUID jobId,
+            Authentication authentication,
             @RequestParam(value = "stage", required = false) String stage,
             @RequestParam(value = "minScore", required = false) Integer minScore) {
 
-        ApplicationRankingResponse ranking = applicationService.getJobRankings(jobId, stage, minScore);
-        return ResponseEntity.ok(ranking);
+        UUID userId = authentication != null ? SecurityUtils.extractUserId(authentication) : null;
+        try {
+            ApplicationRankingResponse ranking = applicationService.getJobRankings(jobId, userId, stage, minScore);
+            return ResponseEntity.ok(ranking);
+        } catch (IllegalArgumentException ex) {
+            HttpStatus status = ex.getMessage() != null && ex.getMessage().toLowerCase().contains("not found")
+                    ? HttpStatus.NOT_FOUND : HttpStatus.BAD_REQUEST;
+            throw new ResponseStatusException(status, ex.getMessage(), ex);
+        }
+    }
+
+    /**
+     * Programmatic overload for internal integration tests.
+     */
+    public ResponseEntity<ApplicationRankingResponse> getJobRanking(
+            UUID jobId,
+            String stage,
+            Integer minScore) {
+        return getJobRanking(jobId, null, stage, minScore);
     }
 
     // =========================================================================

@@ -76,9 +76,14 @@ public class SecurityConfig {
                     // Role-protected endpoints: Employer
                     auth.requestMatchers(HttpMethod.POST, "/v1/companies", "/v1/companies/**").hasRole("EMPLOYER");
                     auth.requestMatchers("/api/v1/employer/**", "/v1/employer/**").hasRole("EMPLOYER");
+                    auth.requestMatchers(HttpMethod.PATCH, "/v1/applications/*/stage", "/v1/applications/{id}/stage").hasRole("EMPLOYER");
+                    auth.requestMatchers(HttpMethod.GET, "/v1/jobs/*/applications/ranking").hasRole("EMPLOYER");
 
                     // Role-protected endpoints: Candidate
                     auth.requestMatchers("/v1/candidates/profile", "/v1/candidates/profile/**").hasRole("CANDIDATE");
+                    auth.requestMatchers(HttpMethod.POST, "/v1/applications").hasRole("CANDIDATE");
+                    auth.requestMatchers(HttpMethod.POST, "/v1/candidates/*/cv").hasRole("CANDIDATE");
+                    auth.requestMatchers(HttpMethod.GET, "/v1/candidates/*/cv").hasRole("CANDIDATE");
 
                     // All other endpoints require authentication by default (deny-by-default)
                     auth.anyRequest().authenticated();
