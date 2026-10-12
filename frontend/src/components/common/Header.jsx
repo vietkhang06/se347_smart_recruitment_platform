@@ -53,19 +53,11 @@ export default function Header() {
   ];
 
   const handleEmployerTabClick = (key) => {
-    if (currentPath.startsWith("/employer")) {
-      window.location.hash = key;
-    } else {
-      navigate(`/employer#${key}`);
-    }
+    navigate(`/employer#${key}`);
   };
 
   const handleAdminTabClick = (key) => {
-    if (currentPath.startsWith("/admin")) {
-      window.location.hash = key;
-    } else {
-      navigate(`/admin#${key}`);
-    }
+    navigate(`/admin#${key}`);
   };
 
   return (
@@ -153,17 +145,26 @@ export default function Header() {
               </NavDropdown.Item>
             </NavDropdown>
 
-            {/* Theme Toggle Button */}
-            <Button
-              variant="outline-secondary"
-              size="sm"
+            {/* Theme Toggle Sliding Switch */}
+            <button
+              type="button"
+              className={`theme-toggle-switch ${theme === "dark" ? "is-dark" : "is-light"}`}
               onClick={toggleTheme}
-              className="rounded-circle p-1 d-flex align-items-center justify-content-center"
-              style={{ width: "32px", height: "32px" }}
-              title="Đổi chế độ sáng / tối"
+              aria-label="Chuyển chế độ sáng / tối"
+              title={theme === "dark" ? "Chuyển sang Giao diện Sáng" : "Chuyển sang Giao diện Tối"}
             >
-              {theme === "dark" ? <i className="bi bi-sun-fill text-warning"></i> : <i className="bi bi-moon-stars-fill text-primary"></i>}
-            </Button>
+              <span className="theme-toggle-track">
+                <i className="bi bi-sun-fill theme-icon-sun"></i>
+                <i className="bi bi-moon-stars-fill theme-icon-moon"></i>
+              </span>
+              <span className="theme-toggle-thumb">
+                {theme === "dark" ? (
+                  <i className="bi bi-moon-stars-fill"></i>
+                ) : (
+                  <i className="bi bi-sun-fill"></i>
+                )}
+              </span>
+            </button>
 
             {/* Favorite Jobs Badge (for candidate) */}
             {!isEmployer && !isAdmin && (

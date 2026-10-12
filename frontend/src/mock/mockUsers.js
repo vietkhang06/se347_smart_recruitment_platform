@@ -96,7 +96,7 @@ export const MOCK_USERS = [
     email: "admin@matchajob.vn",
     phone: "090 888 2026",
     role: "Quản trị viên",
-    roleTitle: "Platform Super Admin",
+    roleTitle: "Quản trị viên hệ thống",
     avatar: "AD",
     joined: "01/01/2026",
     status: "Hoạt động",
