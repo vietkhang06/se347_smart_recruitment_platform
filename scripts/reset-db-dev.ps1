@@ -22,9 +22,25 @@ if ($confirmation -notin @("Y", "y", "YES", "yes")) {
     exit 0
 }
 
-Write-Host "`nResetting database container & volumes..." -ForegroundColor Yellow
-docker compose down -v
+Write-Host "`nStopping the Compose project while preserving CV storage..." -ForegroundColor Yellow
+docker compose down
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "ERROR: Could not stop the Compose project." -ForegroundColor Red
+    exit 1
+}
+
+Write-Host "Removing only the PostgreSQL volume (matchajob_postgres_data)..." -ForegroundColor Yellow
+docker volume rm matchajob_postgres_data
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "ERROR: Could not remove matchajob_postgres_data." -ForegroundColor Red
+    exit 1
+}
+
 docker compose up -d database
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "ERROR: Could not recreate the database service." -ForegroundColor Red
+    exit 1
+}
 
 Write-Host "Waiting for PostgreSQL container to become healthy on port 5433..." -ForegroundColor Gray
 $pgContainer = "matchajob-postgres-pgvector"
@@ -49,4 +65,7 @@ if ($healthy) {
     Write-Host "PostgreSQL + pgvector is ready for fresh data." -ForegroundColor Green
 } else {
     Write-Host "`nERROR: Database container failed to become healthy within $maxWait seconds." -ForegroundColor Red
+    exit 1
 }
+
+Write-Host "CV volume matchajob_cv_storage was preserved." -ForegroundColor Green
