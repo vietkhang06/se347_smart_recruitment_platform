@@ -298,7 +298,7 @@ public class RecruitmentRouteSecurityIT {
                     .totalPages(0)
                     .last(true)
                     .build();
-            when(jobService.getEmployerJobs(eq(companyId), any(), anyInt(), anyInt())).thenReturn(emptyPage);
+            when(jobService.getEmployerJobs(any(), eq(companyId), any(), anyInt(), anyInt())).thenReturn(emptyPage);
 
             String employerToken = createTokenForRole("EMPLOYER");
 
@@ -307,7 +307,7 @@ public class RecruitmentRouteSecurityIT {
                             .param("companyId", companyId.toString()))
                     .andExpect(status().isOk());
 
-            verify(jobService, times(1)).getEmployerJobs(eq(companyId), any(), anyInt(), anyInt());
+            verify(jobService, times(1)).getEmployerJobs(any(), eq(companyId), any(), anyInt(), anyInt());
         }
     }
 
@@ -354,7 +354,7 @@ public class RecruitmentRouteSecurityIT {
                     .title("Tech Lead")
                     .status("draft")
                     .build();
-            when(jobService.createJob(any(JobCreateRequest.class))).thenReturn(created);
+            when(jobService.createJob(any(), any(JobCreateRequest.class))).thenReturn(created);
 
             String employerToken = createTokenForRole("EMPLOYER");
 
@@ -365,7 +365,7 @@ public class RecruitmentRouteSecurityIT {
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.title").value("Tech Lead"));
 
-            verify(jobService, times(1)).createJob(any(JobCreateRequest.class));
+            verify(jobService, times(1)).createJob(any(), any(JobCreateRequest.class));
         }
 
         @Test
@@ -407,7 +407,7 @@ public class RecruitmentRouteSecurityIT {
                     .title("Senior Tech Lead")
                     .status("active")
                     .build();
-            when(jobService.updateJob(eq(jobId), any(JobUpdateRequest.class))).thenReturn(updated);
+            when(jobService.updateJob(any(), eq(jobId), any(JobUpdateRequest.class))).thenReturn(updated);
 
             String employerToken = createTokenForRole("EMPLOYER");
 
@@ -418,7 +418,7 @@ public class RecruitmentRouteSecurityIT {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.title").value("Senior Tech Lead"));
 
-            verify(jobService, times(1)).updateJob(eq(jobId), any(JobUpdateRequest.class));
+            verify(jobService, times(1)).updateJob(any(), eq(jobId), any(JobUpdateRequest.class));
         }
 
         @Test
@@ -460,7 +460,7 @@ public class RecruitmentRouteSecurityIT {
                     .title("Tech Lead")
                     .status("active")
                     .build();
-            when(jobService.updateJobStatus(eq(jobId), eq("active"))).thenReturn(updated);
+            when(jobService.updateJobStatus(any(), eq(jobId), eq("active"))).thenReturn(updated);
 
             String employerToken = createTokenForRole("EMPLOYER");
 
@@ -471,7 +471,7 @@ public class RecruitmentRouteSecurityIT {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.status").value("active"));
 
-            verify(jobService, times(1)).updateJobStatus(eq(jobId), eq("active"));
+            verify(jobService, times(1)).updateJobStatus(any(), eq(jobId), eq("active"));
         }
 
         @Test
@@ -504,7 +504,7 @@ public class RecruitmentRouteSecurityIT {
         @DisplayName("DELETE /v1/employer/jobs/{id} with EMPLOYER role passes route security (204 No Content)")
         void deleteJob_employerRole_passesSecurityWith204() throws Exception {
             UUID jobId = UUID.randomUUID();
-            doNothing().when(jobService).deleteJob(jobId);
+            doNothing().when(jobService).deleteJob(any(), eq(jobId));
 
             String employerToken = createTokenForRole("EMPLOYER");
 
@@ -512,7 +512,7 @@ public class RecruitmentRouteSecurityIT {
                             .header(HttpHeaders.AUTHORIZATION, "Bearer " + employerToken))
                     .andExpect(status().isNoContent());
 
-            verify(jobService, times(1)).deleteJob(jobId);
+            verify(jobService, times(1)).deleteJob(any(), eq(jobId));
         }
     }
 }

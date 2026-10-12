@@ -2,9 +2,11 @@ package com.matchajob.api.recruitment.controller;
 
 import com.matchajob.api.recruitment.dto.*;
 import com.matchajob.api.recruitment.service.JobService;
+import com.matchajob.security.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -18,36 +20,48 @@ public class EmployerJobController {
 
     @GetMapping
     public ResponseEntity<PageResponse<JobSummaryResponse>> getEmployerJobs(
-            @RequestParam UUID companyId,
+            Authentication authentication,
+            @RequestParam(required = false) UUID companyId,
             @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-        return ResponseEntity.ok(jobService.getEmployerJobs(companyId, status, page, size));
+        UUID userId = SecurityUtils.extractUserId(authentication);
+        return ResponseEntity.ok(jobService.getEmployerJobs(userId, companyId, status, page, size));
     }
 
     @PostMapping
-    public ResponseEntity<JobDetailResponse> createJob(@RequestBody JobCreateRequest request) {
-        JobDetailResponse created = jobService.createJob(request);
+    public ResponseEntity<JobDetailResponse> createJob(
+            Authentication authentication,
+            @RequestBody JobCreateRequest request) {
+        UUID userId = SecurityUtils.extractUserId(authentication);
+        JobDetailResponse created = jobService.createJob(userId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<JobDetailResponse> updateJob(
+            Authentication authentication,
             @PathVariable UUID id,
             @RequestBody JobUpdateRequest request) {
-        return ResponseEntity.ok(jobService.updateJob(id, request));
+        UUID userId = SecurityUtils.extractUserId(authentication);
+        return ResponseEntity.ok(jobService.updateJob(userId, id, request));
     }
 
     @PatchMapping("/{id}/status")
     public ResponseEntity<JobDetailResponse> updateJobStatus(
+            Authentication authentication,
             @PathVariable UUID id,
             @RequestBody JobStatusUpdateRequest request) {
-        return ResponseEntity.ok(jobService.updateJobStatus(id, request.getStatus()));
+        UUID userId = SecurityUtils.extractUserId(authentication);
+        return ResponseEntity.ok(jobService.updateJobStatus(userId, id, request.getStatus()));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteJob(@PathVariable UUID id) {
-        jobService.deleteJob(id);
+    public ResponseEntity<Void> deleteJob(
+            Authentication authentication,
+            @PathVariable UUID id) {
+        UUID userId = SecurityUtils.extractUserId(authentication);
+        jobService.deleteJob(userId, id);
         return ResponseEntity.noContent().build();
     }
 }

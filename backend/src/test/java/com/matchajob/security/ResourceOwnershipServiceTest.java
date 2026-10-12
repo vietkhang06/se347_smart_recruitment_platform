@@ -1,5 +1,6 @@
 package com.matchajob.security;
 
+import com.matchajob.api.recruitment.exception.JobNotFoundException;
 import com.matchajob.user.model.CandidateProfile;
 import com.matchajob.user.repository.CandidateProfileRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -14,6 +15,7 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.access.AccessDeniedException;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -101,7 +103,7 @@ class ResourceOwnershipServiceTest {
     class EmployerJobOwnership {
 
         @Test
-        @DisplayName("checkEmployerJobOwnership throws IllegalArgumentException when job does not exist")
+        @DisplayName("checkEmployerJobOwnership throws JobNotFoundException when job does not exist")
         void checkEmployerJobOwnership_jobNotFound() {
             UUID userId = UUID.randomUUID();
             UUID jobId = UUID.randomUUID();
@@ -110,7 +112,7 @@ class ResourceOwnershipServiceTest {
                     .thenReturn(0);
 
             assertThatThrownBy(() -> ownershipService.checkEmployerJobOwnership(userId, jobId))
-                    .isInstanceOf(IllegalArgumentException.class)
+                    .isInstanceOf(JobNotFoundException.class)
                     .hasMessageContaining("Job not found");
         }
 
@@ -142,6 +144,58 @@ class ResourceOwnershipServiceTest {
             assertThatThrownBy(() -> ownershipService.checkEmployerJobOwnership(userId, jobId))
                     .isInstanceOf(AccessDeniedException.class)
                     .hasMessageContaining("You do not have permission to manage this job");
+        }
+
+        @Test
+        @DisplayName("canEmployerManageCompany returns true when user is owner or member")
+        void canEmployerManageCompany_authorized() {
+            UUID userId = UUID.randomUUID();
+            UUID companyId = UUID.randomUUID();
+
+            when(jdbcClient.sql(anyString()).params(companyId, userId, userId).query(Integer.class).single())
+                    .thenReturn(1);
+
+            assertThat(ownershipService.canEmployerManageCompany(userId, companyId)).isTrue();
+        }
+
+        @Test
+        @DisplayName("canEmployerManageCompany returns false when user is not owner or member")
+        void canEmployerManageCompany_unauthorized() {
+            UUID userId = UUID.randomUUID();
+            UUID companyId = UUID.randomUUID();
+
+            when(jdbcClient.sql(anyString()).params(companyId, userId, userId).query(Integer.class).single())
+                    .thenReturn(0);
+
+            assertThat(ownershipService.canEmployerManageCompany(userId, companyId)).isFalse();
+        }
+
+        @Test
+        @DisplayName("checkEmployerCompanyOwnership throws AccessDeniedException when unauthorized")
+        void checkEmployerCompanyOwnership_unauthorized_throwsAccessDenied() {
+            UUID userId = UUID.randomUUID();
+            UUID companyId = UUID.randomUUID();
+
+            when(jdbcClient.sql(anyString()).params(companyId, userId, userId).query(Integer.class).single())
+                    .thenReturn(0);
+
+            assertThatThrownBy(() -> ownershipService.checkEmployerCompanyOwnership(userId, companyId))
+                    .isInstanceOf(AccessDeniedException.class)
+                    .hasMessageContaining("You do not have permission to manage this company");
+        }
+
+        @Test
+        @DisplayName("getEmployerCompanyIds returns list of accessible companies")
+        void getEmployerCompanyIds_returnsList() {
+            UUID userId = UUID.randomUUID();
+            UUID companyId1 = UUID.randomUUID();
+            UUID companyId2 = UUID.randomUUID();
+
+            when(jdbcClient.sql(anyString()).params(userId, userId).query(UUID.class).list())
+                    .thenReturn(List.of(companyId1, companyId2));
+
+            List<UUID> companyIds = ownershipService.getEmployerCompanyIds(userId);
+            assertThat(companyIds).containsExactly(companyId1, companyId2);
         }
 
         @Test

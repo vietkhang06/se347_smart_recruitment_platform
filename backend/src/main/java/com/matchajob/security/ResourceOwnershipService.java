@@ -1,5 +1,6 @@
 package com.matchajob.security;
 
+import com.matchajob.api.recruitment.exception.JobNotFoundException;
 import com.matchajob.user.model.CandidateProfile;
 import com.matchajob.user.repository.CandidateProfileRepository;
 import lombok.extern.slf4j.Slf4j;
@@ -7,6 +8,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -70,19 +72,71 @@ public class ResourceOwnershipService {
     }
 
     /**
-     * Verifies that the authenticated employer user owns or is a member of the company owning the job.
+     * Checks whether an employer user is an owner or member of a company.
      */
-    public void checkEmployerJobOwnership(UUID userId, UUID jobId) {
-        // 1. Verify job exists
-        Integer exists = jdbcClient.sql("SELECT COUNT(*) FROM jobs WHERE id = ? AND deleted_at IS NULL")
-                .param(jobId)
+    public boolean canEmployerManageCompany(UUID userId, UUID companyId) {
+        if (userId == null || companyId == null) {
+            return false;
+        }
+        Integer count = jdbcClient.sql("""
+                SELECT COUNT(*) FROM companies c
+                WHERE c.id = ? AND c.deleted_at IS NULL
+                  AND (
+                    c.owner_id = ?
+                    OR EXISTS (
+                      SELECT 1 FROM company_members cm
+                      WHERE cm.company_id = c.id AND cm.user_id = ?
+                    )
+                  )
+                """)
+                .params(companyId, userId, userId)
                 .query(Integer.class)
                 .single();
-        if (exists == null || exists == 0) {
-            throw new IllegalArgumentException("Job not found: " + jobId);
-        }
+        return count != null && count > 0;
+    }
 
-        // 2. Verify employer has rights to this job (as creator, company owner, or company member)
+    /**
+     * Verifies that the authenticated employer user owns or is a member of the company.
+     * Throws AccessDeniedException if not authorized.
+     */
+    public void checkEmployerCompanyOwnership(UUID userId, UUID companyId) {
+        if (!canEmployerManageCompany(userId, companyId)) {
+            log.warn("Employer company ownership violation: user {} attempted to access company {}", userId, companyId);
+            throw new AccessDeniedException("Access is denied: You do not have permission to manage this company");
+        }
+    }
+
+    /**
+     * Retrieves all company IDs where the employer user is an owner or member.
+     */
+    public List<UUID> getEmployerCompanyIds(UUID userId) {
+        if (userId == null) {
+            return List.of();
+        }
+        return jdbcClient.sql("""
+                SELECT c.id FROM companies c
+                WHERE c.deleted_at IS NULL
+                  AND (
+                    c.owner_id = ?
+                    OR EXISTS (
+                      SELECT 1 FROM company_members cm
+                      WHERE cm.company_id = c.id AND cm.user_id = ?
+                    )
+                  )
+                """)
+                .params(userId, userId)
+                .query(UUID.class)
+                .list();
+    }
+
+    /**
+     * Checks whether an employer user has management rights to a job
+     * (as job creator, company owner, or company member).
+     */
+    public boolean canEmployerManageJob(UUID userId, UUID jobId) {
+        if (userId == null || jobId == null) {
+            return false;
+        }
         Integer authorized = jdbcClient.sql("""
                 SELECT COUNT(*) FROM jobs j
                 WHERE j.id = ?
@@ -99,8 +153,24 @@ public class ResourceOwnershipService {
                 .params(jobId, userId, userId, userId)
                 .query(Integer.class)
                 .single();
+        return authorized != null && authorized > 0;
+    }
 
-        if (authorized == null || authorized == 0) {
+    /**
+     * Verifies that the authenticated employer user owns or is a member of the company owning the job.
+     */
+    public void checkEmployerJobOwnership(UUID userId, UUID jobId) {
+        // 1. Verify job exists
+        Integer exists = jdbcClient.sql("SELECT COUNT(*) FROM jobs WHERE id = ? AND deleted_at IS NULL")
+                .param(jobId)
+                .query(Integer.class)
+                .single();
+        if (exists == null || exists == 0) {
+            throw new JobNotFoundException(jobId);
+        }
+
+        // 2. Verify employer has rights to this job
+        if (!canEmployerManageJob(userId, jobId)) {
             log.warn("Employer ownership violation: user {} attempted to access job {}", userId, jobId);
             throw new AccessDeniedException("Access is denied: You do not have permission to manage this job");
         }

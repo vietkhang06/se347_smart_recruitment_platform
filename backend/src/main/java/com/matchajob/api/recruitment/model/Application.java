@@ -8,6 +8,7 @@ import java.util.UUID;
 
 @Getter
 @Setter
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 // Note: applications table is officially mapped by com.matchajob.application.model.ApplicationEntity.
