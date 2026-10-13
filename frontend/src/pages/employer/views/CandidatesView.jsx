@@ -164,7 +164,7 @@ export default function CandidatesView({ candidates, onOpenCandidate, onInviteCa
                   </div>
 
                   <div className="small text-muted mb-2">
-                    <i className="bi bi-geo-alt me-1 text-danger"></i>{c.location || "TP.HCM"} · <i className="bi bi-briefcase me-1"></i>{c.experience}
+                    <i className="bi bi-geo-alt me-1 text-danger"></i>{c.location || "Chưa cập nhật địa điểm"} · <i className="bi bi-briefcase me-1"></i>{c.experience || "Chưa cập nhật kinh nghiệm"}
                   </div>
 
                   {/* Hiển thị đầy đủ 5 kỹ năng của ứng viên - Kích thước vừa vặn tự nhiên, không bị kéo dãn */}
@@ -174,12 +174,13 @@ export default function CandidatesView({ candidates, onOpenCandidate, onInviteCa
                         {s}
                       </span>
                     ))}
+                    {!c.skills?.length && <span className="text-muted small">Chưa cập nhật kỹ năng</span>}
                   </div>
 
                   <div className="d-flex justify-content-between align-items-center pt-2 border-top mt-auto">
-                    <span className="text-success fw-bold small">
-                      <i className="bi bi-stars me-1"></i>{c.match}% Phù hợp
-                    </span>
+                    {Number.isFinite(Number(c.match)) && c.match !== "" ? (
+                      <span className="text-success fw-bold small"><i className="bi bi-stars me-1"></i>{c.match}% phù hợp</span>
+                    ) : <span className="text-muted small">Chưa có điểm phù hợp</span>}
                     <div className="d-flex gap-1">
                       <Button variant="outline-secondary" size="sm" onClick={() => onOpenCandidate(c)}>
                         Hồ sơ

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import Container from "react-bootstrap/Container";
 import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
@@ -12,6 +12,7 @@ import { useAuth } from "../../context/AuthContext";
 export default function LoginPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { login } = useAuth();
 
   const [role, setRole] = useState(searchParams.get("role") || "candidate");
@@ -27,6 +28,12 @@ export default function LoginPage() {
   const handleSubmit = (e) => {
     e.preventDefault();
     login(email, role);
+    const from = location.state?.from;
+    const prefix = role === "candidate" ? "/candidate/" : role === "employer" ? "/employer" : "/admin";
+    if (typeof from === "string" && (from === prefix || from.startsWith(prefix.endsWith("/") ? prefix : prefix + "/"))) {
+      navigate(from, { replace: true });
+      return;
+    }
     if (role === "employer") {
       navigate("/employer");
     } else if (role === "admin") {

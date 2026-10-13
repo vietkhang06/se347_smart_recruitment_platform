@@ -1,181 +1,327 @@
 import { useState } from "react";
-import Card from "react-bootstrap/Card";
-import Row from "react-bootstrap/Row";
-import Col from "react-bootstrap/Col";
-import Button from "react-bootstrap/Button";
-import Table from "react-bootstrap/Table";
-import Badge from "react-bootstrap/Badge";
+import {
+  Card,
+  Row,
+  Col,
+  Button,
+  Table,
+  Badge,
+  Form
+} from "react-bootstrap";
 import ReportDetailModal from "../components/ReportDetailModal";
 import { useToast } from "../../../context/ToastContext";
 import { mockStore } from "../../../services/mockStore";
 
-export default function ReportsView({ reports, setReports }) {
+export default function ReportsView({
+  reports = [],
+  setReports
+}) {
   const { showToast } = useToast();
-  const [selectedReport, setSelectedReport] = useState(null);
-  const [showModal, setShowModal] = useState(false);
-  const [statusFilter, setStatusFilter] = useState("all");
 
-  const severeCount = reports.filter((r) => r.severity === "Nghiêm trọng" && r.status !== "Đã xử lý").length;
-  const inProgressCount = reports.filter((r) => r.status === "Đang xử lý").length;
-  const resolvedCount = reports.filter((r) => r.status === "Đã xử lý").length;
+  const [selected, setSelected] = useState(null);
+  const [status, setStatus] = useState("all");
+  const [query, setQuery] = useState("");
+  const [severeOnly, setSevereOnly] = useState(false);
 
-  const filteredReports = reports.filter((r) => {
-    if (statusFilter === "all") return true;
-    return r.status === statusFilter;
-  });
+  const visible = reports.filter(
+    (report) =>
+      (status === "all" || report.status === status) &&
+      (
+        !severeOnly ||
+        (
+          report.severity === "Nghiêm trọng" &&
+          report.status !== "Đã xử lý"
+        )
+      ) &&
+      [
+        report.id,
+        report.subject,
+        report.target,
+        report.reporter
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(query.trim().toLowerCase())
+  );
 
-  const handleOpenReport = (report) => {
-    setSelectedReport(report);
-    setShowModal(true);
-  };
+  const resolve = (id, action, note) => {
+    const current = mockStore
+      .getReports()
+      .find((report) => report.id === id);
 
-  const handleResolveReport = (id, actionDesc, note) => {
-    let penaltyAction = "";
-    if (actionDesc.includes("Ẩn tin") || actionDesc.includes("gỡ")) penaltyAction = "close_job";
-    if (actionDesc.includes("Khóa")) penaltyAction = "suspend_company";
+    if (!current || current.status === "Đã xử lý") {
+      throw new Error(
+        "Báo cáo đã xử lý hoặc không còn tồn tại."
+      );
+    }
 
-    mockStore.resolveReport(id, actionDesc, penaltyAction, note);
+    if (!note.trim()) {
+      throw new Error("Vui lòng nhập ghi chú.");
+    }
+
+    if (!["record", "dismiss", "close_job"].includes(action)) {
+      throw new Error("Hành động không hợp lệ.");
+    }
+
+    if (
+      action === "close_job" &&
+      !mockStore.getJobById(current.jobId)
+    ) {
+      throw new Error(
+        "Không tìm thấy tin liên quan. Hãy kiểm tra lại mã tin."
+      );
+    }
+
+    const labels = {
+      record: "Đã ghi nhận kết quả đối soát",
+      dismiss: "Đã bác bỏ báo cáo",
+      close_job: "Đã đóng tin tuyển dụng liên quan"
+    };
+
+    mockStore.resolveReport(
+      id,
+      labels[action],
+      action === "close_job" ? action : "",
+      note
+    );
+
+    const saved = mockStore
+      .getReports()
+      .find((report) => report.id === id);
+
+    if (saved?.status !== "Đã xử lý" || saved?.note !== note) {
+      throw new Error(
+        "Chưa lưu được kết quả. Kiểm tra dung lượng trình duyệt."
+      );
+    }
+
+    if (
+      action === "close_job" &&
+      mockStore.getJobById(current.jobId)?.status !== "Đã đóng"
+    ) {
+      throw new Error(
+        "Báo cáo đã lưu nhưng chưa đóng được tin. Kiểm tra tại quản lý tin."
+      );
+    }
+
     setReports(mockStore.getReports());
-    showToast(`Đã xử lý vụ việc ${id}: ${actionDesc}`);
+    showToast(`Đã xử lý báo cáo ${id}`);
   };
+
+  const metrics = [
+    [
+      "Vụ việc nghiêm trọng",
+      reports.filter(
+        (report) =>
+          report.severity === "Nghiêm trọng" &&
+          report.status !== "Đã xử lý"
+      ).length,
+      "danger"
+    ],
+    [
+      "Đang trong tiến trình",
+      reports.filter(
+        (report) => report.status === "Đang xử lý"
+      ).length,
+      "warning"
+    ],
+    [
+      "Đã xử lý dứt điểm",
+      reports.filter(
+        (report) => report.status === "Đã xử lý"
+      ).length,
+      "success"
+    ]
+  ];
 
   return (
-    <Card className="matcha-card p-4 border-0 shadow-sm" data-aos="fade-up">
+    <Card
+      className="matcha-card p-4 border-0 shadow-sm"
+      data-aos="fade-up"
+    >
       <div className="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
         <div>
-          <h5 className="fw-bold mb-0">Báo cáo vi phạm & Khiếu nại người dùng ({reports.length})</h5>
-          <p className="text-muted small mb-0">Giám sát các hành vi vi phạm chính sách, thu phí trái phép hoặc lừa đảo</p>
+          <h5 className="fw-bold mb-0">
+            Báo cáo vi phạm & Khiếu nại người dùng (
+            {reports.length})
+          </h5>
+
+          <p className="text-muted small mb-0">
+            Giám sát các hành vi vi phạm chính sách, thu phí trái
+            phép hoặc lừa đảo
+          </p>
         </div>
-        <Button variant="outline-danger" size="sm" onClick={() => showToast("Đã kích hoạt quét tự động các từ khóa lừa đảo")}>
-          <i className="bi bi-shield-exclamation me-1"></i>Quét cảnh báo cao
+
+        <Button
+          size="sm"
+          variant={severeOnly ? "danger" : "outline-danger"}
+          onClick={() => {
+            setSevereOnly(!severeOnly);
+            setStatus("all");
+          }}
+        >
+          {severeOnly
+            ? "Hiển thị mọi mức độ"
+            : "Lọc vụ việc nghiêm trọng"}
         </Button>
       </div>
 
-      {/* 3 Summary Dynamic Metric Blocks */}
       <Row className="g-3 mb-4">
-        <Col md={4}>
-          <div className="p-3 rounded border border-danger bg-danger bg-opacity-10 d-flex justify-content-between align-items-center">
-            <div>
-              <span className="text-danger small fw-semibold">Vụ việc nghiêm trọng</span>
-              <div className="fs-3 fw-bold text-danger">{severeCount}</div>
+        {metrics.map(([label, count, tone]) => (
+          <Col md={4} key={label}>
+            <div
+              className={`p-3 rounded border border-${tone} bg-${tone} bg-opacity-10`}
+            >
+              <span
+                className={`small fw-semibold text-${tone}`}
+              >
+                {label}
+              </span>
+              <div className={`fs-3 fw-bold text-${tone}`}>
+                {count}
+              </div>
             </div>
-            <i className="bi bi-shield-slash-fill fs-2 text-danger opacity-75"></i>
-          </div>
-        </Col>
-
-        <Col md={4}>
-          <div className="p-3 rounded border border-warning bg-warning bg-opacity-10 d-flex justify-content-between align-items-center">
-            <div>
-              <span className="text-warning small fw-semibold">Đang trong tiến trình</span>
-              <div className="fs-3 fw-bold text-warning">{inProgressCount}</div>
-            </div>
-            <i className="bi bi-hourglass-split fs-2 text-warning opacity-75"></i>
-          </div>
-        </Col>
-
-        <Col md={4}>
-          <div className="p-3 rounded border border-success bg-success bg-opacity-10 d-flex justify-content-between align-items-center">
-            <div>
-              <span className="text-success small fw-semibold">Đã xử lý dứt điểm</span>
-              <div className="fs-3 fw-bold text-success">{resolvedCount}</div>
-            </div>
-            <i className="bi bi-patch-check-fill fs-2 text-success opacity-75"></i>
-          </div>
-        </Col>
+          </Col>
+        ))}
       </Row>
 
-      {/* Filter strip */}
       <div className="d-flex flex-wrap gap-2 mb-3">
-        <div className="btn-group btn-group-sm">
-          {[
-            { key: "all", label: `Tất cả (${reports.length})` },
-            { key: "Mới", label: "Mới phát sinh" },
-            { key: "Đang xử lý", label: "Đang xử lý" },
-            { key: "Đã xử lý", label: "Đã xử lý" }
-          ].map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              className={`btn ${statusFilter === item.key ? "btn-danger fw-bold" : "btn-outline-secondary"}`}
-              onClick={() => setStatusFilter(item.key)}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
+        {[
+          ["all", "Tất cả"],
+          ["Mới", "Mới phát sinh"],
+          ["Đang xử lý", "Đang xử lý"],
+          ["Đã xử lý", "Đã xử lý"]
+        ].map(([key, label]) => (
+          <Button
+            key={key}
+            size="sm"
+            variant={
+              status === key ? "danger" : "outline-secondary"
+            }
+            onClick={() => setStatus(key)}
+          >
+            {label}
+          </Button>
+        ))}
+
+        <Form.Control
+          type="search"
+          aria-label="Tìm báo cáo"
+          placeholder="Tìm mã, tiêu đề, đối tượng, người báo cáo…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
       </div>
 
-      {/* Reports Table */}
       <div className="table-responsive">
         <Table hover className="align-middle mb-0">
           <thead className="table-light">
             <tr>
-              <th>Mã báo cáo</th>
-              <th>Tiêu đề phản ánh</th>
-              <th>Đối tượng bị báo cáo</th>
-              <th>Người báo cáo</th>
-              <th>Mức độ</th>
-              <th>Thời gian</th>
-              <th>Trạng thái</th>
-              <th>Thao tác</th>
+              {[
+                "Mã báo cáo",
+                "Tiêu đề phản ánh",
+                "Đối tượng bị báo cáo",
+                "Người báo cáo",
+                "Mức độ",
+                "Thời gian",
+                "Trạng thái",
+                "Thao tác"
+              ].map((label) => (
+                <th key={label}>{label}</th>
+              ))}
             </tr>
           </thead>
+
           <tbody>
-            {filteredReports.length === 0 ? (
+            {!visible.length && (
               <tr>
-                <td colSpan="8" className="text-center py-4 text-muted">
-                  Không có vụ việc nào phù hợp với bộ lọc hiện tại.
+                <td
+                  colSpan={8}
+                  className="text-center py-4 text-muted"
+                >
+                  Không có vụ việc phù hợp.
                 </td>
               </tr>
-            ) : (
-              filteredReports.map((r) => {
-                const isResolved = r.status === "Đã xử lý";
-                return (
-                  <tr key={r.id}>
-                    <td><code>{r.id}</code></td>
-                    <td>
-                      <strong className="text-body d-block">{r.subject}</strong>
-                      {r.description && <small className="text-muted text-truncate d-block" style={{ maxWidth: 260 }}>{r.description}</small>}
-                    </td>
-                    <td><span className="fw-semibold">{r.target}</span></td>
-                    <td className="small text-muted">{r.reporter}</td>
-                    <td>
-                      <Badge bg={r.severity === "Nghiêm trọng" ? "danger" : r.severity === "Cao" ? "warning" : "secondary"}>
-                        {r.severity}
-                      </Badge>
-                    </td>
-                    <td className="small text-muted">{r.age}</td>
-                    <td>
-                      <Badge bg={isResolved ? "success" : r.status === "Đang xử lý" ? "warning" : "danger"}>
-                        {r.status}
-                      </Badge>
-                    </td>
-                    <td>
-                      <Button
-                        variant={isResolved ? "outline-secondary" : "outline-danger"}
-                        size="sm"
-                        onClick={() => handleOpenReport(r)}
-                      >
-                        {isResolved ? "Xem hồ sơ" : "Xử lý vi phạm"}
-                      </Button>
-                    </td>
-                  </tr>
-                );
-              })
             )}
+
+            {visible.map((report) => (
+              <tr key={report.id}>
+                <td>
+                  <code>{report.id}</code>
+                </td>
+
+                <td>
+                  <strong className="d-block">
+                    {report.subject}
+                  </strong>
+                  <small className="text-muted">
+                    {report.description}
+                  </small>
+                </td>
+
+                <td>{report.target}</td>
+                <td>{report.reporter}</td>
+
+                <td>
+                  <Badge
+                    bg={
+                      report.severity === "Nghiêm trọng"
+                        ? "danger"
+                        : "warning"
+                    }
+                  >
+                    {report.severity}
+                  </Badge>
+                </td>
+
+                <td className="small">{report.age}</td>
+
+                <td>
+                  <Badge
+                    bg={
+                      report.status === "Đã xử lý"
+                        ? "success"
+                        : "secondary"
+                    }
+                  >
+                    {report.status}
+                  </Badge>
+                </td>
+
+                <td>
+                  <Button
+                    size="sm"
+                    variant={
+                      report.status === "Đã xử lý"
+                        ? "outline-secondary"
+                        : "outline-danger"
+                    }
+                    onClick={() => setSelected(report)}
+                  >
+                    {report.status === "Đã xử lý"
+                      ? "Xem hồ sơ"
+                      : "Xử lý vi phạm"}
+                  </Button>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </Table>
       </div>
 
-      {/* Report Detail Modal */}
+      <small className="text-muted mt-3">
+        Hiển thị {visible.length}/{reports.length} báo cáo
+      </small>
+
       <ReportDetailModal
-        show={showModal}
-        onHide={() => {
-          setShowModal(false);
-          setSelectedReport(null);
-        }}
-        report={selectedReport}
-        onResolve={handleResolveReport}
+        show={Boolean(selected)}
+        report={
+          reports.find(
+            (report) => report.id === selected?.id
+          ) || selected
+        }
+        onHide={() => setSelected(null)}
+        onResolve={resolve}
       />
     </Card>
   );

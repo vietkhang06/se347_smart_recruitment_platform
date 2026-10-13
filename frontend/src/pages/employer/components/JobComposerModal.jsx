@@ -40,7 +40,11 @@ export default function JobComposerModal({ show, onHide, onJobCreated, onNavigat
       setHrProfile(mockStore.getEmployerProfile());
     };
     window.addEventListener("matchajob:store-changed", handleStoreChange);
-    return () => window.removeEventListener("matchajob:store-changed", handleStoreChange);
+    window.addEventListener("storage", handleStoreChange);
+    return () => {
+      window.removeEventListener("matchajob:store-changed", handleStoreChange);
+      window.removeEventListener("storage", handleStoreChange);
+    };
   }, []);
 
   // Sync contenteditable refs when switching tabs
@@ -1468,9 +1472,6 @@ export default function JobComposerModal({ show, onHide, onJobCreated, onNavigat
                 <span className="job-highlight-badge">{workType}</span>
                 <span className="job-highlight-badge">{jobLevel}</span>
                 <span className="job-highlight-badge">Kinh nghiệm: {experience}</span>
-                <span className="job-highlight-badge badge-match">
-                  <i className="bi bi-stars me-1 text-success"></i>96% Phù hợp
-                </span>
               </div>
 
               {/* 3 Summary Cards */}

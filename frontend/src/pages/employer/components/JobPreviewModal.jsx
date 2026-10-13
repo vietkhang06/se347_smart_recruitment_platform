@@ -73,9 +73,11 @@ export default function JobPreviewModal({ show, onHide, job, onToggleStatus, onD
             <span className="job-highlight-badge">{job.type || "Toàn thời gian"}</span>
             <span className="job-highlight-badge">{job.category || job.team || "Chuyên môn"}</span>
             <span className="job-highlight-badge">Kinh nghiệm: {job.exp || "1+ năm"}</span>
-            <span className="job-highlight-badge badge-match">
-              <i className="bi bi-stars me-1 text-success"></i>{job.match || 95}% Phù hợp
-            </span>
+            {Number.isFinite(Number(job.match)) && job.match !== "" && (
+              <span className="job-highlight-badge badge-match">
+                <i className="bi bi-stars me-1 text-success"></i>{job.match}% Phù hợp
+              </span>
+            )}
           </div>
 
           {/* 3 Summary Cards if available */}

@@ -1,221 +1,462 @@
 import { useState } from "react";
-import Card from "react-bootstrap/Card";
-import Button from "react-bootstrap/Button";
-import Table from "react-bootstrap/Table";
-import Badge from "react-bootstrap/Badge";
-import Form from "react-bootstrap/Form";
-import InputGroup from "react-bootstrap/InputGroup";
+import {
+  Card,
+  Button,
+  Table,
+  Badge,
+  Form,
+  Modal,
+  Alert
+} from "react-bootstrap";
 import UserDetailModal from "../components/UserDetailModal";
 import UserCreateModal from "../components/UserCreateModal";
 import { useToast } from "../../../context/ToastContext";
 import { mockStore } from "../../../services/mockStore";
+import {
+  changeAdminUserStatus,
+  USER_ROLES
+} from "../../../services/adminUsers";
 
-export default function UsersView({ users, setUsers }) {
+function exportUsers(users) {
+  const cell = value => {
+    let text = String(value ?? "");
+
+    if (/^\s*[=+@-]/.test(text)) {
+      text = "'" + text;
+    }
+
+    return '"' + text.replace(/"/g, '""') + '"';
+  };
+
+  const rows = [
+    ["Mã", "Họ tên", "Email", "Vai trò", "Trạng thái"],
+    ...users.map(user => [
+      user.id,
+      user.name,
+      user.email,
+      user.role,
+      user.status
+    ])
+  ];
+
+  const content = "\uFEFF" + rows
+    .map(row => row.map(cell).join(","))
+    .join("\r\n");
+
+  const url = URL.createObjectURL(
+    new Blob([content], {
+      type: "text/csv;charset=utf-8"
+    })
+  );
+
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = "matchajob-users.csv";
+
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export default function UsersView({
+  users = [],
+  setUsers
+}) {
   const { showToast } = useToast();
+
   const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [role, setRole] = useState("all");
+  const [status, setStatus] = useState("all");
+  const [selectedId, setSelectedId] = useState(null);
+  const [creating, setCreating] = useState(false);
+  const [confirm, setConfirm] = useState(null);
+  const [error, setError] = useState("");
+  const [page, setPage] = useState(1);
 
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [showDetailModal, setShowDetailModal] = useState(false);
-  const [showCreateModal, setShowCreateModal] = useState(false);
+  const active = user =>
+    ["Hoạt động", "Đã xác minh"].includes(user.status);
 
-  const filteredUsers = users.filter((u) => {
-    const matchSearch =
-      u.name.toLowerCase().includes(search.toLowerCase()) ||
-      u.email.toLowerCase().includes(search.toLowerCase()) ||
-      u.id.toLowerCase().includes(search.toLowerCase());
+  const filtered = users.filter(user => {
+    const matchesSearch = [
+      user.id,
+      user.name,
+      user.email
+    ]
+      .join(" ")
+      .toLowerCase()
+      .includes(search.trim().toLowerCase());
 
-    const matchRole = roleFilter === "all" ? true : u.role === roleFilter;
+    const matchesRole =
+      role === "all" || user.role === role;
 
-    const matchStatus =
-      statusFilter === "all"
-        ? true
-        : statusFilter === "active"
-        ? u.status === "Hoạt động" || u.status === "Đã xác minh"
-        : u.status === statusFilter;
+    const matchesStatus =
+      status === "all" ||
+      (
+        status === "active"
+          ? active(user)
+          : user.status === status
+      );
 
-    return matchSearch && matchRole && matchStatus;
+    return matchesSearch && matchesRole && matchesStatus;
   });
 
-  const toggleUserStatus = (id) => {
-    const newStatus = mockStore.toggleUserStatus(id);
+  const pages = Math.max(
+    1,
+    Math.ceil(filtered.length / 10)
+  );
+
+  const current = Math.min(page, pages);
+
+  const selected = users.find(
+    user => user.id === selectedId
+  );
+
+  const refresh = () => {
     setUsers(mockStore.getUsers());
-    showToast(`Đã chuyển trạng thái tài khoản sang: ${newStatus}`);
   };
 
-  const handleOpenDetail = (user) => {
-    setSelectedUser(user);
-    setShowDetailModal(true);
+  const requestStatus = id => {
+    const user = mockStore
+      .getUsers()
+      .find(item => item.id === id);
+
+    if (!user) return;
+
+    setSelectedId(null);
+    setError("");
+    setConfirm(user);
   };
 
-  const handleUserCreated = (newUser) => {
-    setUsers(mockStore.getUsers());
-  };
+  const applyStatus = () => {
+    try {
+      const updated = changeAdminUserStatus(
+        confirm.id,
+        confirm.status
+      );
 
-  const handleUserUpdated = (updatedUser) => {
-    setUsers(mockStore.getUsers());
-    setSelectedUser(updatedUser);
+      refresh();
+      setConfirm(null);
+
+      showToast(
+        `Đã cập nhật trạng thái: ${updated.status}`
+      );
+    } catch (err) {
+      setError(err.message);
+    }
   };
 
   return (
-    <Card className="matcha-card p-4 border-0 shadow-sm" data-aos="fade-up">
+    <Card
+      className="matcha-card p-4 border-0 shadow-sm"
+      data-aos="fade-up"
+    >
       <div className="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
         <div>
-          <h5 className="fw-bold mb-0">Quản lý người dùng hệ thống ({users.length})</h5>
-          <p className="text-muted small mb-0">Theo dõi thông tin ứng viên, doanh nghiệp tuyển dụng và an toàn tài khoản</p>
+          <h5 className="fw-bold mb-0">
+            Quản lý người dùng hệ thống ({users.length})
+          </h5>
+
+          <p className="text-muted small mb-0">
+            Theo dõi thông tin ứng viên, doanh nghiệp
+            tuyển dụng và an toàn tài khoản
+          </p>
         </div>
+
         <div className="d-flex gap-2">
           <Button
             variant="outline-dark"
             size="sm"
-            onClick={() => showToast("Đã xuất danh bạ người dùng (.CSV)")}
+            disabled={!filtered.length}
+            onClick={() => {
+              try {
+                exportUsers(filtered);
+              } catch {
+                showToast("Không thể xuất CSV.");
+              }
+            }}
           >
-            <i className="bi bi-download me-1"></i>Xuất danh sách
+            Xuất danh sách
           </Button>
+
           <Button
             variant="success"
             size="sm"
-            className="fw-bold"
-            onClick={() => setShowCreateModal(true)}
+            onClick={() => setCreating(true)}
           >
-            <i className="bi bi-person-plus me-1"></i>Thêm người dùng
+            Thêm người dùng
           </Button>
         </div>
       </div>
 
-      {/* Filter and Search Bar */}
       <div className="d-flex flex-wrap gap-2 mb-3">
-        <div className="flex-grow-1" style={{ minWidth: 240 }}>
-          <InputGroup size="sm">
-            <InputGroup.Text><i className="bi bi-search"></i></InputGroup.Text>
-            <Form.Control
-              placeholder="Tìm theo họ tên, email hoặc mã USR-..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </InputGroup>
-        </div>
+        <Form.Control
+          size="sm"
+          style={{ flex: "1 1 240px" }}
+          aria-label="Tìm người dùng"
+          placeholder="Tìm họ tên, email hoặc mã…"
+          value={search}
+          onChange={event => {
+            setSearch(event.target.value);
+            setPage(1);
+          }}
+        />
 
-        <div style={{ width: 170 }}>
-          <Form.Select size="sm" value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
-            <option value="all">Tất cả vai trò</option>
-            <option value="Ứng viên">Ứng viên</option>
-            <option value="Nhà tuyển dụng">Nhà tuyển dụng</option>
-            <option value="Quản trị viên">Quản trị viên</option>
-          </Form.Select>
-        </div>
+        <Form.Select
+          size="sm"
+          style={{ width: 190 }}
+          aria-label="Lọc vai trò"
+          value={role}
+          onChange={event => {
+            setRole(event.target.value);
+            setPage(1);
+          }}
+        >
+          <option value="all">Tất cả vai trò</option>
 
-        <div style={{ width: 170 }}>
-          <Form.Select size="sm" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-            <option value="all">Tất cả trạng thái</option>
-            <option value="active">Hoạt động / Xác minh</option>
-            <option value="Tạm khóa">Tạm khóa</option>
-            <option value="Chờ xác minh">Chờ xác minh</option>
-          </Form.Select>
-        </div>
+          {USER_ROLES.map(item => (
+            <option key={item}>{item}</option>
+          ))}
+        </Form.Select>
+
+        <Form.Select
+          size="sm"
+          style={{ width: 190 }}
+          aria-label="Lọc trạng thái"
+          value={status}
+          onChange={event => {
+            setStatus(event.target.value);
+            setPage(1);
+          }}
+        >
+          <option value="all">Tất cả trạng thái</option>
+          <option value="active">
+            Hoạt động / Xác minh
+          </option>
+          <option>Tạm khóa</option>
+          <option>Chờ xác minh</option>
+        </Form.Select>
       </div>
 
-      {/* Users Table */}
       <div className="table-responsive">
         <Table hover className="align-middle mb-0">
           <thead className="table-light">
             <tr>
-              <th>Mã người dùng</th>
-              <th>Họ và tên / Doanh nghiệp</th>
-              <th>Email liên hệ</th>
-              <th>Vai trò</th>
-              <th>Ngày tham gia</th>
-              <th>Trạng thái</th>
-              <th>Thao tác</th>
+              {[
+                "Mã người dùng",
+                "Họ và tên / Doanh nghiệp",
+                "Email liên hệ",
+                "Vai trò",
+                "Ngày tham gia",
+                "Trạng thái",
+                "Thao tác"
+              ].map(label => (
+                <th key={label}>{label}</th>
+              ))}
             </tr>
           </thead>
+
           <tbody>
-            {filteredUsers.length === 0 ? (
+            {!filtered.length && (
               <tr>
-                <td colSpan="7" className="text-center py-4 text-muted">
-                  Không tìm thấy tài khoản người dùng phù hợp.
+                <td
+                  colSpan={7}
+                  className="text-center py-4 text-muted"
+                >
+                  Không tìm thấy tài khoản phù hợp.
                 </td>
               </tr>
-            ) : (
-              filteredUsers.map((u) => {
-                const isActive = u.status === "Hoạt động" || u.status === "Đã xác minh";
-                return (
-                  <tr key={u.id}>
-                    <td><code>{u.id}</code></td>
-                    <td className="fw-semibold">
-                      <div className="d-flex align-items-center gap-2">
-                        <div
-                          className="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold shadow-sm flex-shrink-0"
-                          style={{
-                            width: "32px",
-                            height: "32px",
-                            fontSize: "12px",
-                            backgroundColor: u.role === "Nhà tuyển dụng" ? "var(--primary)" : u.role === "Quản trị viên" ? "#0f172a" : "var(--purple)"
-                          }}
-                        >
-                          {u.name.slice(0, 2).toUpperCase()}
-                        </div>
-                        <div>
-                          <div className="text-body">{u.name}</div>
-                          {u.companyName && <small className="text-muted">{u.companyName}</small>}
-                        </div>
-                      </div>
-                    </td>
-                    <td>{u.email}</td>
-                    <td>
-                      <Badge bg={u.role === "Nhà tuyển dụng" ? "primary" : u.role === "Quản trị viên" ? "dark" : "secondary"}>
-                        {u.role}
-                      </Badge>
-                    </td>
-                    <td className="text-muted small">{u.joined}</td>
-                    <td>
-                      <Badge bg={isActive ? "success" : u.status === "Chờ xác minh" ? "warning" : "danger"}>
-                        {u.status}
-                      </Badge>
-                    </td>
-                    <td>
-                      <div className="d-flex gap-1">
-                        <Button
-                          variant="outline-secondary"
-                          size="sm"
-                          onClick={() => handleOpenDetail(u)}
-                        >
-                          Chi tiết
-                        </Button>
-                        <Button
-                          variant={isActive ? "outline-danger" : "outline-success"}
-                          size="sm"
-                          title={isActive ? "Khóa tài khoản" : "Mở khóa tài khoản"}
-                          onClick={() => toggleUserStatus(u.id)}
-                        >
-                          <i className={`bi ${isActive ? "bi-lock" : "bi-unlock"}`}></i>
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
             )}
+
+            {filtered
+              .slice((current - 1) * 10, current * 10)
+              .map(user => (
+                <tr key={user.id}>
+                  <td>
+                    <code
+                      style={{ overflowWrap: "anywhere" }}
+                    >
+                      {user.id}
+                    </code>
+                  </td>
+
+                  <td>
+                    <div className="d-flex align-items-center gap-2">
+                      <div
+                        className="rounded-circle text-white d-flex align-items-center justify-content-center flex-shrink-0"
+                        style={{
+                          width: 32,
+                          height: 32,
+                          backgroundColor: "var(--primary)"
+                        }}
+                      >
+                        {String(user.name || "US")
+                          .slice(0, 2)
+                          .toUpperCase()}
+                      </div>
+
+                      <div>
+                        <strong>{user.name}</strong>
+
+                        {user.companyName && (
+                          <small className="d-block text-muted">
+                            {user.companyName}
+                          </small>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+
+                  <td>{user.email}</td>
+
+                  <td>
+                    <Badge
+                      bg={
+                        user.role === "Quản trị viên"
+                          ? "dark"
+                          : "secondary"
+                      }
+                    >
+                      {user.role}
+                    </Badge>
+                  </td>
+
+                  <td className="small">
+                    {user.joined}
+                  </td>
+
+                  <td>
+                    <Badge
+                      bg={
+                        active(user)
+                          ? "success"
+                          : user.status === "Tạm khóa"
+                          ? "danger"
+                          : "warning"
+                      }
+                    >
+                      {user.status}
+                    </Badge>
+                  </td>
+
+                  <td>
+                    <div className="d-flex gap-1">
+                      <Button
+                        size="sm"
+                        variant="outline-secondary"
+                        onClick={() =>
+                          setSelectedId(user.id)
+                        }
+                      >
+                        Chi tiết
+                      </Button>
+
+                      <Button
+                        size="sm"
+                        variant={
+                          active(user)
+                            ? "outline-danger"
+                            : "outline-success"
+                        }
+                        disabled={
+                          !active(user) &&
+                          user.status !== "Tạm khóa"
+                        }
+                        onClick={() =>
+                          requestStatus(user.id)
+                        }
+                      >
+                        {active(user) ? "Khóa" : "Mở khóa"}
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
           </tbody>
         </Table>
       </div>
 
-      {/* User Detail Modal */}
+      <div className="d-flex justify-content-between align-items-center mt-3 gap-2">
+        <small>
+          {filtered.length} kết quả · Trang {current}/{pages}
+        </small>
+
+        <div className="d-flex gap-2">
+          <Button
+            size="sm"
+            variant="outline-secondary"
+            disabled={current <= 1}
+            onClick={() => setPage(current - 1)}
+          >
+            Trước
+          </Button>
+
+          <Button
+            size="sm"
+            variant="outline-secondary"
+            disabled={current >= pages}
+            onClick={() => setPage(current + 1)}
+          >
+            Sau
+          </Button>
+        </div>
+      </div>
+
       <UserDetailModal
-        show={showDetailModal}
-        onHide={() => setShowDetailModal(false)}
-        user={selectedUser}
-        onToggleStatus={toggleUserStatus}
-        onUserUpdated={handleUserUpdated}
+        show={Boolean(selected)}
+        user={selected}
+        onHide={() => setSelectedId(null)}
+        onToggleStatus={requestStatus}
+        onUserUpdated={refresh}
       />
 
-      {/* User Create Modal */}
       <UserCreateModal
-        show={showCreateModal}
-        onHide={() => setShowCreateModal(false)}
-        onUserCreated={handleUserCreated}
+        show={creating}
+        onHide={() => setCreating(false)}
+        onUserCreated={refresh}
       />
+
+      <Modal
+        show={Boolean(confirm)}
+        onHide={() => setConfirm(null)}
+        centered
+      >
+        <Modal.Header closeButton>
+          <Modal.Title className="fs-5">
+            Xác nhận đổi trạng thái
+          </Modal.Title>
+        </Modal.Header>
+
+        <Modal.Body>
+          {error && (
+            <Alert variant="danger">{error}</Alert>
+          )}
+
+          Bạn muốn{" "}
+          {confirm?.status === "Tạm khóa"
+            ? "mở khóa"
+            : "tạm khóa"}{" "}
+          tài khoản <strong>{confirm?.email}</strong>?
+        </Modal.Body>
+
+        <Modal.Footer>
+          <Button
+            variant="secondary"
+            onClick={() => setConfirm(null)}
+          >
+            Hủy
+          </Button>
+
+          <Button
+            variant="danger"
+            onClick={applyStatus}
+          >
+            Xác nhận
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </Card>
   );
 }

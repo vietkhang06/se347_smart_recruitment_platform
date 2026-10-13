@@ -47,44 +47,50 @@ export default function AdminOverviewView({ adminData, onNavigateTab }) {
           <Card className="matcha-card p-4 border-0 shadow-sm h-100 d-flex flex-column">
             <h5 className="fw-bold mb-3">Cảnh báo SLA cần xử lý</h5>
             <div className="d-flex flex-column gap-3 mb-3">
-              <div
-                className="priority-alert-card danger"
+              <button
+                type="button"
+                className="priority-alert-card danger text-start w-100"
                 onClick={() => onNavigateTab("reports")}
+                style={{ border: 0, cursor: "pointer" }}
               >
                 <div className="d-flex justify-content-between align-items-center mb-1">
                   <strong className="text-danger small">
-                    <i className="bi bi-shield-slash me-1"></i>3 Báo cáo nghiêm trọng
+                    <i className="bi bi-shield-slash me-1"></i>{adminData.alerts.severeReportsCount} Báo cáo nghiêm trọng
                   </strong>
-                  <span className="badge bg-danger">SLA 38p</span>
+                  <span className="badge bg-danger">{adminData.alerts.highRiskReviews} rủi ro cao</span>
                 </div>
-                <div className="small text-muted">Có dấu hiệu thu phí ứng tuyển trái phép</div>
-              </div>
+                <div className="small text-muted">{adminData.alerts.severeReportsCount ? "Mở danh sách để xem và xử lý báo cáo." : "Không có báo cáo nghiêm trọng đang chờ."}</div>
+              </button>
 
-              <div
-                className="priority-alert-card warning"
+              <button
+                type="button"
+                className="priority-alert-card warning text-start w-100"
                 onClick={() => onNavigateTab("moderation")}
+                style={{ border: 0, cursor: "pointer" }}
               >
                 <div className="d-flex justify-content-between align-items-center mb-1">
                   <strong className="text-warning small">
-                    <i className="bi bi-clock-history me-1"></i>8 Doanh nghiệp chờ xác minh
+                    <i className="bi bi-clock-history me-1"></i>{adminData.alerts.pendingCompanyReviews} Doanh nghiệp chờ xác minh
                   </strong>
-                  <span className="badge bg-warning">Quá 24h</span>
+                  <span className="badge bg-warning">Cần kiểm tra</span>
                 </div>
-                <div className="small text-muted">Hồ sơ pháp lý cần đối soát mã số thuế</div>
-              </div>
+                <div className="small text-muted">Mở hàng đợi kiểm duyệt doanh nghiệp.</div>
+              </button>
 
-              <div
-                className="priority-alert-card info"
+              <button
+                type="button"
+                className="priority-alert-card info text-start w-100"
                 onClick={() => onNavigateTab("moderation")}
+                style={{ border: 0, cursor: "pointer" }}
               >
                 <div className="d-flex justify-content-between align-items-center mb-1">
                   <strong className="text-primary small">
-                    <i className="bi bi-card-checklist me-1"></i>26 Tin đăng chờ duyệt
+                    <i className="bi bi-card-checklist me-1"></i>{adminData.alerts.pendingJobReviews} Tin đăng chờ duyệt
                   </strong>
-                  <span className="badge bg-secondary">Tự động flag</span>
+                  <span className="badge bg-secondary">{adminData.alerts.highRiskReviews} rủi ro cao</span>
                 </div>
-                <div className="small text-muted">Kiểm tra mức lương và tính minh bạch</div>
-              </div>
+                <div className="small text-muted">Chỉ tin được duyệt mới hiển thị với ứng viên.</div>
+              </button>
             </div>
 
             <div className="mt-auto p-3 rounded bg-surface-2 border text-center small text-muted">
