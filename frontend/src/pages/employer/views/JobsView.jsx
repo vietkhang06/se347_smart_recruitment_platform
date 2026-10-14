@@ -1,65 +1,234 @@
-import { useState, forwardRef } from "react";
+import { useRef, useState, forwardRef } from "react";
 import Card from "react-bootstrap/Card";
 import Button from "react-bootstrap/Button";
 import Table from "react-bootstrap/Table";
-import Badge from "react-bootstrap/Badge";
 import Form from "react-bootstrap/Form";
 import InputGroup from "react-bootstrap/InputGroup";
 import Dropdown from "react-bootstrap/Dropdown";
 import JobPreviewModal from "../components/JobPreviewModal";
 import { useToast } from "../../../context/ToastContext";
-import { jobService, mockStore } from "../../../services";
+import { jobService } from "../../../services";
 
-// Custom Dropdown Toggle without default Bootstrap arrow/caret
-const CustomThreeDotsToggle = forwardRef(({ onClick }, ref) => (
-  <button
-    ref={ref}
-    type="button"
-    className="btn btn-sm border-0 rounded-circle p-0 d-inline-flex align-items-center justify-content-center"
-    style={{ width: "32px", height: "32px", backgroundColor: "var(--surface-2)", color: "var(--text)" }}
-    onClick={(e) => {
-      e.preventDefault();
-      onClick(e);
-    }}
-  >
-    <i className="bi bi-three-dots-vertical fs-6"></i>
-  </button>
-));
+const sameId = (a, b) => String(a) === String(b);
+
+const CustomThreeDotsToggle = forwardRef(
+  ({ onClick, disabled }, ref) => (
+    <button
+      ref={ref}
+      type="button"
+      disabled={disabled}
+      aria-label="Thao tác với tin tuyển dụng"
+      className="btn btn-sm border-0 rounded-circle p-0 d-inline-flex align-items-center justify-content-center"
+      style={{
+        width: 32,
+        height: 32,
+        backgroundColor: "var(--surface-2)",
+        color: "var(--text)"
+      }}
+      onClick={(event) => {
+        event.preventDefault();
+        onClick?.(event);
+      }}
+    >
+      <i className="bi bi-three-dots-vertical" />
+    </button>
+  )
+);
+
 CustomThreeDotsToggle.displayName = "CustomThreeDotsToggle";
 
-export default function JobsView({ jobs, setJobs, onOpenComposer, onNavigateCandidates }) {
+export default function JobsView({
+  jobs = [],
+  setJobs,
+  onOpenComposer,
+  onNavigateCandidates
+}) {
   const { showToast } = useToast();
+
   const [filterStatus, setFilterStatus] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedJob, setSelectedJob] = useState(null);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [selectedJobIds, setSelectedJobIds] = useState([]);
+  const [busy, setBusy] = useState(false);
 
-  const filteredJobs = jobs.filter((j) => {
-    const matchStatus = filterStatus === "all" ? true : j.status === filterStatus;
-    const q = (searchQuery || "").toLowerCase().trim();
-    const matchQuery =
-      !q ||
-      (j.title || "").toLowerCase().includes(q) ||
-      String(j.id || "").toLowerCase().includes(q) ||
-      (j.location || "").toLowerCase().includes(q) ||
-      (j.department || "").toLowerCase().includes(q);
-    return matchStatus && matchQuery;
+  const busyRef = useRef(false);
+
+  const filteredJobs = jobs.filter((job) => {
+    const query = searchQuery.trim().toLowerCase();
+
+    return (
+      (filterStatus === "all" || job.status === filterStatus) &&
+      [
+        job.title,
+        job.id,
+        job.location,
+        job.department,
+        job.team
+      ].some((value) =>
+        String(value ?? "").toLowerCase().includes(query)
+      )
+    );
   });
 
-  const toggleJobStatus = async (id) => {
-    const job = jobs.find((j) => String(j.id) === String(id));
-    const nextStatus = job?.status === "Đang tuyển" ? "Tạm dừng" : "Đang tuyển";
-    await jobService.updateJobStatus(id, nextStatus);
-    setJobs(jobs.map((j) => (String(j.id) === String(id) ? { ...j, status: nextStatus } : j)));
-    showToast(`Đã chuyển trạng thái tin sang: ${nextStatus}`);
+  const isSelected = (id) =>
+    selectedJobIds.some((item) => sameId(item, id));
+
+  const isAllSelected =
+    filteredJobs.length > 0 &&
+    filteredJobs.every((job) => isSelected(job.id));
+
+  const isPartiallySelected =
+    !isAllSelected &&
+    filteredJobs.some((job) => isSelected(job.id));
+
+  const previewJob =
+    jobs.find((job) => sameId(job.id, selectedJob?.id)) ||
+    selectedJob;
+
+  const changeFilter = (key, value) => {
+    if (key === "status") {
+      setFilterStatus(value);
+    } else {
+      setSearchQuery(value);
+    }
+
+    setSelectedJobIds([]);
   };
 
-  const handleDeleteJob = async (id) => {
-    await jobService.deleteJob(id);
-    setJobs(jobs.filter((j) => String(j.id) !== String(id)));
-    setSelectedJobIds((prev) => prev.filter((item) => String(item) !== String(id)));
-    showToast("Đã xóa tin tuyển dụng thành công");
+  const handleSelectAll = (event) => {
+    setSelectedJobIds(
+      event.target.checked
+        ? filteredJobs.map((job) => job.id)
+        : []
+    );
+  };
+
+  const handleToggleSelectJob = (id) => {
+    setSelectedJobIds((prev) =>
+      prev.some((item) => sameId(item, id))
+        ? prev.filter((item) => !sameId(item, id))
+        : [...prev, id]
+    );
+  };
+
+  const runAction = async (ids, action) => {
+    if (busyRef.current || !ids.length) return false;
+
+    busyRef.current = true;
+    setBusy(true);
+
+    const succeeded = [];
+    const errors = [];
+
+    try {
+      for (const id of ids) {
+        try {
+          if (action === "delete") {
+            const deleted = await jobService.deleteJob(id);
+
+            if (deleted === false) {
+              throw new Error("Không xóa được tin tuyển dụng.");
+            }
+
+            setJobs((prev) =>
+              prev.filter((job) => !sameId(job.id, id))
+            );
+
+            setSelectedJob((prev) =>
+              sameId(prev?.id, id) ? null : prev
+            );
+          } else {
+            const current = await jobService.getJobById(id);
+
+            if (!current) {
+              throw new Error(
+                "Tin tuyển dụng không còn tồn tại."
+              );
+            }
+
+            if (
+              !["Đang tuyển", "Tạm dừng"].includes(current.status)
+            ) {
+              throw new Error(
+                "Chỉ tạm dừng/mở lại tin đã duyệt và chưa đóng."
+              );
+            }
+
+            const nextStatus =
+              action === "toggle"
+                ? current.status === "Đang tuyển"
+                  ? "Tạm dừng"
+                  : "Đang tuyển"
+                : action;
+
+            const updated =
+              current.status === nextStatus
+                ? current
+                : await jobService.updateJobStatus(id, nextStatus);
+
+            if (!updated || updated.status !== nextStatus) {
+              throw new Error(
+                "Không xác nhận được trạng thái mới của tin."
+              );
+            }
+
+            setJobs((prev) =>
+              prev.map((job) =>
+                sameId(job.id, id)
+                  ? { ...job, ...updated }
+                  : job
+              )
+            );
+          }
+
+          succeeded.push(id);
+        } catch (error) {
+          errors.push(
+            `${id}: ${error?.message || "Thao tác thất bại."}`
+          );
+        }
+      }
+
+      setSelectedJobIds((prev) =>
+        prev.filter(
+          (id) => !succeeded.some((done) => sameId(done, id))
+        )
+      );
+
+      if (errors.length) {
+        showToast(
+          `Thành công ${succeeded.length}/${ids.length} tin. ${errors[0]}`
+        );
+      } else {
+        showToast(
+          action === "delete"
+            ? `Đã xóa ${succeeded.length} tin tuyển dụng.`
+            : `Đã cập nhật trạng thái ${succeeded.length} tin tuyển dụng.`
+        );
+      }
+
+      return errors.length === 0;
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
+  };
+
+  const toggleJobStatus = (id) =>
+    runAction([id], "toggle");
+
+  const handleDeleteJob = (id) =>
+    runAction([id], "delete");
+
+  const handleBulkDelete = () => {
+    if (
+      window.confirm(
+        `Xác nhận xóa ${selectedJobIds.length} tin tuyển dụng đã chọn?`
+      )
+    ) {
+      runAction([...selectedJobIds], "delete");
+    }
   };
 
   const handleOpenPreview = (job) => {
@@ -67,147 +236,250 @@ export default function JobsView({ jobs, setJobs, onOpenComposer, onNavigateCand
     setShowPreviewModal(true);
   };
 
-  // Bulk Actions
-  const handleSelectAll = (e) => {
-    if (e.target.checked) {
-      setSelectedJobIds(filteredJobs.map((j) => j.id));
-    } else {
-      setSelectedJobIds([]);
+  const exportJobs = () => {
+    try {
+      const cell = (value) => {
+        let text = String(value ?? "");
+
+        if (/^\s*[=+@-]/.test(text)) {
+          text = "'" + text;
+        }
+
+        return '"' + text.replace(/"/g, '""') + '"';
+      };
+
+      const rows = [
+        [
+          "Mã tin",
+          "Vị trí",
+          "Phòng ban",
+          "Địa điểm",
+          "Ứng viên",
+          "Lượt xem",
+          "Trạng thái"
+        ],
+        ...filteredJobs.map((job) => [
+          job.id,
+          job.title,
+          job.department || job.team,
+          job.location,
+          job.applicantCount ?? job.applicants ?? 0,
+          job.viewCount ?? job.views ?? 0,
+          job.status
+        ])
+      ];
+
+      const blob = new Blob(
+        [
+          "\uFEFF" +
+          rows
+            .map((row) => row.map(cell).join(","))
+            .join("\r\n")
+        ],
+        { type: "text/csv;charset=utf-8" }
+      );
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = "matchajob-tin-tuyen-dung.csv";
+
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      showToast("Đã tạo tệp CSV theo bộ lọc.");
+    } catch {
+      showToast("Không thể tạo tệp CSV.");
     }
   };
 
-  const handleToggleSelectJob = (id) => {
-    setSelectedJobIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    );
-  };
+  const copyJobLink = async (job) => {
+    try {
+      const url = new URL(
+        `/jobs/${encodeURIComponent(job.id)}`,
+        window.location.origin
+      );
 
-  const handleBulkPause = () => {
-    selectedJobIds.forEach((id) => mockStore.updateJob(id, { status: "Tạm dừng" }));
-    setJobs(mockStore.getEmployerJobs("COMP-01"));
-    showToast(`Đã tạm dừng ${selectedJobIds.length} tin tuyển dụng đã chọn`);
-    setSelectedJobIds([]);
-  };
-
-  const handleBulkResume = () => {
-    selectedJobIds.forEach((id) => mockStore.updateJob(id, { status: "Đang tuyển" }));
-    setJobs(mockStore.getEmployerJobs("COMP-01"));
-    showToast(`Đã mở lại ${selectedJobIds.length} tin tuyển dụng đã chọn`);
-    setSelectedJobIds([]);
-  };
-
-  const handleBulkDelete = () => {
-    if (window.confirm(`Xác nhận xóa ${selectedJobIds.length} tin tuyển dụng đã chọn?`)) {
-      selectedJobIds.forEach((id) => mockStore.deleteJob(id));
-      setJobs(mockStore.getEmployerJobs("COMP-01"));
-      showToast(`Đã xóa vĩnh viễn ${selectedJobIds.length} tin tuyển dụng`);
-      setSelectedJobIds([]);
+      await navigator.clipboard.writeText(url.href);
+      showToast("Đã sao chép liên kết tin tuyển dụng.");
+    } catch {
+      showToast("Không thể sao chép liên kết.");
     }
   };
 
   const filterOptions = [
-    { key: "all", label: "Tất cả", count: jobs.length },
-    { key: "Đang tuyển", label: "Đang tuyển", count: jobs.filter((j) => j.status === "Đang tuyển").length },
-    { key: "Chờ duyệt", label: "Chờ duyệt", count: jobs.filter((j) => j.status === "Chờ duyệt").length },
-    { key: "Tạm dừng", label: "Tạm dừng", count: jobs.filter((j) => j.status === "Tạm dừng").length },
-    { key: "Đã đóng", label: "Đã đóng", count: jobs.filter((j) => j.status === "Đã đóng").length }
+    "all",
+    "Đang tuyển",
+    "Chờ duyệt",
+    "Tạm dừng",
+    "Đã đóng"
   ];
 
-  const isAllSelected = filteredJobs.length > 0 && selectedJobIds.length === filteredJobs.length;
-  const isPartiallySelected = selectedJobIds.length > 0 && !isAllSelected;
-
   return (
-    <Card className="matcha-card p-4 border-0 shadow-sm" data-aos="fade-up">
+    <Card
+      className="matcha-card p-4 border-0 shadow-sm"
+      data-aos="fade-up"
+    >
       <div className="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-3">
         <div>
-          <h5 className="fw-bold mb-0">Quản lý tin tuyển dụng</h5>
-          <p className="text-muted small mb-0">Theo dõi toàn bộ các vị trí đã đăng, hiệu suất tiếp cận và trạng thái</p>
+          <h5 className="fw-bold mb-0">
+            Quản lý tin tuyển dụng
+          </h5>
+          <p className="text-muted small mb-0">
+            Theo dõi toàn bộ các vị trí đã đăng, hiệu suất
+            tiếp cận và trạng thái
+          </p>
         </div>
+
         <div className="d-flex gap-2">
-          <Button variant="outline-secondary" size="sm" onClick={() => showToast("Đã xuất danh sách tin tuyển dụng (.CSV)")}>
-            <i className="bi bi-download me-1"></i>Xuất danh sách
+          <Button
+            variant="outline-secondary"
+            size="sm"
+            disabled={!filteredJobs.length || busy}
+            onClick={exportJobs}
+          >
+            <i className="bi bi-download me-1" />
+            Xuất danh sách
           </Button>
-          <Button variant="success" size="sm" className="fw-bold" onClick={onOpenComposer}>
-            <i className="bi bi-plus-lg me-1"></i>Tạo tin mới
+
+          <Button
+            variant="success"
+            size="sm"
+            className="fw-bold"
+            disabled={busy}
+            onClick={onOpenComposer}
+          >
+            <i className="bi bi-plus-lg me-1" />
+            Tạo tin mới
           </Button>
         </div>
       </div>
 
-      {/* Modern Filter Pills & Search Bar */}
       <div className="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-3">
         <div className="d-flex flex-wrap gap-2 align-items-center">
-          {filterOptions.map((item) => {
-            const isActive = filterStatus === item.key;
-            return (
-              <button
-                key={item.key}
-                type="button"
-                className={`filter-pill ${isActive ? "active" : ""}`}
-                onClick={() => setFilterStatus(item.key)}
-              >
-                <span>{item.label}</span>
-                <span className="badge">
-                  {item.count}
-                </span>
-              </button>
-            );
-          })}
+          {filterOptions.map((status) => (
+            <button
+              key={status}
+              type="button"
+              disabled={busy}
+              className={`filter-pill ${
+                filterStatus === status ? "active" : ""
+              }`}
+              onClick={() => changeFilter("status", status)}
+            >
+              <span>
+                {status === "all" ? "Tất cả" : status}
+              </span>
+              <span className="badge">
+                {status === "all"
+                  ? jobs.length
+                  : jobs.filter((job) => job.status === status).length}
+              </span>
+            </button>
+          ))}
         </div>
 
         <div style={{ maxWidth: 300, width: "100%" }}>
           <InputGroup size="sm">
-            <InputGroup.Text style={{ backgroundColor: "var(--surface-2)", borderColor: "var(--border)", color: "var(--muted)" }}>
-              <i className="bi bi-search"></i>
+            <InputGroup.Text
+              style={{
+                backgroundColor: "var(--surface-2)",
+                borderColor: "var(--border)",
+                color: "var(--muted)"
+              }}
+            >
+              <i className="bi bi-search" />
             </InputGroup.Text>
+
             <Form.Control
               placeholder="Tìm theo vị trí, mã tin hoặc địa điểm..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              style={{ backgroundColor: "var(--surface-2)", borderColor: "var(--border)", color: "var(--text)" }}
+              disabled={busy}
+              onChange={(event) =>
+                changeFilter("search", event.target.value)
+              }
+              style={{
+                backgroundColor: "var(--surface-2)",
+                borderColor: "var(--border)",
+                color: "var(--text)"
+              }}
             />
           </InputGroup>
         </div>
       </div>
 
-      {/* Bulk Action Banner when multiple rows selected */}
+      {busy && (
+        <div className="small text-muted mb-3" role="status">
+          Đang xử lý tin tuyển dụng…
+        </div>
+      )}
+
       {selectedJobIds.length > 0 && (
         <div
           className="alert d-flex flex-wrap justify-content-between align-items-center py-2 px-3 mb-3 rounded-3 border"
-          style={{ backgroundColor: "var(--primary-soft)", borderColor: "var(--primary)", color: "var(--text)" }}
+          style={{
+            backgroundColor: "var(--primary-soft)",
+            borderColor: "var(--primary)",
+            color: "var(--text)"
+          }}
         >
           <div className="d-flex align-items-center gap-2 small fw-semibold">
-            <i className="bi bi-check2-circle fs-5 text-success"></i>
-            <span>Đã chọn <strong className="text-success">{selectedJobIds.length}</strong> tin tuyển dụng</span>
+            <i className="bi bi-check2-circle fs-5 text-success" />
+            <span>
+              Đã chọn{" "}
+              <strong className="text-success">
+                {selectedJobIds.length}
+              </strong>{" "}
+              tin tuyển dụng
+            </span>
           </div>
+
           <div className="d-flex gap-2 align-items-center flex-wrap">
             <Button
               variant="outline-warning"
               size="sm"
               className="rounded-pill"
-              onClick={handleBulkPause}
+              disabled={busy}
+              onClick={() =>
+                runAction([...selectedJobIds], "Tạm dừng")
+              }
             >
-              <i className="bi bi-pause-circle me-1"></i>Tạm dừng đã chọn
+              <i className="bi bi-pause-circle me-1" />
+              Tạm dừng đã chọn
             </Button>
+
             <Button
               variant="outline-success"
               size="sm"
               className="rounded-pill"
-              onClick={handleBulkResume}
+              disabled={busy}
+              onClick={() =>
+                runAction([...selectedJobIds], "Đang tuyển")
+              }
             >
-              <i className="bi bi-play-circle me-1"></i>Mở lại đã chọn
+              <i className="bi bi-play-circle me-1" />
+              Mở lại đã chọn
             </Button>
+
             <Button
               variant="outline-danger"
               size="sm"
               className="rounded-pill"
+              disabled={busy}
               onClick={handleBulkDelete}
             >
-              <i className="bi bi-trash me-1"></i>Xóa đã chọn
+              <i className="bi bi-trash me-1" />
+              Xóa đã chọn
             </Button>
+
             <Button
               variant="link"
               size="sm"
               className="text-decoration-none text-muted p-0 ms-2 small"
+              disabled={busy}
               onClick={() => setSelectedJobIds([])}
             >
               Bỏ chọn
@@ -216,148 +488,231 @@ export default function JobsView({ jobs, setJobs, onOpenComposer, onNavigateCand
         </div>
       )}
 
-      {/* Table of Jobs: Tiêu đề căn giữa text-nowrap, nội dung căn trái (JD, phòng ban, vị trí) & căn giữa (mã, số lượng, ngày, trạng thái, thao tác) */}
       <div className="table-responsive">
         <Table hover className="matcha-table align-middle mb-0">
           <thead>
             <tr>
-              {/* Checkbox chọn tất cả: Cố định 48px, căn giữa */}
-              <th style={{ width: "48px", textAlign: "center" }}>
+              <th style={{ width: 48, textAlign: "center" }}>
                 <Form.Check
                   className="matcha-checkbox-wrap"
                   type="checkbox"
                   checked={isAllSelected}
+                  disabled={busy}
                   ref={(input) => {
-                    if (input) input.indeterminate = isPartiallySelected;
+                    if (input) {
+                      input.indeterminate = isPartiallySelected;
+                    }
                   }}
                   onChange={handleSelectAll}
                   aria-label="Chọn tất cả tin tuyển dụng"
                 />
               </th>
-              <th className="text-center text-nowrap">Mã tin</th>
-              <th className="text-center text-nowrap">Vị trí tuyển dụng</th>
-              <th className="text-center text-nowrap">Phòng ban</th>
-              <th className="text-center text-nowrap">Địa điểm</th>
-              <th className="text-center text-nowrap">Ứng viên / Lượt xem</th>
-              <th className="text-center text-nowrap">Ngày đăng</th>
-              <th className="text-center text-nowrap">Trạng thái</th>
-              {/* Cột Thao tác: width 100px text-nowrap để chữ THAO TÁC không bị ngắt đôi xuống dòng */}
-              <th className="text-center text-nowrap" style={{ width: "100px", minWidth: "95px" }}>Thao tác</th>
+
+              {[
+                "Mã tin",
+                "Vị trí tuyển dụng",
+                "Phòng ban",
+                "Địa điểm",
+                "Ứng viên / Lượt xem",
+                "Ngày đăng",
+                "Trạng thái"
+              ].map((label) => (
+                <th
+                  key={label}
+                  className="text-center text-nowrap"
+                >
+                  {label}
+                </th>
+              ))}
+
+              <th
+                className="text-center text-nowrap"
+                style={{ width: 100, minWidth: 95 }}
+              >
+                Thao tác
+              </th>
             </tr>
           </thead>
+
           <tbody>
-            {filteredJobs.length === 0 ? (
+            {!filteredJobs.length && (
               <tr>
-                <td colSpan="9" className="text-center py-4 text-muted">
-                  Không tìm thấy tin tuyển dụng nào phù hợp với bộ lọc.
+                <td
+                  colSpan={9}
+                  className="text-center py-4 text-muted"
+                >
+                  Không tìm thấy tin tuyển dụng nào phù hợp
+                  với bộ lọc.
                 </td>
               </tr>
-            ) : (
-              filteredJobs.map((j) => {
-                const isSelected = selectedJobIds.includes(j.id);
-                return (
-                  <tr key={j.id} className={isSelected ? "table-active" : ""}>
-                    <td className="text-center">
-                      <Form.Check
-                        className="matcha-checkbox-wrap"
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => handleToggleSelectJob(j.id)}
-                        aria-label={`Chọn tin ${j.title}`}
-                      />
-                    </td>
-                    <td className="text-center"><code>{j.id}</code></td>
-                    <td className="text-start">
-                      <button
-                        type="button"
-                        className="btn btn-link p-0 text-start fw-bold text-body text-decoration-none d-block text-truncate"
-                        style={{ maxWidth: "260px" }}
-                        onClick={() => handleOpenPreview(j)}
-                      >
-                        {j.title}
-                      </button>
-                      {j.salary && <span className="small text-muted">{j.salary}</span>}
-                    </td>
-                    <td className="text-start">{j.team || "Engineering"}</td>
-                    <td className="text-start"><i className="bi bi-geo-alt me-1 text-muted"></i>{j.location}</td>
-                    <td className="text-center">
-                      <strong className="text-body">{j.applicants || 0}</strong>
-                      <span className="text-muted small"> / {j.views || 0} views</span>
-                    </td>
-                    <td className="text-center text-muted small">{j.posted}</td>
-                    <td className="text-center">
-                      <span
-                        className={`status-badge ${
-                          j.status === "Đang tuyển"
-                            ? "status-badge-success"
-                            : j.status === "Chờ duyệt"
-                            ? "status-badge-warning"
-                            : j.status === "Tạm dừng"
+            )}
+
+            {filteredJobs.map((job) => (
+              <tr
+                key={job.id}
+                className={isSelected(job.id) ? "table-active" : ""}
+              >
+                <td className="text-center">
+                  <Form.Check
+                    className="matcha-checkbox-wrap"
+                    type="checkbox"
+                    checked={isSelected(job.id)}
+                    disabled={busy}
+                    onChange={() =>
+                      handleToggleSelectJob(job.id)
+                    }
+                    aria-label={`Chọn tin ${job.title}`}
+                  />
+                </td>
+
+                <td className="text-center">
+                  <code>{job.id}</code>
+                </td>
+
+                <td className="text-start">
+                  <button
+                    type="button"
+                    className="btn btn-link p-0 text-start fw-bold text-body text-decoration-none d-block text-truncate"
+                    style={{ maxWidth: 260 }}
+                    onClick={() => handleOpenPreview(job)}
+                  >
+                    {job.title}
+                  </button>
+
+                  {job.salary && (
+                    <span className="small text-muted">
+                      {job.salary}
+                    </span>
+                  )}
+                </td>
+
+                <td className="text-start">
+                  {job.department || job.team || "Chưa cập nhật"}
+                </td>
+
+                <td className="text-start">
+                  <i className="bi bi-geo-alt me-1 text-muted" />
+                  {job.location}
+                </td>
+
+                <td className="text-center">
+                  <strong className="text-body">
+                    {job.applicantCount ?? job.applicants ?? 0}
+                  </strong>
+                  <span className="text-muted small">
+                    {" / "}
+                    {job.viewCount ?? job.views ?? 0} views
+                  </span>
+                </td>
+
+                <td className="text-center text-muted small">
+                  {job.postedDate || job.posted || "Chưa cập nhật"}
+                </td>
+
+                <td className="text-center">
+                  <span
+                    className={`status-badge ${
+                      job.status === "Đang tuyển"
+                        ? "status-badge-success"
+                        : job.status === "Chờ duyệt"
+                          ? "status-badge-warning"
+                          : job.status === "Tạm dừng"
                             ? "status-badge-secondary"
                             : "status-badge-danger"
-                        }`}
+                    }`}
+                  >
+                    {job.status}
+                  </span>
+                </td>
+
+                <td className="text-center">
+                  <Dropdown align="end">
+                    <Dropdown.Toggle
+                      as={CustomThreeDotsToggle}
+                      disabled={busy}
+                    />
+
+                    <Dropdown.Menu className="matcha-dropdown-menu py-2">
+                      <Dropdown.Item
+                        onClick={() => handleOpenPreview(job)}
+                        className="small py-2"
                       >
-                        {j.status}
-                      </span>
-                    </td>
-                    <td className="text-center">
-                      <Dropdown align="end">
-                        <Dropdown.Toggle as={CustomThreeDotsToggle} />
-                        <Dropdown.Menu className="matcha-dropdown-menu py-2">
-                          <Dropdown.Item onClick={() => handleOpenPreview(j)} className="small py-2">
-                            <i className="bi bi-eye text-primary me-2"></i>Xem chi tiết JD
-                          </Dropdown.Item>
-                          <Dropdown.Item
-                            onClick={() => {
-                              if (onNavigateCandidates) onNavigateCandidates(j);
-                            }}
-                            className="small py-2"
-                          >
-                            <i className="bi bi-people text-info me-2"></i>Xem ứng viên ({j.applicants || 0})
-                          </Dropdown.Item>
-                          <Dropdown.Item
-                            onClick={() => showToast(`Đã sao chép liên kết chia sẻ cho ${j.title}`)}
-                            className="small py-2"
-                          >
-                            <i className="bi bi-link-45deg text-secondary me-2"></i>Sao chép liên kết
-                          </Dropdown.Item>
-                          <Dropdown.Divider />
-                          <Dropdown.Item onClick={() => toggleJobStatus(j.id)} className="small py-2">
-                            <i className={`bi ${j.status === "Đang tuyển" ? "bi-pause-circle text-warning" : "bi-play-circle text-success"} me-2`}></i>
-                            {j.status === "Đang tuyển" ? "Tạm dừng nhận đơn" : "Tiếp tục tuyển dụng"}
-                          </Dropdown.Item>
-                          <Dropdown.Item
-                            onClick={() => {
-                              if (window.confirm(`Xác nhận xóa vĩnh viễn tin "${j.title}"?`)) {
-                                handleDeleteJob(j.id);
-                                showToast(`Đã xóa tin tuyển dụng ${j.id}`);
-                              }
-                            }}
-                            className="small py-2 text-danger"
-                          >
-                            <i className="bi bi-trash text-danger me-2"></i>Xóa tin này
-                          </Dropdown.Item>
-                        </Dropdown.Menu>
-                      </Dropdown>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
+                        <i className="bi bi-eye text-primary me-2" />
+                        Xem chi tiết JD
+                      </Dropdown.Item>
+
+                      <Dropdown.Item
+                        onClick={() => onNavigateCandidates?.(job)}
+                        disabled={!onNavigateCandidates}
+                        className="small py-2"
+                      >
+                        <i className="bi bi-people text-info me-2" />
+                        Xem ứng viên (
+                        {job.applicantCount ?? job.applicants ?? 0})
+                      </Dropdown.Item>
+
+                      <Dropdown.Item
+                        onClick={() => copyJobLink(job)}
+                        className="small py-2"
+                      >
+                        <i className="bi bi-link-45deg text-secondary me-2" />
+                        Sao chép liên kết
+                      </Dropdown.Item>
+
+                      <Dropdown.Divider />
+
+                      <Dropdown.Item
+                        disabled={
+                          busy ||
+                          !["Đang tuyển", "Tạm dừng"].includes(job.status)
+                        }
+                        onClick={() => toggleJobStatus(job.id)}
+                        className="small py-2"
+                      >
+                        <i
+                          className={`bi ${
+                            job.status === "Đang tuyển"
+                              ? "bi-pause-circle text-warning"
+                              : "bi-play-circle text-success"
+                          } me-2`}
+                        />
+                        {job.status === "Đang tuyển"
+                          ? "Tạm dừng nhận đơn"
+                          : "Tiếp tục tuyển dụng"}
+                      </Dropdown.Item>
+
+                      <Dropdown.Item
+                        disabled={busy}
+                        onClick={() => {
+                          if (
+                            window.confirm(
+                              `Xác nhận xóa tin "${job.title}"?`
+                            )
+                          ) {
+                            handleDeleteJob(job.id);
+                          }
+                        }}
+                        className="small py-2 text-danger"
+                      >
+                        <i className="bi bi-trash text-danger me-2" />
+                        Xóa tin này
+                      </Dropdown.Item>
+                    </Dropdown.Menu>
+                  </Dropdown>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </Table>
       </div>
 
-      {/* Quick View JD Modal */}
       <JobPreviewModal
         show={showPreviewModal}
         onHide={() => setShowPreviewModal(false)}
-        job={selectedJob}
+        job={previewJob}
         onToggleStatus={toggleJobStatus}
         onDeleteJob={handleDeleteJob}
-        onViewCandidates={(job) => {
-          if (onNavigateCandidates) onNavigateCandidates(job);
-        }}
+        onViewCandidates={onNavigateCandidates}
       />
     </Card>
   );

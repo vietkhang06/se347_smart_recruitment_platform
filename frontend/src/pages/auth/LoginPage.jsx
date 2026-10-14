@@ -1,3 +1,4 @@
+import { useToast } from "../../context/ToastContext";
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import Container from "react-bootstrap/Container";
@@ -14,6 +15,7 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { login } = useAuth();
+  const { showToast } = useToast();
 
   const [role, setRole] = useState(searchParams.get("role") || "candidate");
   const [email, setEmail] = useState("ankhang@example.com");
@@ -25,21 +27,41 @@ export default function LoginPage() {
     if (roleParam) setRole(roleParam);
   }, [searchParams]);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    login(email, role);
-    const from = location.state?.from;
-    const prefix = role === "candidate" ? "/candidate/" : role === "employer" ? "/employer" : "/admin";
-    if (typeof from === "string" && (from === prefix || from.startsWith(prefix.endsWith("/") ? prefix : prefix + "/"))) {
-      navigate(from, { replace: true });
-      return;
-    }
-    if (role === "employer") {
-      navigate("/employer");
-    } else if (role === "admin") {
-      navigate("/admin");
-    } else {
-      navigate("/");
+    const handleSubmit = (event) => {
+    event.preventDefault();
+
+    try {
+      const user = login(email, role);
+
+      const home =
+        user.role === "employer"
+          ? "/employer"
+          : user.role === "admin"
+            ? "/admin"
+            : "/";
+
+      const prefix =
+        user.role === "candidate" ? "/candidate" : home;
+
+      const from = location.state?.from;
+
+      const canReturn =
+        typeof from === "string" &&
+        (
+          from === prefix ||
+          ["/", "?", "#"].some((suffix) =>
+            from.startsWith(prefix + suffix)
+          )
+        );
+
+      navigate(canReturn ? from : home, {
+        replace: true
+      });
+    } catch (error) {
+      showToast(
+        error?.message || "Không đăng nhập được.",
+        "danger"
+      );
     }
   };
 
