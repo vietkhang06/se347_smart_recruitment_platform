@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import { useLocation, Link } from "react-router-dom";
+import { useLocation, useNavigate, Link } from "react-router-dom";
+import { exportCandidatesCSV } from "./views/CandidatesView";
 import Container from "react-bootstrap/Container";
 import Badge from "react-bootstrap/Badge";
 import Button from "react-bootstrap/Button";
@@ -55,33 +56,29 @@ export default function EmployerPortal() {
 function EmployerWorkspace({ companyId }) {
   const { showToast } = useToast();
   const location = useLocation();
+  const navigate = useNavigate();
 
-  const getInitialTab = () => {
-    const hash = window.location.hash.replace("#", "");
-
-    const validTabs = [
-      "overview", "jobs", "candidates", "pipeline",
-      "interviews", "analytics", "company",
-      "billing", "profile"
-    ];
-
-    return validTabs.includes(hash) ? hash : "overview";
+  const getTab = hash => {
+    const tab = String(hash || "").replace("#", "");
+    return ["overview", "jobs", "candidates", "pipeline", "interviews", "analytics", "company", "billing", "profile"].includes(tab) ? tab : "overview";
   };
+  const getInitialTab = () => getTab(location.hash);
 
   const [activeTab, setActiveTab] = useState(getInitialTab);
 
   useEffect(() => {
     const hash = location.hash.replace("#", "");
-    if (hash) setActiveTab(hash);
+    setActiveTab(getTab(hash));
   }, [location.hash]);
 
   const handleTabChange = tabKey => {
-    setActiveTab(tabKey);
-    window.location.hash = tabKey;
+    const next = getTab(tabKey);
+    setActiveTab(next);
+    navigate({ pathname: location.pathname, search: location.search, hash: `#${next}` });
   };
 
   const [company, setCompany] = useState(
-    () => mockStore.getCompany(companyId)
+    () => mockStore.getCompanies().find(item => String(item.id) === String(companyId))
   );
 
   const [jobs, setJobs] = useState(
@@ -101,7 +98,7 @@ function EmployerWorkspace({ companyId }) {
   );
 
   const refreshStoreData = useCallback(() => {
-    setCompany(mockStore.getCompany(companyId));
+    setCompany(mockStore.getCompanies().find(item => String(item.id) === String(companyId)));
     setJobs(mockStore.getEmployerJobs(companyId));
     setCandidates(mockStore.getCandidates());
     setInterviews(mockStore.getInterviews());
@@ -141,52 +138,43 @@ function EmployerWorkspace({ companyId }) {
   };
 
   const handleInviteCandidate = candidate => {
-    setInterviewCandidate(candidate);
+    const current = mockStore.getCandidateById(candidate.id);
+    if (!current || current.withdrawnAt || /đã rút|từ chối|không phù hợp/i.test(current.stage || "")) {
+      showToast("Hồ sơ không còn ở trạng thái cho phép mời phỏng vấn.", "danger");
+      return;
+    }
+    setInterviewCandidate(current);
     setShowInterviewModal(true);
   };
 
-  const handleCandidateStageChange = (candidateId, nextStage) => {
+  const handleCandidateStageChange = async (candidateId, nextStage) => {
     mockStore.updateCandidateStage(candidateId, nextStage);
-    setCandidates(mockStore.getCandidates());
-
-    if (
-      selectedCandidate &&
-      selectedCandidate.id === candidateId
-    ) {
-      setSelectedCandidate({
-        ...selectedCandidate,
-        stage: nextStage
-      });
-    }
+    refreshStoreData();
+    setSelectedCandidate(current => current && String(current.id) === String(candidateId)
+      ? mockStore.getCandidateById(candidateId) : current);
+    showToast(`Đã chuyển ứng viên sang giai đoạn: ${nextStage}`);
   };
 
-  const handleCandidateReject = (candidateId, reason) => {
+  const handleCandidateReject = async (candidateId, reason) => {
     mockStore.rejectCandidate(candidateId, reason);
-    setCandidates(mockStore.getCandidates());
-
-    if (
-      selectedCandidate &&
-      selectedCandidate.id === candidateId
-    ) {
-      setSelectedCandidate({
-        ...selectedCandidate,
-        stage: "Đã từ chối"
-      });
-    }
+    refreshStoreData();
+    setSelectedCandidate(current => current && String(current.id) === String(candidateId)
+      ? mockStore.getCandidateById(candidateId) : current);
+    showToast("Đã lưu lý do từ chối ứng viên.");
   };
 
   const handleJobCreated = () => {
-    setJobs(mockStore.getEmployerJobs(companyId));
+    refreshStoreData();
     handleTabChange("jobs");
   };
 
   const handleInterviewCreated = () => {
-    setInterviews(mockStore.getInterviews());
+    refreshStoreData();
     handleTabChange("interviews");
   };
 
   const activeJobsCount = jobs.filter(
-    job => job.status === "Đang tuyển"
+    job => mockStore.isJobAcceptingApplications(job)
   ).length;
 
   const newCandidatesCount = candidates.filter(
@@ -194,6 +182,8 @@ function EmployerWorkspace({ companyId }) {
       candidate.stage === "Mới" ||
       candidate.stage === "Sàng lọc"
   ).length;
+
+  if (!company) return <Container className="py-5"><div className="alert alert-warning">Không tìm thấy doanh nghiệp của tài khoản.</div></Container>;
 
   return (
     <Container fluid className="py-4 px-lg-5">
@@ -222,14 +212,13 @@ function EmployerWorkspace({ companyId }) {
           <Button
             variant="outline-success"
             size="sm"
-            onClick={() =>
-              showToast(
-                "Báo cáo hiệu suất đã được tạo và gửi về email HR"
-              )
-            }
+            onClick={() => {
+              try { exportCandidatesCSV(candidates); showToast("Đã tạo tệp CSV ứng viên."); }
+              catch (err) { showToast(err.message || "Không thể tạo tệp CSV.", "danger"); }
+            }}
           >
             <i className="bi bi-download me-1" />
-            Xuất báo cáo
+            Xuất danh sách ứng viên
           </Button>
 
           <Button
@@ -339,6 +328,7 @@ function EmployerWorkspace({ companyId }) {
         <PipelineView
           candidates={candidates}
           setCandidates={setCandidates}
+          onStageChange={handleCandidateStageChange}
           onOpenCandidate={handleOpenCandidate}
           onInviteCandidate={handleInviteCandidate}
         />
@@ -356,6 +346,8 @@ function EmployerWorkspace({ companyId }) {
       )}
 
       {activeTab === "analytics" && (
+        <>
+        <div className="alert alert-info small">Biểu đồ hiệu suất và nguồn ứng viên đang sử dụng dữ liệu minh họa.</div>
         <AnalyticsView
           employerData={{
             company,
@@ -383,12 +375,13 @@ function EmployerWorkspace({ companyId }) {
             }
           }}
         />
+        </>
       )}
 
       {activeTab === "company" && (
         <CompanyView
           companyData={company}
-          onCompanyUpdated={updated => setCompany(updated)}
+          onCompanyUpdated={() => refreshStoreData()}
         />
       )}
 

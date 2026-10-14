@@ -39,7 +39,7 @@ export default function ReportDetailModal({
       await onResolve(report.id, action, note.trim());
       onHide();
     } catch (err) {
-      setError(err.message || "Không thể xử lý báo cáo.");
+      setError(err?.message || "Không thể xử lý báo cáo.");
     } finally {
       setBusy(false);
     }
@@ -77,11 +77,11 @@ export default function ReportDetailModal({
               </Badge>
             </div>
 
-            <h6 className="fw-bold">{report.subject}</h6>
-            <div className="small">Đối tượng: {report.target}</div>
+            <h6 className="fw-bold">{report.subject || report.targetTitle || "Báo cáo vi phạm"}</h6>
+            <div className="small">Đối tượng: {report.target || report.targetTitle || "Chưa có đối tượng"}</div>
 
             <div className="small text-muted">
-              Người báo cáo: {report.reporter} · {report.age}
+              Người báo cáo: {report.reporter || report.reporterName || "Ẩn danh"} · {report.age || report.createdAt || ""}
             </div>
 
             <p

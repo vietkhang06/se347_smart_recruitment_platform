@@ -1,3 +1,4 @@
+import { changeAdminUserStatus, normalizeEmail } from "./adminUsers";
 import { mockStore as base } from "./mockStoreBase";
 
 const K = {
@@ -73,6 +74,9 @@ function companyId() {
     );
   }
 
+  if (!base.getCompanies().some(item => same(item.id, account.companyId))) {
+    throw new Error("Doanh nghiệp của tài khoản không còn tồn tại.");
+  }
   return account.companyId;
 }
 
@@ -471,6 +475,9 @@ export const mockStore = {
 
   getHRCompanyId: companyId,
 
+  setUserStatus: setAdminStatus,
+  deleteUser: deleteAdminUser,
+
   getEmployerJobs(id) {
     if (
       read("matchajob-demo-user", null)?.role !==
@@ -658,12 +665,12 @@ export const mockStore = {
     const item = {
       id: `INT-${crypto.randomUUID()}`,
       candidateId: candidate.id,
-      candidate: candidate.name,
+      candidate: candidate.name || candidate.candidateName || "Ứng viên",
       jobId: candidate.appliedJobId,
       companyId: companyOf(candidate),
       role:
         candidate.appliedJobTitle ||
-        candidate.role,
+        candidate.role || candidate.candidateRole,
       date: data.date,
       time: data.time,
       type: data.type,
@@ -1077,3 +1084,64 @@ export const mockStore = {
     );
   }
 };
+
+function requireAdmin() {
+  const { user } = session("admin");
+  if (user?.role !== 'admin') throw new Error('Hãy đăng nhập bằng tài khoản quản trị.');
+  return user;
+}
+export async function copyAdminText(value) {
+  if (!navigator.clipboard?.writeText) throw new Error('Trình duyệt chưa cho phép sao chép.');
+  await navigator.clipboard.writeText(String(value ?? ''));
+}
+export function setAdminStatus(id, target) {
+  requireAdmin();
+  const user = mockStore.getUsers().find(u => same(u.id, id));
+  if (!user) throw new Error('Tài khoản không còn tồn tại.');
+  if (user.status === target || (target === 'Hoạt động' && user.status === 'Đã xác minh')) return user;
+  if (!['Hoạt động', 'Tạm khóa'].includes(target)) throw new Error('Trạng thái không hợp lệ.');
+  return changeAdminUserStatus(user.id, user.status);
+}
+export function deleteAdminUser(id) {
+  const actor = requireAdmin();
+  const users = base.getUsers();
+  const user = users.find(item => same(item.id, id));
+  if (!user) throw new Error("Tài khoản không còn tồn tại.");
+  const emails = [user.email, user.personalEmail].filter(Boolean).map(normalizeEmail);
+  if (emails.includes(normalizeEmail(actor.email))) throw new Error("Không thể xóa tài khoản đang đăng nhập.");
+  if (["Quản trị viên", "admin"].includes(user.role) || user.roleCode === "admin") {
+    throw new Error("Hãy tạm khóa tài khoản quản trị thay vì xóa để bảo toàn lịch sử.");
+  }
+  const linked = user.companyId || base.getCandidates().some(c => same(c.userId, id) || emails.includes(normalizeEmail(c.email || c.candidateEmail))) || base.getApplications().some(a => same(a.userId, id) || emails.includes(normalizeEmail(a.candidateEmail)));
+  if (linked) throw new Error("Tài khoản đã liên kết doanh nghiệp hoặc hồ sơ ứng tuyển. Hãy tạm khóa thay vì xóa.");
+  commit({ matchajob_store_users: users.filter(item => !same(item.id, id)) }, [], `DELETE_USER: ${id}`);
+}
+
+export function resolveAdminReport(id, action, note) {
+  requireAdmin();
+  const reports = base.getReports();
+  const report = reports.find(item => same(item.id, id));
+  if (!report || report.status === "Đã xử lý") throw new Error("Báo cáo đã xử lý hoặc không còn tồn tại.");
+  note = String(note || "").trim();
+  if (!note || note.length > 2000) throw new Error("Ghi chú cần từ 1 đến 2000 ký tự.");
+  const labels = { record: "Đã ghi nhận kết quả đối soát", dismiss: "Đã bác bỏ báo cáo", close_job: "Đã đóng tin tuyển dụng liên quan" };
+  if (!Object.hasOwn(labels, action)) throw new Error("Hành động không hợp lệ.");
+  const saved = { ...report, status: "Đã xử lý", resolution: labels[action], action, note, resolvedAt: new Date().toLocaleString("vi-VN") };
+  const changes = { matchajob_store_reports: reports.map(item => same(item.id, id) ? saved : item) };
+  if (action === "close_job") {
+    const jobs = base.getJobs();
+    if (!report.jobId || !jobs.some(job => same(job.id, report.jobId))) throw new Error("Không tìm thấy tin tuyển dụng liên quan.");
+    changes.matchajob_store_jobs = jobs.map(job => same(job.id, report.jobId) ? { ...job, status: "Đã đóng", note: `Đã đóng do báo cáo ${id}` } : job);
+  }
+  commit(changes, [], `RESOLVE_REPORT: ${id} (${action})`);
+  return saved;
+}
+
+// Each row reports its own outcome; successful rows are not falsely rolled back in the UI.
+export function runAdminBatch(ids, action) {
+  const failed = []; let succeeded = 0;
+  for (const id of ids) {
+    try { action(id); succeeded++; } catch (error) { failed.push({ id, message: error?.message || "Không thể thực hiện thao tác." }); }
+  }
+  return { succeeded, failed };
+}

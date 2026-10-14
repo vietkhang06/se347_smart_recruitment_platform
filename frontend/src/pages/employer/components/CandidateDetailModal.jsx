@@ -16,6 +16,7 @@ export default function CandidateDetailModal({
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -53,56 +54,53 @@ export default function CandidateDetailModal({
     String(item.jobId) === String(candidate.appliedJobId)
   );
 
-  const hasScore =
-    candidate.match != null &&
-    candidate.match !== "" &&
-    Number.isFinite(Number(candidate.match));
+  const displayName = candidate.name || candidate.candidateName || "Ứng viên";
+  const displayRole = candidate.appliedJobTitle || candidate.role || candidate.candidateRole || "Chưa cập nhật";
+  const score = candidate.matchScore ?? candidate.match;
+  const hasScore = score != null && String(score).trim() !== "" && Number.isFinite(Number(score));
 
-  function changeStage(value) {
-    if (value === "Đã từ chối") {
-      setRejecting(true);
-      return;
-    }
-
-    try {
-      onStageChange(candidate.id, value);
-      setError("");
-    } catch (err) {
-      setError(err.message);
-    }
+  async function changeStage(value) {
+    if (saving || closed) return;
+    if (/từ chối|không phù hợp/i.test(value)) { setRejecting(true); return; }
+    setSaving(true);
+    setError("");
+    try { await onStageChange(candidate.id, value); }
+    catch (err) { setError(err?.message || "Không thể chuyển giai đoạn."); }
+    finally { setSaving(false); }
   }
 
-  function reject(event) {
+  async function reject(event) {
     event.preventDefault();
-
+    if (saving || closed) return;
+    if (!reason.trim()) { setError("Nhập lý do từ chối."); return; }
+    setSaving(true);
+    setError("");
     try {
-      if (!reason.trim()) {
-        throw new Error("Nhập lý do từ chối.");
-      }
-
-      onRejectCandidate(candidate.id, reason.trim());
+      await onRejectCandidate(candidate.id, reason.trim());
       setRejecting(false);
-    } catch (err) {
-      setError(err.message);
-    }
+    } catch (err) { setError(err?.message || "Không thể từ chối hồ sơ."); }
+    finally { setSaving(false); }
   }
 
   return (
     <Modal
       show={show}
-      onHide={onHide}
+      onHide={saving || busy ? () => {} : onHide}
       size="lg"
       centered
       scrollable
     >
-      <Modal.Header closeButton>
-        <div>
+      <Modal.Header closeButton={!saving && !busy}>
+        <div className="d-flex align-items-center gap-3">
+          <div className="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white flex-shrink-0" style={{width: 52, height: 52, backgroundColor: "var(--primary)"}}>{candidate.initials || candidate.candidateInitials || displayName.slice(0, 2).toUpperCase()}</div>
+          <div>
           <Modal.Title className="fs-5">
-            {candidate.name}
+            {displayName}
           </Modal.Title>
           <small className="text-muted">
-            {candidate.role} · {candidate.experience}
+            {displayRole} · {candidate.experience || "Chưa cập nhật kinh nghiệm"}
           </small>
+          </div>
         </div>
       </Modal.Header>
 
@@ -123,7 +121,7 @@ export default function CandidateDetailModal({
             </small>
             <div>
               {hasScore
-                ? `${candidate.match}% (điểm demo)`
+                ? `${score}% (điểm demo)`
                 : "Chưa có điểm đối chiếu"}
             </div>
           </div>
@@ -131,7 +129,7 @@ export default function CandidateDetailModal({
           <Form.Select
             style={{ width: "auto" }}
             aria-label="Giai đoạn hồ sơ"
-            disabled={closed}
+            disabled={closed || saving || busy}
             value={candidate.stage || "Mới"}
             onChange={event =>
               changeStage(event.target.value)
@@ -140,10 +138,8 @@ export default function CandidateDetailModal({
             {STAGES_PIPELINE.map(stage => (
               <option key={stage}>{stage}</option>
             ))}
-            <option>Đã từ chối</option>
-            {candidate.stage === "Đã rút" && (
-              <option>Đã rút</option>
-            )}
+            {!STAGES_PIPELINE.includes("Đã từ chối") && <option>Đã từ chối</option>}
+            {candidate.stage && ![...STAGES_PIPELINE, "Đã từ chối"].includes(candidate.stage) && <option>{candidate.stage}</option>}
           </Form.Select>
         </div>
 
@@ -160,8 +156,8 @@ export default function CandidateDetailModal({
 
         <Row className="g-3 mb-4">
           {[
-            ["Email", candidate.email],
-            ["Điện thoại", candidate.phone],
+            ["Email", candidate.email || candidate.candidateEmail],
+            ["Điện thoại", candidate.phone || candidate.candidatePhone],
             ["Địa điểm", candidate.location],
             ["Học vấn", candidate.education]
           ].map(([label, value]) => (
@@ -237,6 +233,7 @@ export default function CandidateDetailModal({
               as="textarea"
               required
               maxLength={1000}
+              disabled={saving}
               value={reason}
               onChange={event =>
                 setReason(event.target.value)
@@ -247,6 +244,7 @@ export default function CandidateDetailModal({
               <Button
                 size="sm"
                 variant="secondary"
+                disabled={saving}
                 onClick={() => setRejecting(false)}
               >
                 Quay lại
@@ -254,6 +252,7 @@ export default function CandidateDetailModal({
 
               <Button
                 size="sm"
+                disabled={saving}
                 type="submit"
                 variant="danger"
               >
@@ -268,7 +267,7 @@ export default function CandidateDetailModal({
         <Button
           variant="outline-success"
           disabled={
-            busy ||
+            busy || saving ||
             Boolean(candidate.withdrawnAt) ||
             !app?.cvId
           }
@@ -297,7 +296,7 @@ export default function CandidateDetailModal({
         <div className="d-flex flex-wrap gap-2">
           <Button
             variant="outline-danger"
-            disabled={closed}
+            disabled={closed || saving || busy}
             onClick={() => setRejecting(true)}
           >
             Từ chối
@@ -305,7 +304,7 @@ export default function CandidateDetailModal({
 
           <Button
             variant="success"
-            disabled={closed}
+            disabled={closed || saving || busy}
             onClick={() => {
               onHide();
               onInviteInterview?.(candidate);
@@ -314,7 +313,7 @@ export default function CandidateDetailModal({
             Mời phỏng vấn
           </Button>
 
-          <Button variant="secondary" onClick={onHide}>
+          <Button variant="secondary" disabled={saving || busy} onClick={onHide}>
             Đóng
           </Button>
         </div>

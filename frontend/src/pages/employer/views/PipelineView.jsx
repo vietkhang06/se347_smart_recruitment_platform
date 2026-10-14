@@ -1,3 +1,4 @@
+import { candidateScore, candidateClosed } from "./CandidatesView";
 import { useState } from "react";
 import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
@@ -8,32 +9,44 @@ import { useToast } from "../../../context/ToastContext";
 import { STAGES_PIPELINE } from "../../../mock";
 import { mockStore } from "../../../services/mockStore";
 
-export default function PipelineView({ candidates, setCandidates, onOpenCandidate, onInviteCandidate }) {
+export default function PipelineView({ candidates = [], setCandidates, onOpenCandidate, onInviteCandidate, onStageChange }) {
   const { showToast } = useToast();
   const [selectedJobFilter, setSelectedJobFilter] = useState("all");
 
+  const [movingId, setMovingId] = useState(null);
+
   // Extract unique job positions for filtering
-  const jobOptions = Array.from(new Set(candidates.map((c) => c.appliedJobTitle || c.role))).filter(Boolean);
+  const jobOptions = Array.from(
+    new Set(candidates.map((c) => c.appliedJobTitle || c.role || c.candidateRole))
+  ).filter(Boolean);
 
   const filteredCandidates = selectedJobFilter === "all"
     ? candidates
-    : candidates.filter((c) => (c.appliedJobTitle || c.role) === selectedJobFilter);
+    : candidates.filter((c) => (c.appliedJobTitle || c.role || c.candidateRole) === selectedJobFilter);
 
-  const moveCandidate = (id, direction) => {
-    const target = candidates.find((c) => c.id === id);
-    if (!target) return;
-
-    const currentIndex = STAGES_PIPELINE.indexOf(target.stage || "Mới");
-    const nextIndex = direction === "next" ? currentIndex + 1 : currentIndex - 1;
-
-    if (nextIndex >= 0 && nextIndex < STAGES_PIPELINE.length) {
-      const nextStage = STAGES_PIPELINE[nextIndex];
-      mockStore.updateCandidateStage(id, nextStage);
-      setCandidates((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, stage: nextStage } : c))
-      );
-      showToast(`Đã chuyển ứng viên ${target.name} sang bước: ${nextStage}`);
+  const moveCandidate = async (id, direction) => {
+    if (movingId !== null) return;
+    const target = mockStore.getCandidateById(id);
+    if (!target || candidateClosed(target)) {
+      showToast("Hồ sơ không còn cho phép chuyển giai đoạn.", "danger");
+      return;
     }
+    const currentIndex = STAGES_PIPELINE.indexOf(target.stage || "Mới");
+    if (currentIndex < 0) return;
+    const nextIndex = currentIndex + (direction === "next" ? 1 : -1);
+    if (nextIndex < 0 || nextIndex >= STAGES_PIPELINE.length) return;
+    setMovingId(id);
+    try {
+      const nextStage = STAGES_PIPELINE[nextIndex];
+      if (onStageChange) await onStageChange(id, nextStage);
+      else {
+        mockStore.updateCandidateStage(id, nextStage);
+        setCandidates(mockStore.getCandidates());
+        showToast(`Đã chuyển ứng viên sang bước: ${nextStage}`);
+      }
+    } catch (err) {
+      showToast(err?.message || "Không thể chuyển giai đoạn.", "danger");
+    } finally { setMovingId(null); }
   };
 
   return (
@@ -61,7 +74,7 @@ export default function PipelineView({ candidates, setCandidates, onOpenCandidat
 
       <Row className="g-3 flex-nowrap overflow-auto pb-4">
         {STAGES_PIPELINE.map((stage, sIdx) => {
-          const stageCandidates = filteredCandidates.filter((c) => (c.stage || "Mới") === stage);
+          const stageCandidates = filteredCandidates.filter((c) => !candidateClosed(c) && (c.stage || "Mới") === stage);
 
           return (
             <Col style={{ minWidth: "280px", maxWidth: "320px" }} key={stage}>
@@ -85,13 +98,13 @@ export default function PipelineView({ candidates, setCandidates, onOpenCandidat
                     stageCandidates.map((c) => (
                       <div key={c.id} className="kanban-card">
                         <div className="d-flex justify-content-between align-items-start mb-2">
-                          <strong className="small text-truncate me-1">{c.name}</strong>
-                          {Number.isFinite(Number(c.match)) && c.match !== "" && <span className="badge bg-success bg-opacity-10 text-success small">{c.match}%</span>}
+                          <strong className="small text-truncate me-1">{c.name || c.candidateName || "Ứng viên"}</strong>
+                          {candidateScore(c) !== null && <span className="badge bg-success bg-opacity-10 text-success small">{candidateScore(c)}%</span>}
                         </div>
-                        <div className="text-muted small mb-2 text-truncate">{c.appliedJobTitle || c.role}</div>
+                        <div className="text-muted small mb-2 text-truncate">{c.appliedJobTitle || c.role || c.candidateRole}</div>
 
                         <div className="d-flex flex-wrap gap-1 mb-3">
-                          {c.skills?.slice(0, 3).map((s) => (
+                          {(Array.isArray(c.skills) ? c.skills : []).slice(0, 3).map((s) => (
                             <span key={s} className="badge bg-secondary bg-opacity-10 text-body" style={{ fontSize: "10px" }}>
                               {s}
                             </span>
@@ -126,7 +139,7 @@ export default function PipelineView({ candidates, setCandidates, onOpenCandidat
                             <button
                               type="button"
                               className="btn btn-outline-secondary btn-sm p-1"
-                              disabled={sIdx === 0}
+                              disabled={movingId !== null || sIdx === 0}
                               title="Lùi về bước trước"
                               onClick={() => moveCandidate(c.id, "prev")}
                             >
@@ -135,7 +148,7 @@ export default function PipelineView({ candidates, setCandidates, onOpenCandidat
                             <button
                               type="button"
                               className="btn btn-outline-success btn-sm p-1"
-                              disabled={sIdx === STAGES_PIPELINE.length - 1}
+                              disabled={movingId !== null || sIdx === STAGES_PIPELINE.length - 1}
                               title="Chuyển sang bước tiếp theo"
                               onClick={() => moveCandidate(c.id, "next")}
                             >

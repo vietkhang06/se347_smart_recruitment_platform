@@ -30,7 +30,7 @@ export default function UserDetailModal({
 
   useEffect(() => {
     setForm({
-      name: user?.name || "",
+      name: user?.name || user?.fullName || "",
       phone: user?.phone || ""
     });
 
@@ -86,14 +86,14 @@ export default function UserDetailModal({
               backgroundColor: "var(--primary)"
             }}
           >
-            {String(user.name || "US")
-              .slice(0, 2)
-              .toUpperCase()}
+            {typeof user.avatar === "string" && /^(https?:|data:image\/|blob:|\/)/i.test(user.avatar) ? (
+              <img src={user.avatar} alt={user.name || "Ảnh người dùng"} className="rounded-circle w-100 h-100" style={{ objectFit: "cover" }} />
+            ) : String(user.avatar || user.name || user.fullName || "US").slice(0, 2).toUpperCase()}
           </div>
 
           <div className="overflow-hidden">
             <h6 className="fw-bold mb-0">
-              {user.name}
+              {user.name || user.fullName || "Người dùng"}
             </h6>
             <div className="small text-muted">
               {user.email}
@@ -232,7 +232,7 @@ export default function UserDetailModal({
                 variant="outline-primary"
                 onClick={() => {
                   setForm({
-                    name: user.name || "",
+                    name: user.name || user.fullName || "",
                     phone: user.phone || ""
                   });
                   setEditing(true);

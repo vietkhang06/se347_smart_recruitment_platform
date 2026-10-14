@@ -1,15 +1,16 @@
 package com.matchajob.api.recruitment.service;
 
 import com.matchajob.api.recruitment.dto.*;
+import com.matchajob.api.recruitment.exception.JobNotFoundException;
 import com.matchajob.api.recruitment.model.Category;
 import com.matchajob.api.recruitment.model.Job;
 import com.matchajob.api.recruitment.model.JobSkill;
-import com.matchajob.api.recruitment.model.Skill;
 import com.matchajob.api.recruitment.model.enums.JobStatus;
 import com.matchajob.api.recruitment.repository.CategoryRepository;
 import com.matchajob.api.recruitment.repository.JobRepository;
 import com.matchajob.api.recruitment.repository.JobSpecification;
 import com.matchajob.api.recruitment.repository.SkillRepository;
+import com.matchajob.security.ResourceOwnershipService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -31,6 +32,7 @@ public class JobService {
     private final JobRepository jobRepository;
     private final CategoryRepository categoryRepository;
     private final SkillRepository skillRepository;
+    private final ResourceOwnershipService resourceOwnershipService;
 
     @Transactional(readOnly = true)
     public PageResponse<JobSummaryResponse> searchJobs(JobSearchCriteria criteria) {
@@ -53,7 +55,7 @@ public class JobService {
     @Transactional(readOnly = true)
     public JobDetailResponse getJobDetail(UUID id) {
         Job job = jobRepository.findByIdAndDeletedAtIsNull(id)
-                .orElseThrow(() -> new NoSuchElementException("Job not found with id: " + id));
+                .orElseThrow(() -> new JobNotFoundException(id));
         return JobDetailResponse.from(job);
     }
 
@@ -68,6 +70,39 @@ public class JobService {
             jobPage = jobRepository.findByCompanyIdAndStatusAndDeletedAtIsNull(companyId, status.toLowerCase(), pageable);
         } else {
             jobPage = jobRepository.findByCompanyIdAndDeletedAtIsNull(companyId, pageable);
+        }
+
+        return PageResponse.from(jobPage.map(JobSummaryResponse::from));
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<JobSummaryResponse> getEmployerJobs(UUID userId, UUID companyId, String status, int page, int size) {
+        if (companyId != null) {
+            resourceOwnershipService.checkEmployerCompanyOwnership(userId, companyId);
+            return getEmployerJobs(companyId, status, page, size);
+        }
+
+        List<UUID> companyIds = resourceOwnershipService.getEmployerCompanyIds(userId);
+        if (companyIds.isEmpty()) {
+            return PageResponse.<JobSummaryResponse>builder()
+                    .content(Collections.emptyList())
+                    .page(0)
+                    .size(size > 0 ? Math.min(size, 50) : 10)
+                    .totalElements(0)
+                    .totalPages(0)
+                    .last(true)
+                    .build();
+        }
+
+        int safePage = Math.max(0, page);
+        int safeSize = size > 0 ? Math.min(size, 50) : 10;
+        Pageable pageable = PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "createdAt"));
+
+        Page<Job> jobPage;
+        if (status != null && !status.isBlank() && !"all".equalsIgnoreCase(status)) {
+            jobPage = jobRepository.findByCompanyIdInAndStatusAndDeletedAtIsNull(companyIds, status.toLowerCase(), pageable);
+        } else {
+            jobPage = jobRepository.findByCompanyIdInAndDeletedAtIsNull(companyIds, pageable);
         }
 
         return PageResponse.from(jobPage.map(JobSummaryResponse::from));
@@ -121,9 +156,24 @@ public class JobService {
     }
 
     @Transactional
+    public JobDetailResponse createJob(UUID userId, JobCreateRequest request) {
+        if (request.getCompanyId() == null) {
+            throw new IllegalArgumentException("Company ID is required to create a job");
+        }
+        resourceOwnershipService.checkEmployerCompanyOwnership(userId, request.getCompanyId());
+        request.setCreatedBy(userId);
+        return createJob(request);
+    }
+
+    @Transactional
+    public JobDetailResponse updateJob(JobUpdateRequest request) {
+        throw new UnsupportedOperationException("Job ID is required");
+    }
+
+    @Transactional
     public JobDetailResponse updateJob(UUID id, JobUpdateRequest request) {
         Job job = jobRepository.findByIdAndDeletedAtIsNull(id)
-                .orElseThrow(() -> new NoSuchElementException("Job not found with id: " + id));
+                .orElseThrow(() -> new JobNotFoundException(id));
 
         if (request.getCategoryId() != null) {
             Category category = categoryRepository.findById(request.getCategoryId()).orElse(null);
@@ -164,9 +214,15 @@ public class JobService {
     }
 
     @Transactional
+    public JobDetailResponse updateJob(UUID userId, UUID id, JobUpdateRequest request) {
+        resourceOwnershipService.checkEmployerJobOwnership(userId, id);
+        return updateJob(id, request);
+    }
+
+    @Transactional
     public JobDetailResponse updateJobStatus(UUID id, String newStatus) {
         Job job = jobRepository.findByIdAndDeletedAtIsNull(id)
-                .orElseThrow(() -> new NoSuchElementException("Job not found with id: " + id));
+                .orElseThrow(() -> new JobNotFoundException(id));
 
         JobStatus statusEnum = JobStatus.fromValue(newStatus);
         job.setStatus(statusEnum.getValue());
@@ -179,11 +235,23 @@ public class JobService {
     }
 
     @Transactional
+    public JobDetailResponse updateJobStatus(UUID userId, UUID id, String newStatus) {
+        resourceOwnershipService.checkEmployerJobOwnership(userId, id);
+        return updateJobStatus(id, newStatus);
+    }
+
+    @Transactional
     public void deleteJob(UUID id) {
         Job job = jobRepository.findByIdAndDeletedAtIsNull(id)
-                .orElseThrow(() -> new NoSuchElementException("Job not found with id: " + id));
+                .orElseThrow(() -> new JobNotFoundException(id));
         job.setDeletedAt(Instant.now());
         jobRepository.save(job);
+    }
+
+    @Transactional
+    public void deleteJob(UUID userId, UUID id) {
+        resourceOwnershipService.checkEmployerJobOwnership(userId, id);
+        deleteJob(id);
     }
 
     private void attachSkills(Job job, List<JobCreateRequest.JobSkillItem> skillItems) {

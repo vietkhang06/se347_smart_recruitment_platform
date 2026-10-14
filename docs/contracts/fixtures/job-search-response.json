@@ -1,0 +1,41 @@
+{
+  "content": [
+    {
+      "id": "22222222-2222-4222-8222-222222222222",
+      "companyId": "33333333-3333-4333-8333-333333333333",
+      "category": {
+        "id": "44444444-4444-4444-8444-444444444444",
+        "name": "Software Engineering",
+        "icon": null,
+        "status": "active",
+        "sortOrder": 1
+      },
+      "title": "Software Engineer",
+      "slug": "software-engineer",
+      "department": "Engineering",
+      "level": "junior",
+      "workType": "full_time",
+      "location": "Ho Chi Minh City",
+      "salaryMode": "range",
+      "salaryMin": 15000000,
+      "salaryMax": 25000000,
+      "salaryCurrency": "VND",
+      "experience": "1-3 years",
+      "applicantCount": 0,
+      "viewCount": 0,
+      "status": "active",
+      "postedAt": "2026-10-12T02:30:00Z",
+      "deadline": "2026-11-30",
+      "skills": [
+        "Java",
+        "Spring Boot",
+        "PostgreSQL"
+      ]
+    }
+  ],
+  "page": 0,
+  "size": 10,
+  "totalElements": 1,
+  "totalPages": 1,
+  "last": true
+}

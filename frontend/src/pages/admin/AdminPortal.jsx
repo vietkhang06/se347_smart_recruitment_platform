@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Container, Badge, Button } from "react-bootstrap";
 import { MATCHAJOB_MOCK } from "../../services/mockData";
 import { mockStore } from "../../services/mockStore";
@@ -35,6 +35,7 @@ function getTab(hash) {
 export default function AdminPortal() {
   const { showToast } = useToast();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState(() =>
     getTab(window.location.hash)
@@ -96,7 +97,7 @@ export default function AdminPortal() {
   const handleTabChange = (tab) => {
     const next = VALID_TABS.includes(tab) ? tab : "overview";
     setActiveTab(next);
-    window.location.hash = next;
+    navigate({ pathname: location.pathname, search: location.search, hash: `#${next}` });
   };
 
   const pendingReviewsCount = reviews.filter((review) =>
@@ -194,9 +195,9 @@ export default function AdminPortal() {
               Trung tâm Điều hành Quản trị
             </h2>
 
-            <Badge bg="dark" className="border">
+            <Badge bg="dark" className="border status-badge-purple">
               <i className="bi bi-shield-fill-check me-1 text-warning" />
-              SUPER ADMIN
+              Quản trị hệ thống
             </Badge>
           </div>
 

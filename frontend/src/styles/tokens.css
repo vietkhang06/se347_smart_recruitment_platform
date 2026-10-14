@@ -548,29 +548,129 @@ body {
   line-height: 1;
 }
 
-/* Priority Card Admin */
+/* Priority Card Admin - Soft, gentle, dark-mode friendly */
 .priority-alert-card {
-  padding: 12px 16px;
+  padding: 12px 14px;
   border-radius: var(--radius);
-  border: 1px solid transparent;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 }
 .priority-alert-card:hover {
   transform: translateX(4px);
   box-shadow: var(--shadow-sm);
+  background: var(--surface);
 }
 .priority-alert-card.danger {
-  background: rgba(239, 68, 68, 0.08);
-  border-color: rgba(239, 68, 68, 0.2);
+  border-left: 4px solid #ef4444;
+  background: rgba(239, 68, 68, 0.04);
 }
 .priority-alert-card.warning {
-  background: rgba(217, 119, 6, 0.08);
-  border-color: rgba(217, 119, 6, 0.2);
+  border-left: 4px solid #f59e0b;
+  background: rgba(245, 158, 11, 0.04);
 }
 .priority-alert-card.info {
+  border-left: 4px solid #3b82f6;
+  background: rgba(59, 130, 246, 0.04);
+}
+[data-bs-theme="dark"] .priority-alert-card.danger,
+body.dark .priority-alert-card.danger {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.25);
+  border-left: 4px solid #ef4444;
+}
+[data-bs-theme="dark"] .priority-alert-card.warning,
+body.dark .priority-alert-card.warning {
+  background: rgba(245, 158, 11, 0.08);
+  border-color: rgba(245, 158, 11, 0.25);
+  border-left: 4px solid #f59e0b;
+}
+[data-bs-theme="dark"] .priority-alert-card.info,
+body.dark .priority-alert-card.info {
   background: rgba(59, 130, 246, 0.08);
-  border-color: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.25);
+  border-left: 4px solid #3b82f6;
+}
+
+.alert-title-danger { color: #dc2626; }
+.alert-title-warning { color: #d97706; }
+.alert-title-info { color: #2563eb; }
+[data-bs-theme="dark"] .alert-title-danger,
+body.dark .alert-title-danger { color: #f87171 !important; }
+[data-bs-theme="dark"] .alert-title-warning,
+body.dark .alert-title-warning { color: #fbbf24 !important; }
+[data-bs-theme="dark"] .alert-title-info,
+body.dark .alert-title-info { color: #60a5fa !important; }
+
+/* ========================================================
+   THEME TOGGLE SLIDING SWITCH (LIGHT / DARK)
+   ======================================================== */
+.theme-toggle-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 56px;
+  height: 28px;
+  border-radius: 9999px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  padding: 2px;
+  cursor: pointer;
+  outline: none;
+  transition: background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.2s ease;
+  user-select: none;
+}
+.theme-toggle-switch:hover {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--primary-soft);
+}
+.theme-toggle-track {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 7px;
+  pointer-events: none;
+  font-size: 11px;
+}
+.theme-icon-sun {
+  color: #f59e0b;
+  opacity: 0.85;
+}
+.theme-icon-moon {
+  color: #94a3b8;
+  opacity: 0.85;
+}
+.theme-toggle-thumb {
+  position: relative;
+  z-index: 2;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #f59e0b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.25s ease, color 0.25s ease;
+  transform: translateX(0);
+}
+.theme-toggle-switch.is-dark {
+  background: #0f172a;
+  border-color: #334155;
+}
+.theme-toggle-switch.is-dark .theme-toggle-thumb {
+  transform: translateX(28px);
+  background: #1e293b;
+  color: #38bdf8;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
 }
 
 /* Service Health Dot */
@@ -746,13 +846,31 @@ body {
    Tăng kích thước từ 13px -> 19px, viền 2px Slate đậm nét,
    nền sáng rõ, căn giữa ô cột và tương thích hoàn hảo Light/Dark Mode.
    ======================================================== */
-.matcha-table th:first-child,
-.matcha-table td:first-child {
+.matcha-table th.table-check-col,
+.matcha-table td.table-check-col,
+.matcha-table th:has(.form-check),
+.matcha-table td:has(.form-check),
+.matcha-table th:has(.matcha-checkbox-wrap),
+.matcha-table td:has(.matcha-checkbox-wrap) {
   width: 48px !important;
   text-align: center !important;
   vertical-align: middle !important;
   padding-left: 8px !important;
   padding-right: 8px !important;
+}
+
+/* Explicit text alignment overrides for matcha-table cells */
+.matcha-table thead th.text-start,
+.matcha-table tbody td.text-start {
+  text-align: left !important;
+}
+.matcha-table thead th.text-end,
+.matcha-table tbody td.text-end {
+  text-align: right !important;
+}
+.matcha-table thead th.text-center,
+.matcha-table tbody td.text-center {
+  text-align: center !important;
 }
 
 .matcha-table .form-check,
@@ -1049,5 +1167,128 @@ body.dark .status-badge-danger {
   background-color: var(--surface-2) !important;
   color: var(--primary) !important;
 }
+
+/* ========================================================
+   BILLING & INVOICES ENHANCED STYLING
+   Hiệu ứng mã hóa đơn, phân biệt nhận diện các gói dịch vụ
+   ======================================================== */
+.invoice-code-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 9px;
+  border-radius: 6px;
+  background-color: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  letter-spacing: 0.25px;
+  user-select: all;
+  cursor: pointer;
+}
+
+.invoice-code-badge:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background-color: var(--primary-soft);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.15);
+}
+
+/* Plan Badges - Nhận diện màu sắc và icon riêng biệt cho từng gói */
+.plan-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  letter-spacing: 0.2px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.plan-pill:hover {
+  transform: scale(1.05);
+}
+
+/* Gói Growth (Đặc trưng MatchaJob) */
+.plan-pill-growth {
+  background-color: rgba(34, 197, 94, 0.12);
+  color: #15803d;
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  box-shadow: 0 1px 4px rgba(34, 197, 94, 0.08);
+}
+[data-bs-theme="dark"] .plan-pill-growth,
+body.dark .plan-pill-growth {
+  background-color: rgba(34, 197, 94, 0.22);
+  color: #4ade80;
+  border-color: rgba(74, 222, 128, 0.4);
+}
+
+/* Gói Starter (Gói cơ bản / khởi động) */
+.plan-pill-starter {
+  background-color: rgba(148, 163, 184, 0.15);
+  color: #475569;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+}
+[data-bs-theme="dark"] .plan-pill-starter,
+body.dark .plan-pill-starter {
+  background-color: rgba(148, 163, 184, 0.22);
+  color: #cbd5e1;
+  border-color: rgba(203, 213, 225, 0.4);
+}
+
+/* Gói Enterprise (Cao cấp) */
+.plan-pill-enterprise {
+  background-color: rgba(168, 85, 247, 0.14);
+  color: #7e22ce;
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  box-shadow: 0 1px 4px rgba(168, 85, 247, 0.1);
+}
+[data-bs-theme="dark"] .plan-pill-enterprise,
+body.dark .plan-pill-enterprise {
+  background-color: rgba(168, 85, 247, 0.22);
+  color: #c084fc;
+  border-color: rgba(192, 132, 252, 0.4);
+}
+
+/* Gói Pro */
+.plan-pill-pro {
+  background-color: rgba(245, 158, 11, 0.14);
+  color: #b45309;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+[data-bs-theme="dark"] .plan-pill-pro,
+body.dark .plan-pill-pro {
+  background-color: rgba(245, 158, 11, 0.22);
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.4);
+}
+
+/* Nút tải hóa đơn VAT */
+.invoice-download-btn {
+  font-size: 12px !important;
+  font-weight: 500;
+  padding: 4px 10px !important;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  color: #dc3545 !important;
+  border: 1px solid rgba(220, 53, 69, 0.3) !important;
+  background-color: transparent !important;
+  text-decoration: none !important;
+}
+
+.invoice-download-btn:hover {
+  background-color: rgba(220, 53, 69, 0.1) !important;
+  border-color: #dc3545 !important;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(220, 53, 69, 0.15);
+}
+
 
 

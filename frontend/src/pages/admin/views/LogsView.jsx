@@ -29,12 +29,12 @@ export function exportAuditLogs(logs) {
       "Trạng thái"
     ],
     ...logs.map((log) => [
-      log.time,
+      log.time || log.timestamp,
       log.actor,
       log.action,
       log.target,
       log.ip,
-      log.status || "Thành công"
+      ({ success: "Thành công", flagged: "Cảnh báo", failed: "Thất bại" })[log.status] || log.status || "Thành công"
     ])
   ];
 
@@ -81,7 +81,7 @@ export default function LogsView({ logs = [] }) {
     (log) =>
       (action === "all" || log.action === action) &&
       [
-        log.time,
+        log.time || log.timestamp,
         log.actor,
         log.action,
         log.target,
@@ -171,8 +171,8 @@ export default function LogsView({ logs = [] }) {
       </div>
 
       <div className="table-responsive">
-        <Table hover className="align-middle mb-0">
-          <thead className="table-light">
+        <Table hover className="matcha-table align-middle mb-0">
+          <thead>
             <tr>
               {[
                 "Thời gian",
@@ -182,7 +182,7 @@ export default function LogsView({ logs = [] }) {
                 "Địa chỉ IP",
                 "Trạng thái"
               ].map((label) => (
-                <th key={label}>{label}</th>
+                <th className="text-start text-nowrap" key={label}>{label}</th>
               ))}
             </tr>
           </thead>
@@ -202,7 +202,7 @@ export default function LogsView({ logs = [] }) {
             {visible.map((log, index) => (
               <tr key={`${current}-${index}`}>
                 <td className="small text-nowrap">
-                  {log.time}
+                  {log.time || log.timestamp || "Chưa có thời gian"}
                 </td>
 
                 <td>{log.actor}</td>
@@ -220,12 +220,12 @@ export default function LogsView({ logs = [] }) {
                 <td>
                   <Badge
                     bg={
-                      !log.status || log.status === "Thành công"
+                      !log.status || ["success", "Thành công"].includes(log.status)
                         ? "success"
-                        : "warning"
+                        : ["failed", "Thất bại"].includes(log.status) ? "danger" : "warning"
                     }
                   >
-                    {log.status || "Thành công"}
+                    {({ success: "Thành công", flagged: "Cảnh báo", failed: "Thất bại" })[log.status] || log.status || "Thành công"}
                   </Badge>
                 </td>
               </tr>

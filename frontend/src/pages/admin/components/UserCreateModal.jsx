@@ -75,11 +75,12 @@ export default function UserCreateModal({
   return (
     <Modal
       show={show}
-      onHide={onHide}
+      onHide={busy ? () => {} : onHide}
+      keyboard={!busy}
       centered
       backdrop="static"
     >
-      <Modal.Header closeButton>
+      <Modal.Header closeButton={!busy}>
         <Modal.Title className="fw-bold fs-5">
           Thêm người dùng hệ thống mới
         </Modal.Title>
