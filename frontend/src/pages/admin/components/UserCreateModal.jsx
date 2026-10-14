@@ -1,111 +1,210 @@
-import { useState } from "react";
-import Modal from "react-bootstrap/Modal";
-import Button from "react-bootstrap/Button";
-import Form from "react-bootstrap/Form";
-import Row from "react-bootstrap/Row";
-import Col from "react-bootstrap/Col";
+import { useEffect, useState } from "react";
+import {
+  Modal,
+  Button,
+  Form,
+  Row,
+  Col,
+  Alert
+} from "react-bootstrap";
 import { useToast } from "../../../context/ToastContext";
 import { mockStore } from "../../../services/mockStore";
+import {
+  saveAdminUser,
+  USER_ROLES
+} from "../../../services/adminUsers";
 
-export default function UserCreateModal({ show, onHide, onUserCreated }) {
+const empty = {
+  name: "",
+  email: "",
+  phone: "",
+  role: "Ứng viên",
+  companyId: ""
+};
+
+export default function UserCreateModal({
+  show,
+  onHide,
+  onUserCreated
+}) {
   const { showToast } = useToast();
 
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [role, setRole] = useState("Ứng viên");
-  const [companyName, setCompanyName] = useState("");
+  const [form, setForm] = useState(empty);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!name.trim() || !email.trim()) {
-      showToast("Vui lòng điền đầy đủ họ tên và email");
-      return;
+  useEffect(() => {
+    if (show) {
+      setForm({ ...empty });
+      setError("");
     }
+  }, [show]);
 
-    const newUser = mockStore.createUser({
-      name,
-      email,
-      phone,
-      role,
-      companyName: role === "Nhà tuyển dụng" ? (companyName || name) : "",
-      avatar: (name.trim().split(" ").filter(Boolean).map(w => w[0]).join("").slice(0, 2).toUpperCase()) || "US"
-    });
+  const change = (key, value) => {
+    setForm(current => ({
+      ...current,
+      [key]: value
+    }));
+  };
 
-    if (onUserCreated) onUserCreated(newUser);
-    showToast(`Đã tạo thành công tài khoản người dùng ${newUser.name} (${newUser.id})`);
-    onHide();
-    setName("");
-    setEmail("");
-    setPhone("");
+  const submit = event => {
+    event.preventDefault();
+
+    if (busy) return;
+
+    setBusy(true);
+    setError("");
+
+    try {
+      const user = saveAdminUser(form);
+
+      onUserCreated?.(user);
+
+      showToast(
+        "Đã thêm người dùng vào danh sách quản trị."
+      );
+
+      onHide();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
-    <Modal show={show} onHide={onHide} centered>
-      <Modal.Header closeButton>
+    <Modal
+      show={show}
+      onHide={busy ? () => {} : onHide}
+      keyboard={!busy}
+      centered
+      backdrop="static"
+    >
+      <Modal.Header closeButton={!busy}>
         <Modal.Title className="fw-bold fs-5">
-          <i className="bi bi-person-plus text-primary me-2"></i>Thêm người dùng hệ thống mới
+          Thêm người dùng hệ thống mới
         </Modal.Title>
       </Modal.Header>
-      <Form onSubmit={handleSubmit}>
+
+      <Form onSubmit={submit}>
         <Modal.Body className="p-4">
-          <Form.Group className="mb-3">
-            <Form.Label className="small fw-semibold">Họ và tên / Đại diện pháp nhân</Form.Label>
+          {error && (
+            <Alert variant="danger">{error}</Alert>
+          )}
+
+          <Form.Group
+            className="mb-3"
+            controlId="new-user-name"
+          >
+            <Form.Label>
+              Họ và tên / Đại diện pháp nhân
+            </Form.Label>
+
             <Form.Control
-              type="text"
-              placeholder="VD: Trần Văn Nam"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
               required
+              maxLength={100}
+              value={form.name}
+              onChange={event =>
+                change("name", event.target.value)
+              }
             />
           </Form.Group>
 
           <Row className="g-2 mb-3">
             <Col sm={7}>
-              <Form.Label className="small fw-semibold">Email tài khoản</Form.Label>
-              <Form.Control
-                type="email"
-                placeholder="VD: nam.tran@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
+              <Form.Group controlId="new-user-email">
+                <Form.Label>Email tài khoản</Form.Label>
+
+                <Form.Control
+                  type="email"
+                  required
+                  value={form.email}
+                  onChange={event =>
+                    change("email", event.target.value)
+                  }
+                />
+              </Form.Group>
             </Col>
+
             <Col sm={5}>
-              <Form.Label className="small fw-semibold">Số điện thoại</Form.Label>
-              <Form.Control
-                type="text"
-                placeholder="VD: 0912 345 678"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-              />
+              <Form.Group controlId="new-user-phone">
+                <Form.Label>Số điện thoại</Form.Label>
+
+                <Form.Control
+                  type="tel"
+                  maxLength={20}
+                  value={form.phone}
+                  onChange={event =>
+                    change("phone", event.target.value)
+                  }
+                />
+              </Form.Group>
             </Col>
           </Row>
 
-          <Form.Group className="mb-3">
-            <Form.Label className="small fw-semibold">Vai trò tài khoản (Role)</Form.Label>
-            <Form.Select value={role} onChange={(e) => setRole(e.target.value)}>
-              <option value="Ứng viên">Ứng viên (Candidate)</option>
-              <option value="Nhà tuyển dụng">Nhà tuyển dụng (Employer/HR)</option>
-              <option value="Quản trị viên">Quản trị viên (Moderator/Admin)</option>
+          <Form.Group
+            className="mb-3"
+            controlId="new-user-role"
+          >
+            <Form.Label>Vai trò tài khoản</Form.Label>
+
+            <Form.Select
+              value={form.role}
+              onChange={event =>
+                change("role", event.target.value)
+              }
+            >
+              {USER_ROLES.map(role => (
+                <option key={role}>{role}</option>
+              ))}
             </Form.Select>
           </Form.Group>
 
-          {role === "Nhà tuyển dụng" && (
-            <Form.Group className="mb-2">
-              <Form.Label className="small fw-semibold">Tên doanh nghiệp trực thuộc</Form.Label>
-              <Form.Control
-                type="text"
-                placeholder="VD: Tech Startup VN"
-                value={companyName}
-                onChange={(e) => setCompanyName(e.target.value)}
-              />
+          {form.role === "Nhà tuyển dụng" && (
+            <Form.Group controlId="new-user-company">
+              <Form.Label>
+                Doanh nghiệp trực thuộc
+              </Form.Label>
+
+              <Form.Select
+                required
+                value={form.companyId}
+                onChange={event =>
+                  change("companyId", event.target.value)
+                }
+              >
+                <option value="">
+                  Chọn doanh nghiệp
+                </option>
+
+                {mockStore.getCompanies().map(company => (
+                  <option
+                    key={company.id}
+                    value={company.id}
+                  >
+                    {company.name}
+                  </option>
+                ))}
+              </Form.Select>
             </Form.Group>
           )}
+
+          <p className="small text-muted mt-3 mb-0">
+            Thao tác này tạo bản ghi người dùng trong
+            bản demo, chưa tạo mật khẩu đăng nhập.
+          </p>
         </Modal.Body>
+
         <Modal.Footer>
-          <Button variant="secondary" onClick={onHide}>Hủy</Button>
-          <Button variant="primary" type="submit" className="fw-bold">
+          <Button
+            variant="secondary"
+            onClick={onHide}
+            disabled={busy}
+          >
+            Hủy
+          </Button>
+
+          <Button type="submit" disabled={busy}>
             Tạo tài khoản
           </Button>
         </Modal.Footer>

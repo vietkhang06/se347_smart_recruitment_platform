@@ -1,75 +1,193 @@
-import { useState } from "react";
-import Modal from "react-bootstrap/Modal";
-import Button from "react-bootstrap/Button";
-import Badge from "react-bootstrap/Badge";
-import Form from "react-bootstrap/Form";
+import { useState, useEffect } from "react";
+import { Modal, Button, Badge, Form, Alert } from "react-bootstrap";
 
-export default function ReportDetailModal({ show, onHide, report, onResolve }) {
-  const [actionType, setActionType] = useState("warn");
-  const [resolutionNote, setResolutionNote] = useState("");
+export default function ReportDetailModal({
+  show,
+  onHide,
+  report,
+  onResolve
+}) {
+  const [action, setAction] = useState("record");
+  const [note, setNote] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    setAction("record");
+    setNote("");
+    setError("");
+    setBusy(false);
+  }, [show, report?.id]);
 
   if (!report) return null;
 
-  const handleResolve = () => {
-    let actionDesc = "Đã gửi cảnh cáo";
-    if (actionType === "suspend") actionDesc = "Tạm khóa 7 ngày";
-    if (actionType === "dismiss") actionDesc = "Đã bác bỏ báo cáo";
+  const resolved = report.status === "Đã xử lý";
 
-    onResolve(report.id, actionDesc, resolutionNote);
-    onHide();
+  const submit = async (event) => {
+    event.preventDefault();
+
+    if (busy || resolved) return;
+
+    if (!note.trim()) {
+      return setError("Vui lòng ghi rõ kết quả đối soát.");
+    }
+
+    setError("");
+    setBusy(true);
+
+    try {
+      await onResolve(report.id, action, note.trim());
+      onHide();
+    } catch (err) {
+      setError(err?.message || "Không thể xử lý báo cáo.");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
-    <Modal show={show} onHide={onHide} centered>
-      <Modal.Header closeButton>
-        <Modal.Title className="fw-bold fs-5">
-          <i className="bi bi-exclamation-octagon text-danger me-2"></i>Xử lý báo cáo vi phạm
-        </Modal.Title>
-      </Modal.Header>
-      <Modal.Body className="p-4">
-        <div className="p-3 rounded mb-3 bg-surface-2 border">
-          <div className="d-flex justify-content-between align-items-center mb-1">
-            <code>{report.id}</code>
-            <Badge bg={report.severity === "Nghiêm trọng" ? "danger" : "warning"}>
-              {report.severity}
-            </Badge>
-          </div>
-          <h6 className="fw-bold text-danger mb-1">{report.subject || report.targetTitle || "Báo cáo vi phạm"}</h6>
-          <div className="small text-muted">
-            Đối tượng bị phản ánh: <strong>{report.target || report.targetTitle || "Doanh nghiệp / Tin đăng"}</strong>
-          </div>
-          <div className="small text-muted">
-            Người gửi báo cáo: {report.reporter || report.reporterName || "Ẩn danh"} · {report.age ? `Cách đây ${report.age}` : (report.createdAt || "Gần đây")}
-          </div>
-        </div>
+    <Modal
+      show={show}
+      onHide={busy ? () => {} : onHide}
+      centered
+      backdrop="static"
+    >
+      <Form onSubmit={submit}>
+        <Modal.Header closeButton={!busy}>
+          <Modal.Title className="fw-bold fs-5">
+            {resolved
+              ? "Kết quả xử lý báo cáo"
+              : "Xử lý báo cáo vi phạm"}
+          </Modal.Title>
+        </Modal.Header>
 
-        <Form.Group className="mb-3">
-          <Form.Label className="small fw-semibold">Biện pháp chế tài áp dụng</Form.Label>
-          <Form.Select value={actionType} onChange={(e) => setActionType(e.target.value)}>
-            <option value="warn">Gửi thông báo cảnh cáo chính thức & Yêu cầu giải trình</option>
-            <option value="suspend">Tạm đình chỉ tài khoản / Ẩn tin tuyển dụng 7 ngày</option>
-            <option value="ban">Khóa vĩnh viễn tài khoản doanh nghiệp vi phạm</option>
-            <option value="dismiss">Bác bỏ báo cáo (Không đủ chứng cứ vi phạm)</option>
-          </Form.Select>
-        </Form.Group>
+        <Modal.Body className="p-4">
+          <div className="p-3 rounded mb-3 bg-surface-2 border">
+            <div className="d-flex justify-content-between mb-2">
+              <code>{report.id}</code>
 
-        <Form.Group>
-          <Form.Label className="small fw-semibold">Ghi chú kết quả xử lý của Quản trị viên</Form.Label>
-          <Form.Control
-            as="textarea"
-            rows={3}
-            placeholder="Ghi nhận nội dung đối soát hoặc phản hồi gửi đến các bên liên quan..."
-            value={resolutionNote}
-            onChange={(e) => setResolutionNote(e.target.value)}
-          />
-        </Form.Group>
-      </Modal.Body>
-      <Modal.Footer>
-        <Button variant="secondary" onClick={onHide}>Đóng</Button>
-        <Button variant="danger" className="fw-bold" onClick={handleResolve}>
-          Thực thi chế tài
-        </Button>
-      </Modal.Footer>
+              <Badge
+                bg={
+                  report.severity === "Nghiêm trọng"
+                    ? "danger"
+                    : "warning"
+                }
+              >
+                {report.severity}
+              </Badge>
+            </div>
+
+            <h6 className="fw-bold">{report.subject || report.targetTitle || "Báo cáo vi phạm"}</h6>
+            <div className="small">Đối tượng: {report.target || report.targetTitle || "Chưa có đối tượng"}</div>
+
+            <div className="small text-muted">
+              Người báo cáo: {report.reporter || report.reporterName || "Ẩn danh"} · {report.age || report.createdAt || ""}
+            </div>
+
+            <p
+              className="mt-2 mb-0"
+              style={{ whiteSpace: "pre-wrap" }}
+            >
+              {report.description || "Chưa có mô tả bổ sung."}
+            </p>
+          </div>
+
+          {error && <Alert variant="danger">{error}</Alert>}
+
+          {resolved ? (
+            <div>
+              <Badge bg="success" className="mb-2">
+                Đã xử lý
+              </Badge>
+
+              <p>
+                <strong>Quyết định:</strong>{" "}
+                {report.resolution || "Đã ghi nhận"}
+              </p>
+
+              <p style={{ whiteSpace: "pre-wrap" }}>
+                {report.note || "Không có ghi chú."}
+              </p>
+
+              <small className="text-muted">
+                {report.resolvedAt}
+              </small>
+            </div>
+          ) : (
+            <>
+              <Form.Group
+                className="mb-3"
+                controlId="report-action"
+              >
+                <Form.Label>Hướng xử lý</Form.Label>
+
+                <Form.Select
+                  value={action}
+                  disabled={busy}
+                  onChange={(e) => setAction(e.target.value)}
+                >
+                  <option value="record">
+                    Ghi nhận kết quả đối soát
+                  </option>
+
+                  <option
+                    value="close_job"
+                    disabled={!report.jobId}
+                  >
+                    Đóng tin tuyển dụng liên quan
+                  </option>
+
+                  <option value="dismiss">
+                    Bác bỏ báo cáo vì không đủ căn cứ
+                  </option>
+                </Form.Select>
+
+                {!report.jobId && (
+                  <Form.Text>
+                    Báo cáo chưa liên kết mã tin nên chưa thể đóng tin.
+                  </Form.Text>
+                )}
+              </Form.Group>
+
+              <Form.Group controlId="report-note">
+                <Form.Label>
+                  Ghi chú kết quả xử lý (bắt buộc)
+                </Form.Label>
+
+                <Form.Control
+                  as="textarea"
+                  rows={4}
+                  required
+                  maxLength={2000}
+                  value={note}
+                  disabled={busy}
+                  onChange={(e) => setNote(e.target.value)}
+                />
+              </Form.Group>
+            </>
+          )}
+        </Modal.Body>
+
+        <Modal.Footer>
+          <Button
+            variant="secondary"
+            disabled={busy}
+            onClick={onHide}
+          >
+            Đóng
+          </Button>
+
+          {!resolved && (
+            <Button
+              type="submit"
+              variant="danger"
+              disabled={busy}
+            >
+              {busy ? "Đang lưu…" : "Xác nhận xử lý"}
+            </Button>
+          )}
+        </Modal.Footer>
+      </Form>
     </Modal>
   );
 }

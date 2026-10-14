@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { Alert } from "react-bootstrap";
+import { setAdminStatus, deleteAdminUser, runAdminBatch, copyAdminText } from "../../../services/mockStore";
+import { useState, useEffect } from "react";
 import Card from "react-bootstrap/Card";
 import Button from "react-bootstrap/Button";
 import Table from "react-bootstrap/Table";
-import Badge from "react-bootstrap/Badge";
 import Form from "react-bootstrap/Form";
 import InputGroup from "react-bootstrap/InputGroup";
 import Dropdown from "react-bootstrap/Dropdown";
@@ -12,8 +13,54 @@ import CustomThreeDotsToggle from "../../../components/common/CustomThreeDotsTog
 import { useToast } from "../../../context/ToastContext";
 import { mockStore } from "../../../services/mockStore";
 
-export default function UsersView({ users, setUsers }) {
+function exportUsers(users) {
+  const cell = value => {
+    let text = String(value ?? "");
+
+    if (/^\s*[=+@-]/.test(text)) {
+      text = "'" + text;
+    }
+
+    return '"' + text.replace(/"/g, '""') + '"';
+  };
+
+  const rows = [
+    ["Mã", "Họ tên", "Email", "Vai trò", "Trạng thái"],
+    ...users.map(user => [
+      user.id,
+      user.name,
+      user.email,
+      user.role,
+      user.status
+    ])
+  ];
+
+  const content = "\uFEFF" + rows
+    .map(row => row.map(cell).join(","))
+    .join("\r\n");
+
+  const url = URL.createObjectURL(
+    new Blob([content], {
+      type: "text/csv;charset=utf-8"
+    })
+  );
+
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = "matchajob-users.csv";
+
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export default function UsersView({ users = [], setUsers }) {
   const { showToast } = useToast();
+  const [error, setError] = useState("");
+  const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -22,6 +69,8 @@ export default function UsersView({ users, setUsers }) {
   const [selectedUser, setSelectedUser] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+
+  useEffect(() => { setSelectedUserIds([]); setPage(1); }, [search, roleFilter, statusFilter]);
 
   const filteredUsers = users.filter((u) => {
     const q = (search || "").toLowerCase().trim();
@@ -43,8 +92,11 @@ export default function UsersView({ users, setUsers }) {
     return matchSearch && matchRole && matchStatus;
   });
 
-  const isAllSelected = filteredUsers.length > 0 && selectedUserIds.length === filteredUsers.length;
-  const isPartiallySelected = selectedUserIds.length > 0 && selectedUserIds.length < filteredUsers.length;
+  const pages = Math.max(1, Math.ceil(filteredUsers.length / 10));
+  const current = Math.min(page, pages);
+  const selectedIds = selectedUserIds.filter(id => filteredUsers.some(u => u.id === id));
+  const isAllSelected = filteredUsers.length > 0 && filteredUsers.every(u => selectedIds.includes(u.id));
+  const isPartiallySelected = selectedIds.length > 0 && selectedIds.length < filteredUsers.length;
 
   const handleSelectAll = () => {
     if (isAllSelected) {
@@ -60,48 +112,31 @@ export default function UsersView({ users, setUsers }) {
     );
   };
 
-  const handleBulkLock = () => {
-    selectedUserIds.forEach((id) => mockStore.setUserStatus(id, "Tạm khóa"));
+  const run = (ids, operation, label) => {
+    if (!ids.length || !window.confirm(`${label} ${ids.length} tài khoản?`)) return;
+    const result = runAdminBatch(ids, operation);
     setUsers(mockStore.getUsers());
-    showToast(`Đã tạm khóa ${selectedUserIds.length} tài khoản người dùng`);
-    setSelectedUserIds([]);
+    setSelectedUserIds(result.failed.map(item => item.id));
+    setError(result.failed.map(item => `${item.id}: ${item.message}`).join("\n"));
+    showToast(`Đã xử lý ${result.succeeded}/${ids.length} tài khoản.`);
   };
-
-  const handleBulkActivate = () => {
-    selectedUserIds.forEach((id) => mockStore.setUserStatus(id, "Hoạt động"));
-    setUsers(mockStore.getUsers());
-    showToast(`Đã kích hoạt ${selectedUserIds.length} tài khoản người dùng`);
-    setSelectedUserIds([]);
+  const handleBulkLock = () => run(selectedIds, id => setAdminStatus(id, "Tạm khóa"), "Tạm khóa");
+  const handleBulkActivate = () => run(selectedIds, id => setAdminStatus(id, "Hoạt động"), "Mở khóa");
+  const handleBulkDelete = () => run(selectedIds, deleteAdminUser, "Xóa");
+  const toggleUserStatus = id => {
+    const user = mockStore.getUsers().find(u => u.id === id);
+    if (!user) return;
+    setShowDetailModal(false);
+    run([id], key => setAdminStatus(key, user.status === "Tạm khóa" ? "Hoạt động" : "Tạm khóa"), "Đổi trạng thái");
   };
-
-  const handleBulkDelete = () => {
-    selectedUserIds.forEach((id) => mockStore.deleteUser(id));
-    setUsers(mockStore.getUsers());
-    showToast(`Đã xóa ${selectedUserIds.length} tài khoản người dùng`);
-    setSelectedUserIds([]);
-  };
-
-  const toggleUserStatus = (id) => {
-    const newStatus = mockStore.toggleUserStatus(id);
-    setUsers(mockStore.getUsers());
-    showToast(`Đã chuyển trạng thái tài khoản sang: ${newStatus}`);
-  };
-
-  const handleDeleteUser = (id) => {
-    mockStore.deleteUser(id);
-    setUsers(mockStore.getUsers());
-    showToast(`Đã xóa tài khoản ${id}`);
-    if (selectedUserIds.includes(id)) {
-      setSelectedUserIds((prev) => prev.filter((item) => item !== id));
-    }
-  };
+  const handleDeleteUser = id => run([id], deleteAdminUser, "Xóa");
 
   const handleOpenDetail = (user) => {
     setSelectedUser(user);
     setShowDetailModal(true);
   };
 
-  const handleUserCreated = (newUser) => {
+  const handleUserCreated = () => {
     setUsers(mockStore.getUsers());
   };
 
@@ -121,7 +156,7 @@ export default function UsersView({ users, setUsers }) {
           <Button
             variant="outline-dark"
             size="sm"
-            onClick={() => showToast("Đã xuất danh bạ người dùng (.CSV)")}
+            disabled={!filteredUsers.length} onClick={() => { try { exportUsers(filteredUsers); showToast("Đã tạo tệp CSV."); } catch { setError("Không thể tạo tệp CSV."); } }}
           >
             <i className="bi bi-download me-1"></i>Xuất danh sách
           </Button>
@@ -136,6 +171,7 @@ export default function UsersView({ users, setUsers }) {
         </div>
       </div>
 
+      {error && <Alert variant="danger" style={{whiteSpace: "pre-wrap"}}>{error}</Alert>}
       {/* Filter and Search Bar */}
       <div className="d-flex flex-wrap gap-2 mb-3">
         <div className="flex-grow-1" style={{ minWidth: 240 }}>
@@ -169,14 +205,14 @@ export default function UsersView({ users, setUsers }) {
       </div>
 
       {/* Bulk Action Banner */}
-      {selectedUserIds.length > 0 && (
+      {selectedIds.length > 0 && (
         <div
           className="alert d-flex flex-wrap justify-content-between align-items-center py-2 px-3 mb-3 rounded-3 border"
           style={{ backgroundColor: "var(--primary-soft)", borderColor: "var(--primary)", color: "var(--text)" }}
         >
           <div className="d-flex align-items-center gap-2 small fw-semibold">
             <i className="bi bi-check2-circle fs-5 text-success"></i>
-            <span>Đã chọn <strong className="text-success">{selectedUserIds.length}</strong> tài khoản người dùng</span>
+            <span>Đã chọn <strong className="text-success">{selectedIds.length}</strong> tài khoản người dùng</span>
           </div>
           <div className="d-flex gap-2 align-items-center flex-wrap">
             <Button
@@ -249,7 +285,7 @@ export default function UsersView({ users, setUsers }) {
                 </td>
               </tr>
             ) : (
-              filteredUsers.map((u) => {
+              filteredUsers.slice((current - 1) * 10, current * 10).map((u) => {
                 const isRoleAdmin = u.role === "Quản trị viên" || u.role === "admin" || u.roleCode === "admin";
                 const isRoleEmployer = u.role === "Nhà tuyển dụng" || u.role === "employer" || u.roleCode === "employer";
                 const roleLabel = isRoleAdmin ? "Quản trị viên" : isRoleEmployer ? "Nhà tuyển dụng" : "Ứng viên";
@@ -282,7 +318,7 @@ export default function UsersView({ users, setUsers }) {
                             backgroundColor: isRoleEmployer ? "var(--primary)" : isRoleAdmin ? "#0f172a" : "var(--purple)"
                           }}
                         >
-                          {(u.avatar || u.name || u.fullName || "US").slice(0, 2).toUpperCase()}
+                          {typeof u.avatar === "string" && /^(https?:|data:image\/|blob:|\/)/i.test(u.avatar) ? <img src={u.avatar} alt={u.name || "Ảnh người dùng"} className="rounded-circle w-100 h-100" style={{objectFit: "cover"}} /> : String(u.avatar || u.name || u.fullName || "US").slice(0, 2).toUpperCase()}
                         </div>
                         <div>
                           <div className="text-body">{u.name || u.fullName || "Người dùng"}</div>
@@ -341,8 +377,7 @@ export default function UsersView({ users, setUsers }) {
                           <Dropdown.Divider />
                           <Dropdown.Item
                             onClick={() => {
-                              navigator.clipboard?.writeText(u.email);
-                              showToast(`Đã sao chép email ${u.email}`);
+                              copyAdminText(u.email).then(() => showToast("Đã sao chép email.")).catch(e => setError(e.message));
                             }}
                             className="small py-2"
                           >
@@ -365,11 +400,15 @@ export default function UsersView({ users, setUsers }) {
         </Table>
       </div>
 
+      <div className="d-flex justify-content-between align-items-center mt-3">
+        <small>{filteredUsers.length} kết quả · Trang {current}/{pages}</small>
+        <div className="d-flex gap-2"><Button size="sm" variant="outline-secondary" disabled={current <= 1} onClick={() => setPage(current - 1)}>Trước</Button><Button size="sm" variant="outline-secondary" disabled={current >= pages} onClick={() => setPage(current + 1)}>Sau</Button></div>
+      </div>
       {/* User Detail Modal */}
       <UserDetailModal
         show={showDetailModal}
         onHide={() => setShowDetailModal(false)}
-        user={selectedUser}
+        user={users.find(u => u.id === selectedUser?.id) || null}
         onToggleStatus={toggleUserStatus}
         onUserUpdated={handleUserUpdated}
       />

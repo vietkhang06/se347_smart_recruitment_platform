@@ -3,11 +3,39 @@ import Card from "react-bootstrap/Card";
 import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 import Button from "react-bootstrap/Button";
-import Badge from "react-bootstrap/Badge";
 import Form from "react-bootstrap/Form";
 import InputGroup from "react-bootstrap/InputGroup";
 import { useToast } from "../../../context/ToastContext";
 import { STAGES_PIPELINE } from "../../../mock";
+
+export function candidateScore(candidate) {
+  const raw = candidate.matchScore ?? candidate.match;
+  return raw != null && String(raw).trim() !== "" && Number.isFinite(Number(raw)) ? Number(raw) : null;
+}
+
+export function candidateClosed(candidate) {
+  return Boolean(candidate.withdrawnAt) || /đã rút|từ chối|không phù hợp/i.test(candidate.stage || "");
+}
+
+export function exportCandidatesCSV(candidates) {
+  const cell = value => {
+    let text = String(value ?? "");
+    if (/^\s*[=+@-]/.test(text)) text = "'" + text;
+    return '"' + text.replace(/"/g, '""') + '"';
+  };
+  const rows = [
+    ["Mã hồ sơ", "Họ tên", "Vị trí", "Email", "Điện thoại", "Giai đoạn", "Điểm phù hợp"],
+    ...candidates.map(c => [c.id, c.name || c.candidateName, c.appliedJobTitle || c.role || c.candidateRole, c.email || c.candidateEmail, c.phone || c.candidatePhone, c.stage || "Mới", candidateScore(c)])
+  ];
+  const url = URL.createObjectURL(new Blob(["\uFEFF" + rows.map(row => row.map(cell).join(",")).join("\r\n")], { type: "text/csv;charset=utf-8" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "matchajob-candidates.csv";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 
 // Helper xác định màu sắc riêng biệt cho từng trạng thái ứng viên
 const getCandidateStageBadge = (stage) => {
@@ -22,12 +50,16 @@ const getCandidateStageBadge = (stage) => {
       return { className: "status-badge-primary", label: "Phỏng vấn" };
     case "Đề nghị":
       return { className: "status-badge-success", label: "Đề nghị" };
+    case "Đã từ chối":
+    case "Từ chối":
+    case "Không phù hợp":
+      return { className: "status-badge-danger", label: stage };
     default:
       return { className: "status-badge-secondary", label: stage || "Mới" };
   }
 };
 
-export default function CandidatesView({ candidates, onOpenCandidate, onInviteCandidate }) {
+export default function CandidatesView({ candidates = [], onOpenCandidate, onInviteCandidate }) {
   const { showToast } = useToast();
   const [search, setSearch] = useState("");
   const [jobFilter, setJobFilter] = useState("all");
@@ -40,7 +72,7 @@ export default function CandidatesView({ candidates, onOpenCandidate, onInviteCa
 
   const filteredCandidates = candidates.filter((c) => {
     const name = (c.candidateName || c.name || "").toLowerCase();
-    const role = (c.candidateRole || c.role || "").toLowerCase();
+    const role = (c.appliedJobTitle || c.candidateRole || c.role || "").toLowerCase();
     const skills = Array.isArray(c.skills) ? c.skills : [];
     const searchLower = (search || "").toLowerCase().trim();
 
@@ -48,19 +80,19 @@ export default function CandidatesView({ candidates, onOpenCandidate, onInviteCa
       !searchLower ||
       name.includes(searchLower) ||
       role.includes(searchLower) ||
-      skills.some((s) => (s || "").toLowerCase().includes(searchLower));
+      skills.some((s) => String(s || "").toLowerCase().includes(searchLower));
 
     const candidateJob = c.appliedJobTitle || c.role || c.candidateRole || "";
     const matchJob = jobFilter === "all" ? true : candidateJob === jobFilter;
     const matchStage = stageFilter === "all" ? true : (c.stage || "Mới") === stageFilter;
 
-    const score = Number(c.matchScore ?? c.match ?? 0);
+    const score = candidateScore(c);
     const matchScore =
       matchFilter === "all"
         ? true
         : matchFilter === "90"
-        ? score >= 90
-        : score >= 80 && score < 90;
+        ? score !== null && score >= 90
+        : score !== null && score >= 80 && score < 90;
 
     return matchSearch && matchJob && matchStage && matchScore;
   });
@@ -72,7 +104,10 @@ export default function CandidatesView({ candidates, onOpenCandidate, onInviteCa
           <h5 className="fw-bold mb-0">Kho hồ sơ ứng viên nổi bật ({candidates.length})</h5>
           <p className="text-muted small mb-0">Hồ sơ ứng viên được sàng lọc và xếp hạng theo tiêu chuẩn tuyển dụng</p>
         </div>
-        <Button variant="outline-success" size="sm" onClick={() => showToast("Đã tải xuống danh sách ứng viên (.CSV)")}>
+        <Button variant="outline-success" size="sm" disabled={!filteredCandidates.length} onClick={() => {
+          try { exportCandidatesCSV(filteredCandidates); showToast("Đã tạo tệp CSV theo bộ lọc."); }
+          catch (err) { showToast(err?.message || "Không thể xuất danh sách.", "danger"); }
+        }}>
           <i className="bi bi-file-earmark-spreadsheet me-1"></i>Xuất danh sách
         </Button>
       </div>
@@ -118,7 +153,7 @@ export default function CandidatesView({ candidates, onOpenCandidate, onInviteCa
             style={{ backgroundColor: "var(--surface-2)", borderColor: "var(--border)", color: "var(--text)" }}
           >
             <option value="all">Tất cả giai đoạn</option>
-            {STAGES_PIPELINE.map((stg) => (
+            {Array.from(new Set([...STAGES_PIPELINE, "Đã rút", "Đã từ chối", ...candidates.map(c => c.stage).filter(Boolean)])).map((stg) => (
               <option key={stg} value={stg}>{stg}</option>
             ))}
           </Form.Select>
@@ -133,8 +168,8 @@ export default function CandidatesView({ candidates, onOpenCandidate, onInviteCa
             style={{ backgroundColor: "var(--surface-2)", borderColor: "var(--border)", color: "var(--text)" }}
           >
             <option value="all">Mức phù hợp</option>
-            <option value="90">Trên 90% (Rất cao)</option>
-            <option value="80">Từ 80% - 90%</option>
+            <option value="90">Từ 90% (Rất cao)</option>
+            <option value="80">Từ 80% đến dưới 90%</option>
           </Form.Select>
         </div>
       </div>
@@ -174,27 +209,26 @@ export default function CandidatesView({ candidates, onOpenCandidate, onInviteCa
                   </div>
 
                   <div className="small text-muted mb-2">
-                    <i className="bi bi-geo-alt me-1 text-danger"></i>{c.location || "TP.HCM"} · <i className="bi bi-briefcase me-1"></i>{c.experience || "Chưa cập nhật"}
+                    <i className="bi bi-geo-alt me-1 text-danger"></i>{c.location || "Chưa cập nhật địa điểm"} · <i className="bi bi-briefcase me-1"></i>{c.experience || "Chưa cập nhật kinh nghiệm"}
                   </div>
 
                   {/* Hiển thị đầy đủ 5 kỹ năng của ứng viên - Kích thước vừa vặn tự nhiên, không bị kéo dãn */}
                   <div className="d-flex flex-wrap align-items-start gap-1 mb-3">
-                    {c.skills?.map((s) => (
-                      <span key={s} className="candidate-skill-badge">
+                    {(Array.isArray(c.skills) ? c.skills : []).map((s, index) => (
+                      <span key={`${s}-${index}`} className="candidate-skill-badge">
                         {s}
                       </span>
                     ))}
+                    {(!Array.isArray(c.skills) || !c.skills.length) && <span className="small text-muted">Chưa cập nhật kỹ năng</span>}
                   </div>
 
                   <div className="d-flex justify-content-between align-items-center pt-2 border-top mt-auto">
-                    <span className="text-success fw-bold small">
-                      <i className="bi bi-stars me-1"></i>{c.matchScore ?? c.match ?? 0}% Phù hợp
-                    </span>
+                    {candidateScore(c) !== null ? <span className="text-success fw-bold small"><i className="bi bi-stars me-1" />{candidateScore(c)}% phù hợp</span> : <span className="text-muted small">Chưa có điểm phù hợp</span>}
                     <div className="d-flex gap-1">
                       <Button variant="outline-secondary" size="sm" onClick={() => onOpenCandidate(c)}>
                         Hồ sơ
                       </Button>
-                      <Button variant="outline-success" size="sm" onClick={() => onInviteCandidate(c)}>
+                      <Button variant="outline-success" size="sm" disabled={candidateClosed(c)} onClick={() => onInviteCandidate(c)}>
                         Mời
                       </Button>
                     </div>

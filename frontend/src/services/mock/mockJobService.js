@@ -1,54 +1,84 @@
-import { JOBS_FIXTURE } from "../../fixtures/jobs.fixture";
-import { ADMIN_CATEGORIES_FIXTURE, ADMIN_SKILLS_FIXTURE } from "../../fixtures/admin.fixture";
+import { mockStore } from "../mockStore";
+import { ADMIN_SKILLS_FIXTURE } from "../../fixtures/admin.fixture";
 import { toJobViewModel } from "../../mappers/jobMapper";
 
-const STORAGE_KEY = "matchajob_store_jobs_v2";
-const DRAFT_KEY = "matchajob_store_job_composer_draft";
+function resolveCompanyId(requestedId) {
+  const currentId = mockStore.getHRCompanyId();
 
-function delay(ms = 80) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  if (
+    requestedId != null &&
+    String(requestedId) !== String(currentId)
+  ) {
+    throw new Error(
+      "Bạn không có quyền quản lý doanh nghiệp này."
+    );
+  }
+
+  return currentId;
 }
 
-function loadJobs() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(JOBS_FIXTURE));
-      return JOBS_FIXTURE;
-    }
-    return JSON.parse(raw);
-  } catch {
-    return JOBS_FIXTURE;
+function getOwnedJob(jobId) {
+  const companyId = resolveCompanyId();
+  const job = mockStore.getJobById(jobId);
+
+  if (
+    !job ||
+    String(job.companyId) !== String(companyId)
+  ) {
+    throw new Error(
+      "Tin không tồn tại hoặc không thuộc doanh nghiệp của bạn."
+    );
   }
+
+  return job;
 }
 
-function saveJobs(list) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-    window.dispatchEvent(new CustomEvent("matchajob:jobs-changed", { detail: list }));
-  } catch (err) {
-    console.error("[mockJobService] Failed to persist jobs", err);
-  }
+function normalizeStatus(status) {
+  const labels = {
+    active: "Đang tuyển",
+    paused: "Tạm dừng",
+    pending: "Chờ duyệt",
+    closed: "Đã đóng",
+    draft: "Bản nháp"
+  };
+
+  return labels[status] || status;
 }
 
 export const mockJobService = {
-  async getEmployerJobs(companyId = "COMP-01", filters = {}) {
-    await delay();
-    const rawList = loadJobs();
-    let jobs = rawList.map(toJobViewModel);
+  async getEmployerJobs(companyId, filters = {}) {
+    const ownerId = resolveCompanyId(companyId);
 
-    if (filters.status && filters.status !== "all" && filters.status !== "Tất cả") {
-      const target = filters.status.toLowerCase();
-      jobs = jobs.filter((j) => j.statusCode === target || j.status.toLowerCase() === target);
+    let jobs = mockStore
+      .getJobs()
+      .filter(
+        (job) => String(job.companyId) === String(ownerId)
+      )
+      .map(toJobViewModel);
+
+    if (
+      filters.status &&
+      !["all", "Tất cả"].includes(filters.status)
+    ) {
+      const status = String(filters.status).toLowerCase();
+
+      jobs = jobs.filter(
+        (job) =>
+          job.statusCode === status ||
+          job.status.toLowerCase() === status
+      );
     }
 
-    if (filters.keyword && filters.keyword.trim()) {
-      const kw = filters.keyword.toLowerCase().trim();
-      jobs = jobs.filter(
-        (j) =>
-          j.title.toLowerCase().includes(kw) ||
-          j.department.toLowerCase().includes(kw) ||
-          j.skills.some((s) => s.toLowerCase().includes(kw))
+    const keyword = String(filters.keyword || "")
+      .trim()
+      .toLowerCase();
+
+    if (keyword) {
+      jobs = jobs.filter((job) =>
+        [job.title, job.department, ...job.skills].some(
+          (value) =>
+            String(value).toLowerCase().includes(keyword)
+        )
       );
     }
 
@@ -56,104 +86,115 @@ export const mockJobService = {
   },
 
   async getJobById(jobId) {
-    await delay();
-    const rawList = loadJobs();
-    const found = rawList.find((j) => String(j.id) === String(jobId));
-    if (!found) return null;
-    return toJobViewModel(found);
+    const job = mockStore.getJobById(jobId);
+    return job ? toJobViewModel(job) : null;
   },
 
-  async createJob(jobInput, companyId = "COMP-01") {
-    await delay();
-    const rawList = loadJobs();
-    const newId = `JOB-${Date.now().toString().slice(-4)}`;
-    const newRaw = {
+  async createJob(jobInput, companyId) {
+    const ownerId = resolveCompanyId(companyId);
+
+    const created = mockStore.saveJob({
       ...jobInput,
-      id: newId,
-      companyId,
-      status: jobInput.status || "active",
-      applicantCount: 0,
-      viewCount: 1,
-      postedAt: new Date().toISOString()
-    };
-    const nextList = [newRaw, ...rawList];
-    saveJobs(nextList);
-    return toJobViewModel(newRaw);
+      id: `JOB-${crypto.randomUUID()}`,
+      companyId: ownerId
+    });
+
+    if (!mockStore.getJobById(created.id)) {
+      throw new Error(
+        "Không lưu được tin tuyển dụng. Vui lòng thử lại."
+      );
+    }
+
+    return toJobViewModel(created);
   },
 
   async updateJob(jobId, jobUpdate) {
-    await delay();
-    const rawList = loadJobs();
-    let updatedRaw = null;
-    const nextList = rawList.map((j) => {
-      if (String(j.id) === String(jobId)) {
-        updatedRaw = { ...j, ...jobUpdate, id: jobId };
-        return updatedRaw;
+    const job = getOwnedJob(jobId);
+
+    const updates = {
+      ...jobUpdate,
+      id: job.id,
+      companyId: job.companyId
+    };
+
+    if (updates.status !== undefined) {
+      updates.status = normalizeStatus(updates.status);
+
+      if (
+        ["Đang tuyển", "Tạm dừng"].includes(updates.status) &&
+        !["Đang tuyển", "Tạm dừng"].includes(
+          normalizeStatus(job.status)
+        )
+      ) {
+        throw new Error(
+          "Tin phải được duyệt trước khi mở nhận hồ sơ."
+        );
       }
-      return j;
-    });
-    if (updatedRaw) saveJobs(nextList);
-    return updatedRaw ? toJobViewModel(updatedRaw) : null;
+    }
+
+    mockStore.updateJob(job.id, updates);
+
+    const saved = mockStore.getJobById(job.id);
+
+    const persisted =
+      saved &&
+      Object.entries(updates).every(
+        ([key, value]) =>
+          value === undefined ||
+          JSON.stringify(saved[key]) === JSON.stringify(value)
+      );
+
+    if (!persisted) {
+      throw new Error(
+        "Không lưu được thay đổi tin tuyển dụng."
+      );
+    }
+
+    return toJobViewModel(saved);
   },
 
   async updateJobStatus(jobId, status) {
-    await delay();
-    const rawList = loadJobs();
-    let updatedRaw = null;
-    const nextList = rawList.map((j) => {
-      if (String(j.id) === String(jobId)) {
-        updatedRaw = { ...j, status };
-        return updatedRaw;
-      }
-      return j;
-    });
-    if (updatedRaw) saveJobs(nextList);
-    return updatedRaw ? toJobViewModel(updatedRaw) : null;
+    return mockJobService.updateJob(jobId, { status });
   },
 
   async deleteJob(jobId) {
-    await delay();
-    const rawList = loadJobs();
-    const nextList = rawList.filter((j) => String(j.id) !== String(jobId));
-    saveJobs(nextList);
+    const job = getOwnedJob(jobId);
+
+    mockStore.deleteJob(job.id);
+
+    if (mockStore.getJobById(job.id)) {
+      throw new Error(
+        "Không xóa được tin tuyển dụng. Vui lòng thử lại."
+      );
+    }
+
     return true;
   },
 
   async getCategories() {
-    await delay(30);
-    return ADMIN_CATEGORIES_FIXTURE;
+    return mockStore.getCategories();
   },
 
   async getSkills(categoryId = null) {
-    await delay(30);
     if (!categoryId) return ADMIN_SKILLS_FIXTURE;
-    return ADMIN_SKILLS_FIXTURE.filter((s) => !s.categoryId || s.categoryId === categoryId);
+
+    return ADMIN_SKILLS_FIXTURE.filter(
+      (skill) =>
+        !skill.categoryId ||
+        String(skill.categoryId) === String(categoryId)
+    );
   },
 
   getJobDraft() {
-    try {
-      const raw = localStorage.getItem(DRAFT_KEY);
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
-    }
+    return mockStore.getJobDraft();
   },
 
   saveJobDraft(draft) {
-    try {
-      localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
-      return true;
-    } catch {
-      return false;
-    }
+    return Boolean(mockStore.saveJobDraft(draft));
   },
 
   clearJobDraft() {
-    try {
-      localStorage.removeItem(DRAFT_KEY);
-      return true;
-    } catch {
-      return false;
-    }
+    mockStore.clearJobDraft();
+    return mockStore.getJobDraft() === null;
   }
 };
