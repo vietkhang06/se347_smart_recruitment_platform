@@ -990,20 +990,12 @@ select option {
   height: 6px;
 }
 
-/* CHỈ HIỆN KHI HOVER - KHÔNG DÙNG :focus-within ĐỂ TRÁNH BỊ KẸT MENU KHI RỜI CHUỘT */
+/* CHỈ HIỆN KHI HOVER - TỰ ĐỘNG ĐÓNG KHI NGƯNG HOVER (RỜI CHUỘT) */
 .nav-hover-dropdown:hover .dropdown-menu {
   opacity: 1;
   visibility: visible;
   transform: translateY(0);
   pointer-events: auto;
-}
-
-/* Khi đã click chọn 1 mục -> lập tức ẩn menu, không cần click ra ngoài */
-.nav-hover-dropdown.force-closed .dropdown-menu {
-  display: none !important;
-  opacity: 0 !important;
-  visibility: hidden !important;
-  pointer-events: none !important;
 }
 
 .nav-hover-dropdown .dropdown-item {

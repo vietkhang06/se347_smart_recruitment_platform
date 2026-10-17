@@ -14,11 +14,6 @@ export default function Header() {
   const { user, logout } = useAuth();
   const { favorites } = useFavorites();
   const navigate = useNavigate();
-  const location = useLocation();
-
-  // State đóng menu tức thì khi chọn một mục
-  const [closedDropdown, setClosedDropdown] = useState(false);
-
   const currentPath = location.pathname;
   const currentHash = location.hash ? location.hash.replace("#", "") : "overview";
 
@@ -44,10 +39,6 @@ export default function Header() {
 
   const handleEmployerTabClick = (key) => {
     navigate(`/employer#${key}`);
-    setClosedDropdown(true);
-    if (document.activeElement && typeof document.activeElement.blur === "function") {
-      document.activeElement.blur();
-    }
   };
 
   const handleAdminTabClick = (key) => {
@@ -156,12 +147,8 @@ export default function Header() {
                   <span>Tổng quan</span>
                 </button>
 
-                {/* 2. Tuyển dụng (Dropdown hover xổ xuống dần, tự đóng khi click hoặc rời chuột) */}
-                <div
-                  className={`nav-hover-dropdown ${closedDropdown ? "force-closed" : ""}`}
-                  onMouseEnter={() => setClosedDropdown(false)}
-                  onMouseLeave={() => setClosedDropdown(false)}
-                >
+                {/* 2. Tuyển dụng (Dropdown tự mở khi hover và chỉ tắt khi ngưng hover) */}
+                <div className="nav-hover-dropdown">
                   <button
                     type="button"
                     className={`header-nav-tab ${
@@ -197,12 +184,8 @@ export default function Header() {
                   </div>
                 </div>
 
-                {/* 3. Hồ sơ (Dropdown hover xổ xuống dần, tự đóng khi click hoặc rời chuột) */}
-                <div
-                  className={`nav-hover-dropdown ${closedDropdown ? "force-closed" : ""}`}
-                  onMouseEnter={() => setClosedDropdown(false)}
-                  onMouseLeave={() => setClosedDropdown(false)}
-                >
+                {/* 3. Hồ sơ (Dropdown tự mở khi hover và chỉ tắt khi ngưng hover) */}
+                <div className="nav-hover-dropdown">
                   <button
                     type="button"
                     className={`header-nav-tab ${
