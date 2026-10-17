@@ -36,15 +36,17 @@ public class JobCreateRequest {
     private String summaryIndustry;
     private String summaryRequired;
     private String summaryPreferred;
-    private String status; // 'draft' hoặc 'pending'
+    private String status; // 'draft' hoặc 'active'
     private LocalDate deadline;
     private List<JobSkillItem> skills;
 
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
+    @Builder
     public static class JobSkillItem {
         private UUID skillId;
+        private String skillName;
         private Boolean isRequired;
     }
 }

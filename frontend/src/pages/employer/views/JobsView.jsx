@@ -41,6 +41,7 @@ export default function JobsView({
   jobs = [],
   setJobs,
   onOpenComposer,
+  onEditJob,
   onNavigateCandidates
 }) {
   const { showToast } = useToast();
@@ -147,20 +148,16 @@ export default function JobsView({
               );
             }
 
-            if (
-              !["Đang tuyển", "Tạm dừng"].includes(current.status)
-            ) {
-              throw new Error(
-                "Chỉ tạm dừng/mở lại tin đã duyệt và chưa đóng."
-              );
+            let nextStatus = action;
+            if (action === "toggle") {
+              nextStatus = current.status === "Đang tuyển" ? "Tạm dừng" : "Đang tuyển";
+            } else if (action === "publish" || action === "resume") {
+              nextStatus = "Đang tuyển";
+            } else if (action === "pause") {
+              nextStatus = "Tạm dừng";
+            } else if (action === "close") {
+              nextStatus = "Đã đóng";
             }
-
-            const nextStatus =
-              action === "toggle"
-                ? current.status === "Đang tuyển"
-                  ? "Tạm dừng"
-                  : "Đang tuyển"
-                : action;
 
             const updated =
               current.status === nextStatus
@@ -180,13 +177,17 @@ export default function JobsView({
                   : job
               )
             );
+
+            setSelectedJob((prev) =>
+              sameId(prev?.id, id)
+                ? { ...prev, ...updated }
+                : prev
+            );
           }
 
           succeeded.push(id);
         } catch (error) {
-          errors.push(
-            `${id}: ${error?.message || "Thao tác thất bại."}`
-          );
+          errors.push(error?.message || "Thao tác thất bại.");
         }
       }
 
@@ -197,15 +198,24 @@ export default function JobsView({
       );
 
       if (errors.length) {
-        showToast(
-          `Thành công ${succeeded.length}/${ids.length} tin. ${errors[0]}`
-        );
+        if (succeeded.length === 0) {
+          showToast(errors[0], "danger");
+        } else {
+          showToast(
+            `Thành công ${succeeded.length}/${ids.length} tin. Lỗi: ${errors[0]}`,
+            "warning"
+          );
+        }
       } else {
-        showToast(
-          action === "delete"
-            ? `Đã xóa ${succeeded.length} tin tuyển dụng.`
-            : `Đã cập nhật trạng thái ${succeeded.length} tin tuyển dụng.`
-        );
+        const actionLabels = {
+          delete: "xóa",
+          publish: "đăng tuyển",
+          resume: "mở lại",
+          pause: "tạm dừng",
+          close: "đóng"
+        };
+        const actionLabel = actionLabels[action] || "cập nhật trạng thái";
+        showToast(`Đã ${actionLabel} ${succeeded.length} tin tuyển dụng.`);
       }
 
       return errors.length === 0;
@@ -313,6 +323,7 @@ export default function JobsView({
   const filterOptions = [
     "all",
     "Đang tuyển",
+    "Bản nháp",
     "Chờ duyệt",
     "Tạm dừng",
     "Đã đóng"
@@ -418,52 +429,12 @@ export default function JobsView({
       )}
 
       {selectedJobIds.length > 0 && (
-        <div
-          className="alert d-flex flex-wrap justify-content-between align-items-center py-2 px-3 mb-3 rounded-3 border"
-          style={{
-            backgroundColor: "var(--primary-soft)",
-            borderColor: "var(--primary)",
-            color: "var(--text)"
-          }}
-        >
-          <div className="d-flex align-items-center gap-2 small fw-semibold">
-            <i className="bi bi-check2-circle fs-5 text-success" />
-            <span>
-              Đã chọn{" "}
-              <strong className="text-success">
-                {selectedJobIds.length}
-              </strong>{" "}
-              tin tuyển dụng
-            </span>
+        <div className="p-3 mb-3 rounded-3 bg-surface-2 border d-flex flex-wrap justify-content-between align-items-center gap-2">
+          <div className="small">
+            Đã chọn <strong>{selectedJobIds.length}</strong> tin tuyển dụng
           </div>
 
-          <div className="d-flex gap-2 align-items-center flex-wrap">
-            <Button
-              variant="outline-warning"
-              size="sm"
-              className="rounded-pill"
-              disabled={busy}
-              onClick={() =>
-                runAction([...selectedJobIds], "Tạm dừng")
-              }
-            >
-              <i className="bi bi-pause-circle me-1" />
-              Tạm dừng đã chọn
-            </Button>
-
-            <Button
-              variant="outline-success"
-              size="sm"
-              className="rounded-pill"
-              disabled={busy}
-              onClick={() =>
-                runAction([...selectedJobIds], "Đang tuyển")
-              }
-            >
-              <i className="bi bi-play-circle me-1" />
-              Mở lại đã chọn
-            </Button>
-
+          <div className="d-flex gap-2 align-items-center">
             <Button
               variant="outline-danger"
               size="sm"
@@ -614,11 +585,13 @@ export default function JobsView({
                     className={`status-badge ${
                       job.status === "Đang tuyển"
                         ? "status-badge-success"
-                        : job.status === "Chờ duyệt"
-                          ? "status-badge-warning"
-                          : job.status === "Tạm dừng"
-                            ? "status-badge-secondary"
-                            : "status-badge-danger"
+                        : job.status === "Bản nháp"
+                          ? "status-badge-secondary bg-light text-muted border"
+                          : job.status === "Chờ duyệt"
+                            ? "status-badge-warning"
+                            : job.status === "Tạm dừng"
+                              ? "status-badge-secondary"
+                              : "status-badge-dark bg-dark text-white"
                     }`}
                   >
                     {job.status}
@@ -642,8 +615,17 @@ export default function JobsView({
                       </Dropdown.Item>
 
                       <Dropdown.Item
+                        onClick={() => onEditJob?.(job)}
+                        disabled={!onEditJob || busy}
+                        className="small py-2 text-primary"
+                      >
+                        <i className="bi bi-pencil-square text-primary me-2" />
+                        Chỉnh sửa tin
+                      </Dropdown.Item>
+
+                      <Dropdown.Item
                         onClick={() => onNavigateCandidates?.(job)}
-                        disabled={!onNavigateCandidates}
+                        disabled={!onNavigateCandidates || job.status === "Bản nháp"}
                         className="small py-2"
                       >
                         <i className="bi bi-people text-info me-2" />
@@ -661,25 +643,70 @@ export default function JobsView({
 
                       <Dropdown.Divider />
 
-                      <Dropdown.Item
-                        disabled={
-                          busy ||
-                          !["Đang tuyển", "Tạm dừng"].includes(job.status)
-                        }
-                        onClick={() => toggleJobStatus(job.id)}
-                        className="small py-2"
-                      >
-                        <i
-                          className={`bi ${
-                            job.status === "Đang tuyển"
-                              ? "bi-pause-circle text-warning"
-                              : "bi-play-circle text-success"
-                          } me-2`}
-                        />
-                        {job.status === "Đang tuyển"
-                          ? "Tạm dừng nhận đơn"
-                          : "Tiếp tục tuyển dụng"}
-                      </Dropdown.Item>
+                      {/* Vòng đời tin tuyển dụng */}
+                      {job.status === "Bản nháp" && (
+                        <Dropdown.Item
+                          disabled={busy}
+                          onClick={() => runAction([job.id], "publish")}
+                          className="small py-2 text-success"
+                        >
+                          <i className="bi bi-send-check text-success me-2" />
+                          Đăng tin tuyển dụng
+                        </Dropdown.Item>
+                      )}
+
+                      {job.status === "Đang tuyển" && (
+                        <>
+                          <Dropdown.Item
+                            disabled={busy}
+                            onClick={() => runAction([job.id], "pause")}
+                            className="small py-2 text-warning"
+                          >
+                            <i className="bi bi-pause-circle text-warning me-2" />
+                            Tạm dừng nhận đơn
+                          </Dropdown.Item>
+                          <Dropdown.Item
+                            disabled={busy}
+                            onClick={() => runAction([job.id], "close")}
+                            className="small py-2 text-secondary"
+                          >
+                            <i className="bi bi-x-circle text-secondary me-2" />
+                            Đóng tin này
+                          </Dropdown.Item>
+                        </>
+                      )}
+
+                      {job.status === "Tạm dừng" && (
+                        <>
+                          <Dropdown.Item
+                            disabled={busy}
+                            onClick={() => runAction([job.id], "resume")}
+                            className="small py-2 text-success"
+                          >
+                            <i className="bi bi-play-circle text-success me-2" />
+                            Tiếp tục tuyển dụng
+                          </Dropdown.Item>
+                          <Dropdown.Item
+                            disabled={busy}
+                            onClick={() => runAction([job.id], "close")}
+                            className="small py-2 text-secondary"
+                          >
+                            <i className="bi bi-x-circle text-secondary me-2" />
+                            Đóng tin này
+                          </Dropdown.Item>
+                        </>
+                      )}
+
+                      {job.status === "Đã đóng" && (
+                        <Dropdown.Item
+                          disabled={busy}
+                          onClick={() => runAction([job.id], "resume")}
+                          className="small py-2 text-success"
+                        >
+                          <i className="bi bi-arrow-repeat text-success me-2" />
+                          Mở lại tin tuyển dụng
+                        </Dropdown.Item>
+                      )}
 
                       <Dropdown.Item
                         disabled={busy}
@@ -710,8 +737,11 @@ export default function JobsView({
         show={showPreviewModal}
         onHide={() => setShowPreviewModal(false)}
         job={previewJob}
+        onEditJob={onEditJob}
         onToggleStatus={toggleJobStatus}
         onDeleteJob={handleDeleteJob}
+        onPublishJob={(id) => runAction([id], "publish")}
+        onCloseJob={(id) => runAction([id], "close")}
         onViewCandidates={onNavigateCandidates}
       />
     </Card>

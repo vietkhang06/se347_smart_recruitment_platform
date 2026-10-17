@@ -20,3 +20,4 @@ export * from "../mappers/jobMapper";
 export * from "../mappers/applicationMapper";
 export * from "../mappers/rankingMapper";
 export * from "../mappers/statisticsMapper";
+export * from "../mappers/interviewMapper";

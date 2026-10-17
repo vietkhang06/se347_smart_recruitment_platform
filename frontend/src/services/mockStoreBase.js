@@ -92,7 +92,21 @@ export const mockStore = {
 
   // DOANH NGHIỆP
   getCompanies() {
-    return load(STORAGE_KEYS.COMPANIES, MOCK_COMPANIES);
+    const list = load(STORAGE_KEYS.COMPANIES, MOCK_COMPANIES);
+    let updated = false;
+    const merged = Array.isArray(list) ? [...list] : [];
+    if (Array.isArray(MOCK_COMPANIES)) {
+      for (const comp of MOCK_COMPANIES) {
+        if (!merged.some(c => String(c.id) === String(comp.id))) {
+          merged.push(comp);
+          updated = true;
+        }
+      }
+    }
+    if (updated) {
+      save(STORAGE_KEYS.COMPANIES, merged);
+    }
+    return merged;
   },
 
   getCompany(id = "COMP-01") {
@@ -548,7 +562,25 @@ export const mockStore = {
 
   // TÀI KHOẢN NGƯỜI DÙNG
   getUsers() {
-    return load(STORAGE_KEYS.USERS, MOCK_USERS);
+    const list = load(STORAGE_KEYS.USERS, MOCK_USERS);
+    let updated = false;
+    const merged = Array.isArray(list) ? [...list] : [];
+    if (Array.isArray(MOCK_USERS)) {
+      for (const mockUser of MOCK_USERS) {
+        const exists = merged.some(u =>
+          (u.email && mockUser.email && String(u.email).trim().toLowerCase() === String(mockUser.email).trim().toLowerCase()) ||
+          (u.id && mockUser.id && String(u.id) === String(mockUser.id))
+        );
+        if (!exists) {
+          merged.push(mockUser);
+          updated = true;
+        }
+      }
+    }
+    if (updated) {
+      save(STORAGE_KEYS.USERS, merged);
+    }
+    return merged;
   },
 
   getUserById(id) {

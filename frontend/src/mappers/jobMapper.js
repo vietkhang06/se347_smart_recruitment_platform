@@ -115,12 +115,39 @@ export function toJobViewModel(dto) {
   const rawMax = dto.salaryMax !== undefined ? Number(String(dto.salaryMax).replace(/,/g, "")) : null;
   const salaryDisplay = formatSalaryDisplay(salaryMode, rawMin, rawMax, dto.salary);
 
-  // Kỹ năng
+  // Kỹ năng & Yêu cầu bắt buộc
   let skills = [];
-  if (Array.isArray(dto.skills)) {
-    skills = dto.skills.map((s) => (typeof s === "string" ? s : s.skillName || s.name || ""));
+  let skillsWithRequirement = [];
+
+  if (Array.isArray(dto.skillsWithRequirement)) {
+    skillsWithRequirement = dto.skillsWithRequirement;
+    skills = dto.skillsWithRequirement.map((s) => s.name || s.skillName || "");
+  } else if (Array.isArray(dto.skills)) {
+    dto.skills.forEach((s) => {
+      if (typeof s === "string") {
+        skills.push(s);
+        skillsWithRequirement.push({
+          skillId: s,
+          name: s,
+          isRequired: true
+        });
+      } else if (s && typeof s === "object") {
+        const name = s.skillName || s.name || "";
+        skills.push(name);
+        skillsWithRequirement.push({
+          skillId: s.skillId || s.id || name,
+          name,
+          isRequired: s.isRequired !== undefined ? Boolean(s.isRequired) : true
+        });
+      }
+    });
   } else if (Array.isArray(dto.specTags)) {
     skills = dto.specTags;
+    skillsWithRequirement = dto.specTags.map((tag) => ({
+      skillId: tag,
+      name: tag,
+      isRequired: true
+    }));
   }
 
   // Danh mục
@@ -161,6 +188,7 @@ export function toJobViewModel(dto) {
     benefits: dto.benefits || "",
     schedule: dto.schedule || "",
     skills: skills.filter(Boolean),
+    skillsWithRequirement,
     summaryIndustry: dto.summaryIndustry || dto.summary?.industry || "",
     summaryRequired: dto.summaryRequired || dto.summary?.required || "",
     summaryPreferred: dto.summaryPreferred || dto.summary?.preferred || "",
@@ -169,14 +197,44 @@ export function toJobViewModel(dto) {
 }
 
 /**
+ * Helper format deadline sang YYYY-MM-DD
+ */
+function toIsoDate(dateStr) {
+  if (!dateStr) return null;
+  const str = String(dateStr).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(str)) {
+    return str.split("/").reverse().join("-");
+  }
+  try {
+    const d = new Date(str);
+    if (!isNaN(d.getTime())) return d.toISOString().split("T")[0];
+  } catch {}
+  return null;
+}
+
+/**
  * Chuyển đổi từ JobViewModel hoặc form data sang JobCreateRequest DTO (POST /api/v1/employer/jobs)
  */
 export function toJobCreateRequest(vm, companyId = "COMP-01") {
+  // Map skills sang List<JobSkillItem>
+  const skillsPayload = (vm.skillsWithRequirement || []).map((s) => ({
+    skillId: s.skillId || s.id || (typeof s === "string" ? s : null),
+    skillName: s.name || s.skillName || (typeof s === "string" ? s : ""),
+    isRequired: s.isRequired !== undefined ? Boolean(s.isRequired) : true
+  })).filter((s) => s.skillId || s.skillName);
+
+  let statusCode = (vm.status || vm.statusCode || "active").toLowerCase();
+  if (statusCode === "bản nháp" || statusCode === "draft") statusCode = "draft";
+  else if (statusCode === "đang tuyển" || statusCode === "active") statusCode = "active";
+  else if (statusCode === "tạm dừng" || statusCode === "paused") statusCode = "paused";
+  else if (statusCode === "đã đóng" || statusCode === "closed") statusCode = "closed";
+
   return {
-    companyId,
+    companyId: vm.companyId || companyId,
     categoryId: vm.categoryId || null,
     title: vm.title,
-    department: vm.department || "Engineering",
+    department: vm.department || vm.team || "Engineering",
     level: vm.levelCode || "middle",
     workType: vm.workTypeCode || "full_time",
     location: vm.location || "TP. Hồ Chí Minh",
@@ -194,8 +252,9 @@ export function toJobCreateRequest(vm, companyId = "COMP-01") {
     summaryIndustry: vm.summaryIndustry || "",
     summaryRequired: vm.summaryRequired || "",
     summaryPreferred: vm.summaryPreferred || "",
-    deadline: vm.deadline ? vm.deadline.split("/").reverse().join("-") : null,
-    skillIds: []
+    status: statusCode,
+    deadline: toIsoDate(vm.deadline),
+    skills: skillsPayload
   };
 }
 
@@ -203,10 +262,16 @@ export function toJobCreateRequest(vm, companyId = "COMP-01") {
  * Chuyển đổi từ JobViewModel sang JobUpdateRequest DTO (PUT /api/v1/employer/jobs/{id})
  */
 export function toJobUpdateRequest(vm) {
+  const skillsPayload = (vm.skillsWithRequirement || []).map((s) => ({
+    skillId: s.skillId || s.id || (typeof s === "string" ? s : null),
+    skillName: s.name || s.skillName || (typeof s === "string" ? s : ""),
+    isRequired: s.isRequired !== undefined ? Boolean(s.isRequired) : true
+  })).filter((s) => s.skillId || s.skillName);
+
   return {
     categoryId: vm.categoryId || null,
     title: vm.title,
-    department: vm.department,
+    department: vm.department || vm.team,
     level: vm.levelCode,
     workType: vm.workTypeCode,
     location: vm.location,
@@ -224,7 +289,7 @@ export function toJobUpdateRequest(vm) {
     summaryIndustry: vm.summaryIndustry,
     summaryRequired: vm.summaryRequired,
     summaryPreferred: vm.summaryPreferred,
-    deadline: vm.deadline ? vm.deadline.split("/").reverse().join("-") : null,
-    skillIds: []
+    deadline: toIsoDate(vm.deadline),
+    skills: skillsPayload
   };
 }

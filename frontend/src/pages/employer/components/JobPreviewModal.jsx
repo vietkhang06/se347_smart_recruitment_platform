@@ -10,8 +10,11 @@ export default function JobPreviewModal({
   show,
   onHide,
   job,
+  onEditJob,
   onToggleStatus,
   onDeleteJob,
+  onPublishJob,
+  onCloseJob,
   onViewCandidates
 }) {
   const { showToast } = useToast();
@@ -32,13 +35,18 @@ export default function JobPreviewModal({
     setBusy(true);
 
     try {
-      const success =
-        action === "delete"
-          ? await onDeleteJob(job.id)
-          : await onToggleStatus(job.id);
-
-      if (success === true && action === "delete") {
-        onHide();
+      let success = false;
+      if (action === "delete") {
+        success = await onDeleteJob?.(job.id);
+        if (success === true) {
+          onHide();
+        }
+      } else if (action === "publish") {
+        success = await onPublishJob?.(job.id);
+      } else if (action === "close") {
+        success = await onCloseJob?.(job.id);
+      } else if (action === "toggle") {
+        success = await onToggleStatus?.(job.id);
       }
     } catch (error) {
       showToast(
@@ -82,11 +90,13 @@ export default function JobPreviewModal({
                 bg={
                   job.status === "Đang tuyển"
                     ? "success"
-                    : job.status === "Chờ duyệt"
-                      ? "warning"
-                      : job.status === "Tạm dừng"
-                        ? "secondary"
-                        : "danger"
+                    : job.status === "Bản nháp"
+                      ? "secondary"
+                      : job.status === "Chờ duyệt"
+                        ? "warning"
+                        : job.status === "Tạm dừng"
+                          ? "secondary"
+                          : "dark"
                 }
               >
                 {job.status}
@@ -347,18 +357,35 @@ export default function JobPreviewModal({
       </Modal.Body>
 
       <Modal.Footer className="d-flex justify-content-between flex-wrap gap-2 border-top bg-surface">
-        <Button
-          variant="outline-danger"
-          size="sm"
-          disabled={busy || !onDeleteJob}
-          onClick={() => run("delete")}
-        >
-          <i className="bi bi-trash me-1" />
-          Xóa tin này
-        </Button>
+        <div className="d-flex gap-2">
+          <Button
+            variant="outline-danger"
+            size="sm"
+            disabled={busy || !onDeleteJob}
+            onClick={() => run("delete")}
+          >
+            <i className="bi bi-trash me-1" />
+            Xóa tin này
+          </Button>
+
+          {onEditJob && (
+            <Button
+              variant="outline-secondary"
+              size="sm"
+              disabled={busy}
+              onClick={() => {
+                onHide();
+                onEditJob(job);
+              }}
+            >
+              <i className="bi bi-pencil-square me-1" />
+              Chỉnh sửa tin
+            </Button>
+          )}
+        </div>
 
         <div className="d-flex gap-2">
-          {onViewCandidates && (
+          {onViewCandidates && job.status !== "Bản nháp" && (
             <Button
               variant="outline-primary"
               size="sm"
@@ -374,31 +401,84 @@ export default function JobPreviewModal({
             </Button>
           )}
 
-          <Button
-            variant={
-              job.status === "Đang tuyển"
-                ? "outline-warning"
-                : "outline-success"
-            }
-            size="sm"
-            disabled={
-              busy ||
-              !onToggleStatus ||
-              !["Đang tuyển", "Tạm dừng"].includes(job.status)
-            }
-            onClick={() => run("toggle")}
-          >
-            <i
-              className={`bi ${
-                job.status === "Đang tuyển"
-                  ? "bi-pause-fill"
-                  : "bi-play-fill"
-              } me-1`}
-            />
-            {job.status === "Đang tuyển"
-              ? "Tạm dừng tin"
-              : "Mở lại tin"}
-          </Button>
+          {/* Vòng đời tin tuyển dụng */}
+          {job.status === "Bản nháp" && onPublishJob && (
+            <Button
+              variant="success"
+              size="sm"
+              disabled={busy}
+              onClick={() => run("publish")}
+            >
+              <i className="bi bi-send-check me-1" />
+              Đăng tin tuyển dụng
+            </Button>
+          )}
+
+          {job.status === "Đang tuyển" && (
+            <>
+              {onToggleStatus && (
+                <Button
+                  variant="outline-warning"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => run("toggle")}
+                >
+                  <i className="bi bi-pause-fill me-1" />
+                  Tạm dừng tin
+                </Button>
+              )}
+              {onCloseJob && (
+                <Button
+                  variant="outline-secondary"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => run("close")}
+                >
+                  <i className="bi bi-x-circle me-1" />
+                  Đóng tin này
+                </Button>
+              )}
+            </>
+          )}
+
+          {job.status === "Tạm dừng" && (
+            <>
+              {onToggleStatus && (
+                <Button
+                  variant="outline-success"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => run("toggle")}
+                >
+                  <i className="bi bi-play-fill me-1" />
+                  Tiếp tục tuyển dụng
+                </Button>
+              )}
+              {onCloseJob && (
+                <Button
+                  variant="outline-secondary"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => run("close")}
+                >
+                  <i className="bi bi-x-circle me-1" />
+                  Đóng tin này
+                </Button>
+              )}
+            </>
+          )}
+
+          {job.status === "Đã đóng" && onPublishJob && (
+            <Button
+              variant="outline-success"
+              size="sm"
+              disabled={busy}
+              onClick={() => run("publish")}
+            >
+              <i className="bi bi-arrow-repeat me-1" />
+              Mở lại tin
+            </Button>
+          )}
 
           <Button
             variant="secondary"

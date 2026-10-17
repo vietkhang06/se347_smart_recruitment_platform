@@ -7,6 +7,7 @@ import Button from "react-bootstrap/Button";
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
 import { mockStore } from "../../services/mockStore";
+import { jobService, interviewService, applicationService } from "../../services";
 
 import OverviewView from "./views/OverviewView";
 import JobsView from "./views/JobsView";
@@ -25,16 +26,21 @@ import InterviewModal from "./components/InterviewModal";
 export default function EmployerPortal() {
   const { user } = useAuth();
 
-  let companyId = "";
+  let companyId = user?.companyId || "";
   let error = "";
 
   try {
-    companyId = mockStore.getHRCompanyId();
+    const hrCompanyId = mockStore.getHRCompanyId();
+    if (hrCompanyId) companyId = hrCompanyId;
   } catch (err) {
-    error = err.message;
+    if (user?.role === "employer" || user?.role === "Nhà tuyển dụng") {
+      companyId = companyId || "COMP-01";
+    } else {
+      error = err.message;
+    }
   }
 
-  if (error || user?.role !== "employer") {
+  if ((error && !companyId) || (user && user.role !== "employer" && user.role !== "Nhà tuyển dụng")) {
     return (
       <Container className="py-5">
         <div className="alert alert-warning">
@@ -45,10 +51,12 @@ export default function EmployerPortal() {
     );
   }
 
+  const activeCompanyId = companyId || user?.companyId || "COMP-01";
+
   return (
     <EmployerWorkspace
-      key={`${user.email}:${companyId}`}
-      companyId={companyId}
+      key={`${user?.email || "employer"}:${activeCompanyId}`}
+      companyId={activeCompanyId}
     />
   );
 }
@@ -78,7 +86,7 @@ function EmployerWorkspace({ companyId }) {
   };
 
   const [company, setCompany] = useState(
-    () => mockStore.getCompanies().find(item => String(item.id) === String(companyId))
+    () => mockStore.getCompanies().find(item => String(item.id) === String(companyId)) || mockStore.getCompanies()[0]
   );
 
   const [jobs, setJobs] = useState(
@@ -97,13 +105,44 @@ function EmployerWorkspace({ companyId }) {
     () => mockStore.getPlans()
   );
 
-  const refreshStoreData = useCallback(() => {
-    setCompany(mockStore.getCompanies().find(item => String(item.id) === String(companyId)));
-    setJobs(mockStore.getEmployerJobs(companyId));
-    setCandidates(mockStore.getCandidates());
-    setInterviews(mockStore.getInterviews());
+  const refreshStoreData = useCallback(async () => {
+    setCompany(mockStore.getCompanies().find(item => String(item.id) === String(companyId)) || mockStore.getCompanies()[0]);
+    try {
+      const liveJobs = await jobService.getEmployerJobs(companyId);
+      if (Array.isArray(liveJobs)) {
+        setJobs(liveJobs);
+      } else {
+        setJobs(mockStore.getEmployerJobs(companyId));
+      }
+    } catch {
+      setJobs(mockStore.getEmployerJobs(companyId));
+    }
+    try {
+      const liveCandidates = await applicationService.getApplications(companyId);
+      if (Array.isArray(liveCandidates) && liveCandidates.length > 0) {
+        setCandidates(liveCandidates);
+      } else {
+        setCandidates(mockStore.getCandidates());
+      }
+    } catch {
+      setCandidates(mockStore.getCandidates());
+    }
+    try {
+      const liveInterviews = await interviewService.getInterviews(companyId);
+      if (Array.isArray(liveInterviews)) {
+        setInterviews(liveInterviews);
+      } else {
+        setInterviews(mockStore.getInterviews());
+      }
+    } catch {
+      setInterviews(mockStore.getInterviews());
+    }
     setPlans(mockStore.getPlans());
   }, [companyId]);
+
+  useEffect(() => {
+    refreshStoreData();
+  }, [refreshStoreData]);
 
   useEffect(() => {
     const handleStoreChange = () => refreshStoreData();
@@ -127,10 +166,24 @@ function EmployerWorkspace({ companyId }) {
   }, [refreshStoreData]);
 
   const [showComposer, setShowComposer] = useState(false);
+  const [composerMode, setComposerMode] = useState("create");
+  const [composerJobToEdit, setComposerJobToEdit] = useState(null);
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [showCandidateModal, setShowCandidateModal] = useState(false);
   const [showInterviewModal, setShowInterviewModal] = useState(false);
   const [interviewCandidate, setInterviewCandidate] = useState(null);
+
+  const handleOpenCreateJob = () => {
+    setComposerMode("create");
+    setComposerJobToEdit(null);
+    setShowComposer(true);
+  };
+
+  const handleOpenEditJob = (job) => {
+    setComposerMode("edit");
+    setComposerJobToEdit(job);
+    setShowComposer(true);
+  };
 
   const handleOpenCandidate = candidate => {
     setSelectedCandidate(candidate);
@@ -166,6 +219,10 @@ function EmployerWorkspace({ companyId }) {
   const handleJobCreated = () => {
     refreshStoreData();
     handleTabChange("jobs");
+  };
+
+  const handleJobUpdated = () => {
+    refreshStoreData();
   };
 
   const handleInterviewCreated = () => {
@@ -299,7 +356,7 @@ function EmployerWorkspace({ companyId }) {
               views: [110, 145, 132, 210, 185, 290, 240]
             }
           }}
-          onOpenComposer={() => setShowComposer(true)}
+          onOpenComposer={handleOpenCreateJob}
           onOpenCandidate={handleOpenCandidate}
           onNavigateTab={handleTabChange}
         />
@@ -309,7 +366,8 @@ function EmployerWorkspace({ companyId }) {
         <JobsView
           jobs={jobs}
           setJobs={setJobs}
-          onOpenComposer={() => setShowComposer(true)}
+          onOpenComposer={handleOpenCreateJob}
+          onEditJob={handleOpenEditJob}
           onNavigateCandidates={() =>
             handleTabChange("pipeline")
           }
@@ -396,10 +454,17 @@ function EmployerWorkspace({ companyId }) {
 
       <JobComposerModal
         show={showComposer}
-        onHide={() => setShowComposer(false)}
+        onHide={() => {
+          setShowComposer(false);
+          setComposerJobToEdit(null);
+        }}
+        mode={composerMode}
+        jobToEdit={composerJobToEdit}
         onJobCreated={handleJobCreated}
+        onJobUpdated={handleJobUpdated}
         onNavigateProfile={() => {
           setShowComposer(false);
+          setComposerJobToEdit(null);
           handleTabChange("profile");
         }}
       />

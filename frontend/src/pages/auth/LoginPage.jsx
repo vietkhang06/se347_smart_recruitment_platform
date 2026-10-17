@@ -27,11 +27,11 @@ export default function LoginPage() {
     if (roleParam) setRole(roleParam);
   }, [searchParams]);
 
-    const handleSubmit = (event) => {
+    const handleSubmit = async (event) => {
     event.preventDefault();
 
     try {
-      const user = login(email, role);
+      const user = await login(email, role, password);
 
       const home =
         user.role === "employer"

@@ -119,15 +119,22 @@ export const mockJobService = {
 
     if (updates.status !== undefined) {
       updates.status = normalizeStatus(updates.status);
+      const currentNorm = normalizeStatus(job.status);
+      const nextNorm = updates.status;
 
-      if (
-        ["Đang tuyển", "Tạm dừng"].includes(updates.status) &&
-        !["Đang tuyển", "Tạm dừng"].includes(
-          normalizeStatus(job.status)
-        )
-      ) {
+      // Kiểm tra quy tắc chuyển trạng thái hợp lệ
+      const validTransitions = {
+        "Bản nháp": ["Đang tuyển", "Đã đóng", "Bản nháp"],
+        "Đang tuyển": ["Tạm dừng", "Đã đóng", "Đang tuyển"],
+        "Tạm dừng": ["Đang tuyển", "Đã đóng", "Tạm dừng"],
+        "Đã đóng": ["Đang tuyển", "Đã đóng"],
+        "Chờ duyệt": ["Đang tuyển", "Đã đóng", "Chờ duyệt"]
+      };
+
+      const allowed = validTransitions[currentNorm] || ["Đang tuyển", "Tạm dừng", "Đã đóng", "Bản nháp"];
+      if (!allowed.includes(nextNorm)) {
         throw new Error(
-          "Tin phải được duyệt trước khi mở nhận hồ sơ."
+          `Không thể chuyển trạng thái từ "${currentNorm}" sang "${nextNorm}".`
         );
       }
     }

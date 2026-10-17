@@ -1,5 +1,44 @@
 export const MOCK_USERS = [
   {
+    id: "22222222-2222-4222-8222-222222222221",
+    name: "FPT Digital Talent (Nguyễn Hoàng Long)",
+    contactPerson: "Nguyễn Hoàng Long",
+    email: "employer@fpt.com",
+    personalEmail: "hoanglong@fpt.com",
+    phone: "090 123 4567",
+    role: "Nhà tuyển dụng",
+    roleTitle: "HR Director",
+    avatar: "HL",
+    companyId: "COMP-01",
+    companyName: "FPT Digital Talent",
+    joined: "17/09/2026",
+    status: "Đã xác minh",
+    isVerified: true
+  },
+  {
+    id: "11111111-1111-4111-8111-111111111111",
+    name: "Quản trị viên Hệ thống",
+    email: "admin@matchajob.com",
+    phone: "0909 000 001",
+    role: "Quản trị viên",
+    avatar: "AD",
+    joined: "01/01/2026",
+    status: "Hoạt động",
+    isVerified: true
+  },
+  {
+    id: "33333333-3333-4333-8333-333333333331",
+    name: "Phạm Duy Khánh",
+    email: "khanh.candidate@gmail.com",
+    phone: "0933 112 233",
+    role: "Ứng viên",
+    avatar: "DK",
+    joined: "18/09/2026",
+    status: "Hoạt động",
+    isVerified: true,
+    candidateId: 10
+  },
+  {
     id: "USR-1028",
     name: "Nguyễn An Khang",
     email: "ankhang@example.com",

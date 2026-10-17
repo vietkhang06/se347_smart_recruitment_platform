@@ -4,6 +4,7 @@ import com.matchajob.api.recruitment.dto.*;
 import com.matchajob.api.recruitment.service.JobService;
 import com.matchajob.security.SecurityUtils;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
+@Slf4j
 @RestController
 @RequestMapping("/v1/employer/jobs")
 @RequiredArgsConstructor
@@ -21,12 +23,22 @@ public class EmployerJobController {
     @GetMapping
     public ResponseEntity<PageResponse<JobSummaryResponse>> getEmployerJobs(
             Authentication authentication,
-            @RequestParam(required = false) UUID companyId,
+            @RequestParam(required = false) String companyId,
             @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
         UUID userId = SecurityUtils.extractUserId(authentication);
-        return ResponseEntity.ok(jobService.getEmployerJobs(userId, companyId, status, page, size));
+        UUID companyUuid = null;
+        if (companyId != null && !companyId.isBlank()) {
+            try {
+                companyUuid = UUID.fromString(companyId.trim());
+            } catch (IllegalArgumentException ex) {
+                log.warn("Tham số companyId '{}' không phải định dạng UUID hợp lệ: {}. Tự động fallback sang công ty của tài khoản nhà tuyển dụng.",
+                        companyId, ex.getMessage());
+                companyUuid = null;
+            }
+        }
+        return ResponseEntity.ok(jobService.getEmployerJobs(userId, companyUuid, status, page, size));
     }
 
     @PostMapping
