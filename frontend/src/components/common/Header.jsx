@@ -8,14 +8,21 @@ import Button from "react-bootstrap/Button";
 import { useTheme } from "../../context/ThemeContext";
 import { useAuth } from "../../context/AuthContext";
 import { useFavorites } from "../../context/FavoritesContext";
+import { mockStore } from "../../services/mockStore";
 
 export default function Header() {
   const { theme, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
   const { favorites } = useFavorites();
   const navigate = useNavigate();
+  const location = useLocation();
   const currentPath = location.pathname;
   const currentHash = location.hash ? location.hash.replace("#", "") : "overview";
+
+  // Lấy gói dịch vụ hiện tại để hiển thị badge trong menu profile
+  const plans = typeof mockStore?.getPlans === "function" ? mockStore.getPlans() : [];
+  const activePlan = plans.find((p) => p.current) || plans[0] || { name: "Pro" };
+  const activePlanName = (activePlan.name || "PRO").toUpperCase();
 
   const isEmployer = currentPath.startsWith("/employer") || (user && user.role === "employer");
   const isAdmin = currentPath.startsWith("/admin") || (user && user.role === "admin");
@@ -136,11 +143,10 @@ export default function Header() {
                 {/* 1. Tổng quan */}
                 <button
                   type="button"
-                  className={`header-nav-tab ${
-                    currentPath.startsWith("/employer") && currentHash === "overview"
-                      ? "active"
-                      : ""
-                  }`}
+                  className={`header-nav-tab ${currentPath.startsWith("/employer") && currentHash === "overview"
+                    ? "active"
+                    : ""
+                    }`}
                   onClick={() => handleEmployerTabClick("overview")}
                 >
                   <i className="bi bi-speedometer2 tab-icon"></i>
@@ -151,9 +157,8 @@ export default function Header() {
                 <div className="nav-hover-dropdown">
                   <button
                     type="button"
-                    className={`header-nav-tab ${
-                      isRecruitmentGroupActive ? "active" : ""
-                    }`}
+                    className={`header-nav-tab ${isRecruitmentGroupActive ? "active" : ""
+                      }`}
                     onClick={() => handleEmployerTabClick("jobs")}
                   >
                     <i className="bi bi-briefcase tab-icon"></i>
@@ -188,9 +193,8 @@ export default function Header() {
                 <div className="nav-hover-dropdown">
                   <button
                     type="button"
-                    className={`header-nav-tab ${
-                      isProfileGroupActive ? "active" : ""
-                    }`}
+                    className={`header-nav-tab ${isProfileGroupActive ? "active" : ""
+                      }`}
                     onClick={() => handleEmployerTabClick("profile")}
                   >
                     <i className="bi bi-file-earmark-person tab-icon"></i>
@@ -254,14 +258,13 @@ export default function Header() {
             )}
           </Nav>
 
-          {/* Right Action Controls: Nút theme switch và avatar pill cân đối, khoảng cách thoáng đãng */}
+          {/* Right Action Controls: Nút theme switch và avatar pill*/}
           <div className="d-flex align-items-center gap-4 ms-auto h-100 my-0 flex-shrink-0">
             {/* Theme Toggle Sliding Switch */}
             <button
               type="button"
-              className={`theme-toggle-switch ${
-                theme === "dark" ? "is-dark" : "is-light"
-              }`}
+              className={`theme-toggle-switch ${theme === "dark" ? "is-dark" : "is-light"
+                }`}
               onClick={toggleTheme}
               aria-label="Chuyển chế độ sáng / tối"
               title={
@@ -311,8 +314,10 @@ export default function Header() {
               <NavDropdown
                 title={
                   <span className="user-avatar-pill">
-                    <span className="avatar-circle-icon">
-                      <i className="bi bi-person"></i>
+                    <span className="avatar-gradient-ring">
+                      <span className="avatar-gradient-inner">
+                        <i className="bi bi-person-fill text-primary" style={{ fontSize: "13px" }}></i>
+                      </span>
                     </span>
                     <span className="fw-semibold small text-body d-none d-sm-inline">
                       {user.name ? user.name.split(" ")[0] : "Tài khoản"}
@@ -327,62 +332,93 @@ export default function Header() {
                 align="end"
                 className="user-profile-nav-dropdown"
               >
-                {/* 1. Tên đăng nhập */}
-                <div className="px-3 py-2 border-bottom user-account-header">
-                  <div className="d-flex align-items-center gap-2">
-                    <i
-                      className="bi bi-person text-muted"
-                      style={{ fontSize: "16px" }}
-                    ></i>
-                    <div className="overflow-hidden">
-                      <div
-                        className="fw-semibold text-truncate small text-body"
-                        style={{ maxWidth: "170px" }}
-                      >
-                        {user.name || user.username || "Tài khoản"}
-                      </div>
-                      <div
-                        className="text-muted"
-                        style={{ fontSize: "11px" }}
-                      >
-                        {user.role === "employer"
-                          ? "Nhà tuyển dụng"
-                          : user.role === "admin"
-                          ? "Quản trị viên"
-                          : "Ứng viên"}
-                      </div>
+                {/* Header: Tên, Email và Avatar viền gradient (như ảnh mẫu) */}
+                <div className="profile-dropdown-header p-3 d-flex align-items-center justify-content-between">
+                  <div className="overflow-hidden me-2">
+                    <div
+                      className="fw-bold text-body text-truncate"
+                      style={{ fontSize: "14.5px" }}
+                    >
+                      {user.name || user.username || "Tài khoản"}
+                    </div>
+                    <div
+                      className="text-muted text-truncate"
+                      style={{ fontSize: "12px" }}
+                    >
+                      {user.email || (user.role === "employer" ? "recruiter@fpt.com" : user.role === "admin" ? "admin@matchajob.com" : "candidate@gmail.com")}
+                    </div>
+                  </div>
+                  <div className="avatar-gradient-ring flex-shrink-0">
+                    <div className="avatar-gradient-inner">
+                      <i className="bi bi-person-fill text-primary" style={{ fontSize: "18px" }}></i>
                     </div>
                   </div>
                 </div>
 
-                {/* 2. Hồ sơ */}
-                <NavDropdown.Item
-                  onClick={handleProfileClick}
-                  className="d-flex align-items-center gap-2 py-2"
-                >
-                  <i
-                    className="bi bi-person-badge text-muted"
-                    style={{ fontSize: "15px" }}
-                  ></i>
-                  <span>Hồ sơ</span>
-                </NavDropdown.Item>
+                <div className="p-2">
+                  {/* 1. Hồ sơ (Profile) */}
+                  <NavDropdown.Item
+                    onClick={handleProfileClick}
+                    className="profile-menu-item d-flex align-items-center gap-2.5"
+                  >
+                    <i className="bi bi-person profile-menu-icon"></i>
+                    <span>Hồ sơ</span>
+                  </NavDropdown.Item>
 
-                <NavDropdown.Divider className="my-1" />
+                  {/* 2. Gói dịch vụ hiện tại (Subscription) */}
+                  <NavDropdown.Item
+                    onClick={() => {
+                      if (isEmployer) navigate("/employer#billing");
+                      else if (isAdmin) navigate("/admin#overview");
+                      else navigate("/candidate/profile");
+                    }}
+                    className="profile-menu-item d-flex align-items-center justify-content-between"
+                  >
+                    <div className="d-flex align-items-center gap-2.5">
+                      <i className="bi bi-credit-card profile-menu-icon"></i>
+                      <span>Gói dịch vụ</span>
+                    </div>
+                    <span className="profile-plan-pill">
+                      <span className="plan-dot">●</span> {activePlanName}
+                    </span>
+                  </NavDropdown.Item>
 
-                {/* 3. Đăng xuất */}
-                <NavDropdown.Item
-                  onClick={() => {
-                    logout();
-                    navigate("/");
-                  }}
-                  className="d-flex align-items-center gap-2 py-2 text-danger"
-                >
-                  <i
-                    className="bi bi-box-arrow-right text-danger"
-                    style={{ fontSize: "15px" }}
-                  ></i>
-                  <span>Đăng xuất</span>
-                </NavDropdown.Item>
+                  {/* 3. Cài đặt (Settings) */}
+                  <NavDropdown.Item
+                    onClick={() => {
+                      if (isEmployer) navigate("/employer#company");
+                      else if (isAdmin) navigate("/admin#system");
+                      else navigate("/candidate/profile");
+                    }}
+                    className="profile-menu-item d-flex align-items-center gap-2.5"
+                  >
+                    <i className="bi bi-gear profile-menu-icon"></i>
+                    <span>Cài đặt</span>
+                  </NavDropdown.Item>
+
+                  {/* 4. Trung tâm trợ giúp (Help center) */}
+                  <NavDropdown.Item
+                    onClick={() => navigate("/guides")}
+                    className="profile-menu-item d-flex align-items-center gap-2.5"
+                  >
+                    <i className="bi bi-question-circle profile-menu-icon"></i>
+                    <span>Trung tâm trợ giúp</span>
+                  </NavDropdown.Item>
+
+                  <NavDropdown.Divider className="my-1.5" />
+
+                  {/* 5. Đăng xuất (Sign out) */}
+                  <NavDropdown.Item
+                    onClick={() => {
+                      logout();
+                      navigate("/");
+                    }}
+                    className="profile-menu-item d-flex align-items-center gap-2.5 text-danger logout-item"
+                  >
+                    <i className="bi bi-box-arrow-right profile-menu-icon text-danger"></i>
+                    <span>Đăng xuất</span>
+                  </NavDropdown.Item>
+                </div>
               </NavDropdown>
             ) : (
               <div className="d-flex gap-2">
