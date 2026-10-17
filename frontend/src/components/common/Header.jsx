@@ -254,8 +254,8 @@ export default function Header() {
             )}
           </Nav>
 
-          {/* Right Action Controls: Nút theme switch và avatar pill cân đối thẳng hàng */}
-          <div className="d-flex align-items-center gap-2.5 ms-auto h-100 my-0 flex-shrink-0">
+          {/* Right Action Controls: Nút theme switch và avatar pill cân đối, khoảng cách thoáng đãng */}
+          <div className="d-flex align-items-center gap-4 ms-auto h-100 my-0 flex-shrink-0">
             {/* Theme Toggle Sliding Switch */}
             <button
               type="button"
