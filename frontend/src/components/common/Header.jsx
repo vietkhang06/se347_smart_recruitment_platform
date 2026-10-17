@@ -16,7 +16,8 @@ export default function Header() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [hoveredDropdown, setHoveredDropdown] = useState(null);
+  // State đóng menu tức thì khi chọn một mục
+  const [closedDropdown, setClosedDropdown] = useState(false);
 
   const currentPath = location.pathname;
   const currentHash = location.hash ? location.hash.replace("#", "") : "overview";
@@ -43,11 +44,17 @@ export default function Header() {
 
   const handleEmployerTabClick = (key) => {
     navigate(`/employer#${key}`);
-    setHoveredDropdown(null);
+    setClosedDropdown(true);
+    if (document.activeElement && typeof document.activeElement.blur === "function") {
+      document.activeElement.blur();
+    }
   };
 
   const handleAdminTabClick = (key) => {
     navigate(`/admin#${key}`);
+    if (document.activeElement && typeof document.activeElement.blur === "function") {
+      document.activeElement.blur();
+    }
   };
 
   const handleProfileClick = () => {
@@ -107,16 +114,16 @@ export default function Header() {
   return (
     <Navbar
       expand="xl"
-      className="navbar-matcha sticky-top py-2.5 shadow-sm"
-      style={{ zIndex: 1020, minHeight: "64px" }}
+      className="navbar-matcha sticky-top p-0 shadow-sm"
+      style={{ zIndex: 1020, height: "64px" }}
     >
-      <Container fluid className="px-3 px-xl-4">
+      <Container fluid className="px-3 px-xl-4 h-100 d-flex align-items-center">
         {/* Brand / Logo */}
         <Navbar.Brand
           as={Link}
           to={getBrandDestination()}
           onClick={handleBrandClick}
-          className="d-flex align-items-center gap-2.5 me-4 py-0 text-decoration-none"
+          className="d-flex align-items-center gap-2.5 me-4 py-0 text-decoration-none flex-shrink-0"
           title={isEmployer ? "Bảng điều khiển HR" : isAdmin ? "Bảng điều khiển Admin" : "Trang chủ MatchaJob"}
         >
           <img src="/assets/logo.svg" alt="MatchaJob" width="34" height="34" />
@@ -130,9 +137,9 @@ export default function Header() {
 
         <Navbar.Toggle aria-controls="main-navbar-nav" className="p-1 border-0" />
 
-        <Navbar.Collapse id="main-navbar-nav">
-          {/* Central Nav Links (Gom nhóm, hover dropdown, highlight gạch dưới + outline icon) */}
-          <Nav className="mx-auto align-items-center gap-2 my-2 my-xl-0 flex-nowrap overflow-visible">
+        <Navbar.Collapse id="main-navbar-nav" className="h-100">
+          {/* Central Nav Links (Gom nhóm, hover dropdown, highlight gạch dưới TRÙNG VIỀN HEADER + outline icon) */}
+          <Nav className="mx-auto align-items-stretch gap-1 my-0 h-100 flex-nowrap overflow-visible">
             {isEmployer ? (
               <>
                 {/* 1. Tổng quan */}
@@ -149,11 +156,11 @@ export default function Header() {
                   <span>Tổng quan</span>
                 </button>
 
-                {/* 2. Tuyển dụng (Dropdown hover xổ xuống dần) */}
+                {/* 2. Tuyển dụng (Dropdown hover xổ xuống dần, tự đóng khi click hoặc rời chuột) */}
                 <div
-                  className="nav-hover-dropdown"
-                  onMouseEnter={() => setHoveredDropdown("recruitment")}
-                  onMouseLeave={() => setHoveredDropdown(null)}
+                  className={`nav-hover-dropdown ${closedDropdown ? "force-closed" : ""}`}
+                  onMouseEnter={() => setClosedDropdown(false)}
+                  onMouseLeave={() => setClosedDropdown(false)}
                 >
                   <button
                     type="button"
@@ -170,11 +177,7 @@ export default function Header() {
                     ></i>
                   </button>
 
-                  <div
-                    className={`dropdown-menu ${
-                      hoveredDropdown === "recruitment" ? "show" : ""
-                    }`}
-                  >
+                  <div className="dropdown-menu">
                     {RECRUITMENT_TABS.map((tab) => {
                       const isActive =
                         currentPath.startsWith("/employer") &&
@@ -194,11 +197,11 @@ export default function Header() {
                   </div>
                 </div>
 
-                {/* 3. Hồ sơ (Dropdown hover xổ xuống dần) */}
+                {/* 3. Hồ sơ (Dropdown hover xổ xuống dần, tự đóng khi click hoặc rời chuột) */}
                 <div
-                  className="nav-hover-dropdown"
-                  onMouseEnter={() => setHoveredDropdown("profile")}
-                  onMouseLeave={() => setHoveredDropdown(null)}
+                  className={`nav-hover-dropdown ${closedDropdown ? "force-closed" : ""}`}
+                  onMouseEnter={() => setClosedDropdown(false)}
+                  onMouseLeave={() => setClosedDropdown(false)}
                 >
                   <button
                     type="button"
@@ -215,11 +218,7 @@ export default function Header() {
                     ></i>
                   </button>
 
-                  <div
-                    className={`dropdown-menu ${
-                      hoveredDropdown === "profile" ? "show" : ""
-                    }`}
-                  >
+                  <div className="dropdown-menu">
                     {PROFILE_TABS.map((tab) => {
                       const isActive =
                         currentPath.startsWith("/employer") &&
@@ -272,8 +271,8 @@ export default function Header() {
             )}
           </Nav>
 
-          {/* Right Action Controls */}
-          <div className="d-flex align-items-center gap-2.5 ms-auto mt-2 mt-xl-0">
+          {/* Right Action Controls: Nút theme switch và avatar pill cân đối thẳng hàng */}
+          <div className="d-flex align-items-center gap-2.5 ms-auto h-100 my-0 flex-shrink-0">
             {/* Theme Toggle Sliding Switch */}
             <button
               type="button"
@@ -328,9 +327,9 @@ export default function Header() {
             {user ? (
               <NavDropdown
                 title={
-                  <span className="d-flex align-items-center gap-2 user-avatar-pill py-1 px-2.5 rounded-pill">
-                    <span className="avatar-circle-icon d-flex align-items-center justify-content-center">
-                      <i className="bi bi-person text-success"></i>
+                  <span className="user-avatar-pill">
+                    <span className="avatar-circle-icon">
+                      <i className="bi bi-person"></i>
                     </span>
                     <span className="fw-semibold small text-body d-none d-sm-inline">
                       {user.name ? user.name.split(" ")[0] : "Tài khoản"}
