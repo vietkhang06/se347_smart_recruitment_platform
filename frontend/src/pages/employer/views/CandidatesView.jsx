@@ -135,7 +135,6 @@ export default function CandidatesView({ candidates = [], onOpenCandidate, onInv
             size="sm"
             value={jobFilter}
             onChange={(e) => setJobFilter(e.target.value)}
-            style={{ backgroundColor: "var(--surface-2)", borderColor: "var(--border)", color: "var(--text)" }}
           >
             <option value="all">Tất cả vị trí</option>
             {jobOptions.map((job) => (
@@ -150,7 +149,6 @@ export default function CandidatesView({ candidates = [], onOpenCandidate, onInv
             size="sm"
             value={stageFilter}
             onChange={(e) => setStageFilter(e.target.value)}
-            style={{ backgroundColor: "var(--surface-2)", borderColor: "var(--border)", color: "var(--text)" }}
           >
             <option value="all">Tất cả giai đoạn</option>
             {Array.from(new Set([...STAGES_PIPELINE, "Đã rút", "Đã từ chối", ...candidates.map(c => c.stage).filter(Boolean)])).map((stg) => (
@@ -165,7 +163,6 @@ export default function CandidatesView({ candidates = [], onOpenCandidate, onInv
             size="sm"
             value={matchFilter}
             onChange={(e) => setMatchFilter(e.target.value)}
-            style={{ backgroundColor: "var(--surface-2)", borderColor: "var(--border)", color: "var(--text)" }}
           >
             <option value="all">Mức phù hợp</option>
             <option value="90">Từ 90% (Rất cao)</option>

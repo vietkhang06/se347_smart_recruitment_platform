@@ -12,8 +12,8 @@ export class HttpError extends Error {
   }
 }
 
-// Cấu hình URL cơ sở: mặc định http://localhost:8081/api
-const DEFAULT_BASE_URL = "http://localhost:8081/api";
+// Cấu hình URL cơ sở: mặc định http://localhost:8080/api theo cấu hình Spring Boot
+const DEFAULT_BASE_URL = "http://localhost:8080/api";
 
 function getBaseUrl() {
   const envUrl = import.meta.env.VITE_API_BASE_URL;
@@ -42,7 +42,15 @@ async function request(endpoint, options = {}) {
     Accept: "application/json"
   };
 
-  // Đính kèm các header định danh (hỗ trợ quy ước Phase 3 backend)
+  // Đính kèm JWT Bearer token và các header định danh
+  const token =
+    localStorage.getItem("matchajob_access_token") ||
+    localStorage.getItem("token") ||
+    localStorage.getItem("access_token");
+  if (token) {
+    defaultHeaders["Authorization"] = `Bearer ${token}`;
+  }
+
   const candidateId = localStorage.getItem("matchajob_active_candidate_id");
   const userId = localStorage.getItem("matchajob_active_user_id");
   if (candidateId) defaultHeaders["X-Candidate-Id"] = candidateId;

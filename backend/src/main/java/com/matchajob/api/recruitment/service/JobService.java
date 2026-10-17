@@ -5,6 +5,7 @@ import com.matchajob.api.recruitment.exception.JobNotFoundException;
 import com.matchajob.api.recruitment.model.Category;
 import com.matchajob.api.recruitment.model.Job;
 import com.matchajob.api.recruitment.model.JobSkill;
+import com.matchajob.api.recruitment.model.Skill;
 import com.matchajob.api.recruitment.model.enums.JobStatus;
 import com.matchajob.api.recruitment.repository.CategoryRepository;
 import com.matchajob.api.recruitment.repository.JobRepository;
@@ -22,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.text.Normalizer;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.*;
 import java.util.regex.Pattern;
 
@@ -108,20 +110,67 @@ public class JobService {
         return PageResponse.from(jobPage.map(JobSummaryResponse::from));
     }
 
+    public void validateDeadlineForActiveJob(LocalDate deadline) {
+        if (deadline == null) {
+            throw new IllegalArgumentException("Hạn nộp hồ sơ không được để trống khi đăng tin tuyển dụng");
+        }
+        LocalDate minAllowed = LocalDate.now().plusDays(7);
+        if (deadline.isBefore(minAllowed)) {
+            throw new IllegalArgumentException(
+                    "Hạn nộp hồ sơ (" + deadline + ") phải tối thiểu 7 ngày kể từ ngày đăng tin (từ ngày " + minAllowed + " trở đi)"
+            );
+        }
+    }
+
     @Transactional
     public JobDetailResponse createJob(JobCreateRequest request) {
         Category category = null;
         if (request.getCategoryId() != null) {
-            category = categoryRepository.findById(request.getCategoryId())
-                    .orElse(null);
+            category = categoryRepository.findById(request.getCategoryId()).orElse(null);
+        }
+        if (category == null) {
+            category = categoryRepository.findByDeletedAtIsNullOrderBySortOrderAscNameAsc().stream().findFirst().orElse(null);
         }
 
-        String status = request.getStatus() != null && !request.getStatus().isBlank()
-                ? request.getStatus().toLowerCase()
+        String rawStatus = request.getStatus() != null && !request.getStatus().isBlank()
+                ? request.getStatus().toLowerCase().trim()
                 : JobStatus.DRAFT.getValue();
 
+        String status;
+        if ("active".equals(rawStatus) || "đang tuyển".equals(rawStatus)) {
+            status = JobStatus.ACTIVE.getValue();
+        } else if ("paused".equals(rawStatus) || "tạm dừng".equals(rawStatus)) {
+            status = JobStatus.PAUSED.getValue();
+        } else if ("closed".equals(rawStatus) || "đã đóng".equals(rawStatus)) {
+            status = JobStatus.CLOSED.getValue();
+        } else {
+            status = JobStatus.DRAFT.getValue();
+        }
+
+        if (JobStatus.ACTIVE.getValue().equals(status)) {
+            validateDeadlineForActiveJob(request.getDeadline());
+        }
+
+        UUID companyUuid = request.getCompanyId();
+        if (companyUuid == null) {
+            throw new IllegalArgumentException("Company ID is required to create a job");
+        }
+
+        String salaryMode = request.getSalaryMode() != null ? request.getSalaryMode().toLowerCase() : "negotiable";
+        Long salaryMin = request.getSalaryMin();
+        Long salaryMax = request.getSalaryMax();
+        if ("range".equals(salaryMode)) {
+            if (salaryMin == null && salaryMax == null) {
+                salaryMode = "negotiable";
+            } else if (salaryMin != null && salaryMax == null) {
+                salaryMode = "single";
+            }
+        } else if ("from".equals(salaryMode) || "under".equals(salaryMode)) {
+            salaryMode = "single";
+        }
+
         Job job = Job.builder()
-                .companyId(request.getCompanyId())
+                .companyId(companyUuid)
                 .category(category)
                 .createdBy(request.getCreatedBy())
                 .title(request.getTitle())
@@ -132,9 +181,9 @@ public class JobService {
                 .location(request.getLocation())
                 .address(request.getAddress())
                 .mapLink(request.getMapLink())
-                .salaryMode(request.getSalaryMode() != null ? request.getSalaryMode().toLowerCase() : "range")
-                .salaryMin(request.getSalaryMin())
-                .salaryMax(request.getSalaryMax())
+                .salaryMode(salaryMode)
+                .salaryMin(salaryMin)
+                .salaryMax(salaryMax)
                 .salaryCurrency(request.getSalaryCurrency() != null ? request.getSalaryCurrency() : "VND")
                 .experience(request.getExperience())
                 .description(request.getDescription())
@@ -151,16 +200,24 @@ public class JobService {
 
         attachSkills(job, request.getSkills());
 
-        Job savedJob = jobRepository.save(job);
+        Job savedJob = jobRepository.saveAndFlush(job);
         return JobDetailResponse.from(savedJob);
     }
 
     @Transactional
     public JobDetailResponse createJob(UUID userId, JobCreateRequest request) {
-        if (request.getCompanyId() == null) {
-            throw new IllegalArgumentException("Company ID is required to create a job");
+        UUID companyUuid = request.getCompanyId();
+        if (companyUuid == null) {
+            List<UUID> companyIds = resourceOwnershipService.getEmployerCompanyIds(userId);
+            if (!companyIds.isEmpty()) {
+                companyUuid = companyIds.get(0);
+                request.setCompanyId(companyUuid);
+            } else {
+                throw new IllegalArgumentException("Tài khoản chưa được liên kết với công ty nào để đăng tin");
+            }
+        } else {
+            resourceOwnershipService.checkEmployerCompanyOwnership(userId, companyUuid);
         }
-        resourceOwnershipService.checkEmployerCompanyOwnership(userId, request.getCompanyId());
         request.setCreatedBy(userId);
         return createJob(request);
     }
@@ -188,10 +245,18 @@ public class JobService {
         if (request.getWorkType() != null) job.setWorkType(request.getWorkType().toLowerCase());
         if (request.getLocation() != null) job.setLocation(request.getLocation());
         if (request.getAddress() != null) job.setAddress(request.getAddress());
-        if (request.getMapLink() != null) job.setMapLink(request.getMapLink());
-        if (request.getSalaryMode() != null) job.setSalaryMode(request.getSalaryMode().toLowerCase());
+        if (request.getSalaryMode() != null) {
+            String sm = request.getSalaryMode().toLowerCase();
+            if ("from".equals(sm) || "under".equals(sm)) sm = "single";
+            job.setSalaryMode(sm);
+        }
         if (request.getSalaryMin() != null) job.setSalaryMin(request.getSalaryMin());
         if (request.getSalaryMax() != null) job.setSalaryMax(request.getSalaryMax());
+        if ("range".equals(job.getSalaryMode()) && job.getSalaryMin() != null && job.getSalaryMax() == null) {
+            job.setSalaryMode("single");
+        } else if ("range".equals(job.getSalaryMode()) && job.getSalaryMin() == null && job.getSalaryMax() == null) {
+            job.setSalaryMode("negotiable");
+        }
         if (request.getSalaryCurrency() != null) job.setSalaryCurrency(request.getSalaryCurrency());
         if (request.getExperience() != null) job.setExperience(request.getExperience());
         if (request.getDescription() != null) job.setDescription(request.getDescription());
@@ -201,7 +266,12 @@ public class JobService {
         if (request.getSummaryIndustry() != null) job.setSummaryIndustry(request.getSummaryIndustry());
         if (request.getSummaryRequired() != null) job.setSummaryRequired(request.getSummaryRequired());
         if (request.getSummaryPreferred() != null) job.setSummaryPreferred(request.getSummaryPreferred());
-        if (request.getDeadline() != null) job.setDeadline(request.getDeadline());
+        if (request.getDeadline() != null) {
+            if (JobStatus.ACTIVE.getValue().equalsIgnoreCase(job.getStatus())) {
+                validateDeadlineForActiveJob(request.getDeadline());
+            }
+            job.setDeadline(request.getDeadline());
+        }
 
         job.setUpdatedAt(Instant.now());
 
@@ -210,7 +280,7 @@ public class JobService {
             attachSkills(job, request.getSkills());
         }
 
-        return JobDetailResponse.from(jobRepository.save(job));
+        return JobDetailResponse.from(jobRepository.saveAndFlush(job));
     }
 
     @Transactional
@@ -224,14 +294,26 @@ public class JobService {
         Job job = jobRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new JobNotFoundException(id));
 
-        JobStatus statusEnum = JobStatus.fromValue(newStatus);
-        job.setStatus(statusEnum.getValue());
-        if (statusEnum == JobStatus.ACTIVE && job.getPostedAt() == null) {
-            job.setPostedAt(Instant.now());
+        String normalized = newStatus != null ? newStatus.toLowerCase().trim() : "";
+        if ("đang tuyển".equals(normalized)) normalized = "active";
+        else if ("bản nháp".equals(normalized)) normalized = "draft";
+        else if ("tạm dừng".equals(normalized)) normalized = "paused";
+        else if ("đã đóng".equals(normalized)) normalized = "closed";
+
+        JobStatus statusEnum = JobStatus.fromValue(normalized);
+
+        // Vòng đời tin đăng: Khi chuyển sang ACTIVE (đăng mới, mở lại, tiếp tục tuyển)
+        if (statusEnum == JobStatus.ACTIVE) {
+            validateDeadlineForActiveJob(job.getDeadline());
+            if (job.getPostedAt() == null) {
+                job.setPostedAt(Instant.now());
+            }
         }
+
+        job.setStatus(statusEnum.getValue());
         job.setUpdatedAt(Instant.now());
 
-        return JobDetailResponse.from(jobRepository.save(job));
+        return JobDetailResponse.from(jobRepository.saveAndFlush(job));
     }
 
     @Transactional
@@ -245,7 +327,7 @@ public class JobService {
         Job job = jobRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new JobNotFoundException(id));
         job.setDeletedAt(Instant.now());
-        jobRepository.save(job);
+        jobRepository.saveAndFlush(job);
     }
 
     @Transactional
@@ -258,11 +340,16 @@ public class JobService {
         if (skillItems == null || skillItems.isEmpty()) return;
 
         for (JobCreateRequest.JobSkillItem item : skillItems) {
+            Skill resolvedSkill = null;
             if (item.getSkillId() != null) {
-                skillRepository.findById(item.getSkillId()).ifPresent(skill -> {
-                    JobSkill jobSkill = new JobSkill(job, skill, item.getIsRequired());
-                    job.getJobSkills().add(jobSkill);
-                });
+                resolvedSkill = skillRepository.findById(item.getSkillId()).orElse(null);
+            }
+            if (resolvedSkill == null && item.getSkillName() != null && !item.getSkillName().isBlank()) {
+                resolvedSkill = skillRepository.findByNameIgnoreCase(item.getSkillName().trim()).orElse(null);
+            }
+            if (resolvedSkill != null) {
+                JobSkill jobSkill = new JobSkill(job, resolvedSkill, item.getIsRequired());
+                job.getJobSkills().add(jobSkill);
             }
         }
     }

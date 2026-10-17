@@ -20,9 +20,17 @@ async function getWithPrefixFallback(path, queryParams = "") {
 export const apiJobService = {
   async getEmployerJobs(companyId = "COMP-01", filters = {}) {
     const params = new URLSearchParams();
-    if (companyId) params.append("companyId", companyId);
+    if (companyId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(companyId)) {
+      params.append("companyId", companyId);
+    }
     if (filters.status && filters.status !== "all" && filters.status !== "Tất cả") {
-      params.append("status", filters.status.toLowerCase());
+      let st = filters.status.toLowerCase().trim();
+      if (st === "đang tuyển") st = "active";
+      else if (st === "bản nháp") st = "draft";
+      else if (st === "tạm dừng") st = "paused";
+      else if (st === "đã đóng") st = "closed";
+      else if (st === "chờ duyệt") st = "pending";
+      params.append("status", st);
     }
     params.append("page", String(filters.page || 0));
     params.append("size", String(filters.size || 50));
@@ -44,6 +52,7 @@ export const apiJobService = {
       }
       return jobs;
     } catch (err) {
+      if (err.status === 401) throw err;
       console.warn("[apiJobService] Lỗi gọi API /employer/jobs, fallback sang mock:", err.message);
       return mockJobService.getEmployerJobs(companyId, filters);
     }
@@ -54,6 +63,7 @@ export const apiJobService = {
       const response = await getWithPrefixFallback(`/jobs/${jobId}`);
       return toJobViewModel(response);
     } catch (err) {
+      if (err.status === 400 || err.status === 401 || err.status === 403) throw err;
       console.warn(`[apiJobService] Lỗi lấy chi tiết job ${jobId}, fallback sang mock:`, err.message);
       return mockJobService.getJobById(jobId);
     }
@@ -74,7 +84,11 @@ export const apiJobService = {
       }
       return toJobViewModel(created);
     } catch (err) {
-      console.warn("[apiJobService] Lỗi tạo job qua API, fallback sang mock:", err.message);
+      // Nếu là lỗi nghiệp vụ từ backend (400, 403, validation) thì ném ra cho UI xử lý
+      if (err.status === 400 || err.status === 401 || err.status === 403 || err.status === 422) {
+        throw err;
+      }
+      console.warn("[apiJobService] Lỗi kết nối tạo job qua API, fallback sang mock:", err.message);
       return mockJobService.createJob(jobInput, companyId);
     }
   },
@@ -94,17 +108,21 @@ export const apiJobService = {
       }
       return toJobViewModel(updated);
     } catch (err) {
+      if (err.status === 400 || err.status === 401 || err.status === 403 || err.status === 422) {
+        throw err;
+      }
       console.warn(`[apiJobService] Lỗi cập nhật job ${jobId}, fallback sang mock:`, err.message);
       return mockJobService.updateJob(jobId, jobUpdate);
     }
   },
 
   async updateJobStatus(jobId, status) {
-    let statusCode = status.toLowerCase();
+    let statusCode = status.toLowerCase().trim();
     if (statusCode === "đang tuyển") statusCode = "active";
     else if (statusCode === "chờ duyệt") statusCode = "pending";
     else if (statusCode === "tạm dừng") statusCode = "paused";
     else if (statusCode === "đã đóng") statusCode = "closed";
+    else if (statusCode === "bản nháp") statusCode = "draft";
 
     try {
       let updated;
@@ -120,6 +138,9 @@ export const apiJobService = {
       }
       return toJobViewModel(updated);
     } catch (err) {
+      if (err.status === 400 || err.status === 401 || err.status === 403 || err.status === 422) {
+        throw err;
+      }
       console.warn(`[apiJobService] Lỗi đổi status job ${jobId}, fallback sang mock:`, err.message);
       return mockJobService.updateJobStatus(jobId, status);
     }
@@ -138,6 +159,9 @@ export const apiJobService = {
       }
       return true;
     } catch (err) {
+      if (err.status === 400 || err.status === 401 || err.status === 403) {
+        throw err;
+      }
       console.warn(`[apiJobService] Lỗi xóa job ${jobId}, fallback sang mock:`, err.message);
       return mockJobService.deleteJob(jobId);
     }

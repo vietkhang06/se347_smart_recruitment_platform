@@ -6,8 +6,13 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => authService.getUser());
   const { showToast } = useToast();
   useEffect(() => authService.subscribe(() => setUser(authService.getUser())), []);
-  const login = (email, role = "candidate", name = "") => {
-    const next = authService.login(email, role, name);
+  const login = async (email, role = "candidate", password = "") => {
+    let next;
+    if (typeof authService.loginWithCredentials === "function" && password) {
+      next = await authService.loginWithCredentials(email, role, password);
+    } else {
+      next = authService.login(email, role);
+    }
     setUser(next);
     showToast(`Đăng nhập thành công với vai trò ${role.toUpperCase()}`);
     return next;

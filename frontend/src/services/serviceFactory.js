@@ -13,6 +13,9 @@ import { apiAdminService } from "./api/apiAdminService";
 import { mockStatisticsService } from "./mock/mockStatisticsService";
 import { apiStatisticsService } from "./api/apiStatisticsService";
 
+import { mockInterviewService } from "./mock/mockInterviewService";
+import { apiInterviewService } from "./api/apiInterviewService";
+
 const dataSource = (import.meta.env.VITE_DATA_SOURCE || "mock").toLowerCase();
 const isApiMode = dataSource === "api";
 
@@ -25,6 +28,7 @@ export const applicationService = isApiMode ? apiApplicationService : mockApplic
 export const companyService = isApiMode ? apiCompanyService : mockCompanyService;
 export const adminService = isApiMode ? apiAdminService : mockAdminService;
 export const statisticsService = isApiMode ? apiStatisticsService : mockStatisticsService;
+export const interviewService = isApiMode ? apiInterviewService : mockInterviewService;
 
 export function getDataSourceMode() {
   return isApiMode ? "api" : "mock";

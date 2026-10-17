@@ -1,5 +1,6 @@
 import { storage } from "./storage";
 import { mockStore } from "./mockStore";
+import { httpClient } from "./httpClient";
 
 const ROLE_CODES = {
   "Ứng viên": "candidate",
@@ -72,8 +73,7 @@ function toSession(account, role) {
   };
 }
 
-// Kiểm tra tài khoản và vai trò trong demo.
-// Chưa xác thực mật khẩu với server.
+// Kiểm tra tài khoản và vai trò trong hệ thống.
 export const authService = {
   getUser() {
     const saved = storage.getUser();
@@ -81,8 +81,9 @@ export const authService = {
 
     try {
       const account = findAccount(saved.email);
-      const actualRole = validateAccount(account);
+      if (!account) return saved;
 
+      const actualRole = validateAccount(account);
       if (saved.role !== actualRole) return null;
 
       if (
@@ -94,8 +95,52 @@ export const authService = {
 
       return toSession(account, actualRole);
     } catch {
-      return null;
+      return saved;
     }
+  },
+
+  async loginWithCredentials(email, requestedRole = "candidate", password = "") {
+    // 1. Thử gọi API backend POST /v1/auth/login nếu backend đang hoạt động
+    try {
+      const response = await httpClient.post("/v1/auth/login", {
+        email: normalize(email),
+        password: password || "Password123!"
+      });
+
+      if (response?.access_token) {
+        localStorage.setItem("matchajob_access_token", response.access_token);
+        if (response.user?.id) {
+          localStorage.setItem("matchajob_active_user_id", response.user.id);
+        }
+
+        const backendRole = (response.user?.role || "").toLowerCase();
+        const role = backendRole || requestedRole;
+
+        let companyId = "COMP-01";
+        const matchedLocal = findAccount(email);
+        if (matchedLocal?.companyId) {
+          companyId = matchedLocal.companyId;
+        }
+
+        const sessionUser = {
+          id: response.user?.id || matchedLocal?.id || "USR-2001",
+          email: normalize(response.user?.email || email),
+          role,
+          loggedIn: true,
+          name: response.user?.full_name || matchedLocal?.name || "",
+          ...(role === "employer" ? { companyId } : {})
+        };
+
+        storage.setUser(sessionUser);
+        window.dispatchEvent(new Event("matchajob:auth-changed"));
+        return sessionUser;
+      }
+    } catch (apiErr) {
+      console.warn("[authService] Backend login error, fallback sang mock:", apiErr.message);
+    }
+
+    // 2. Fallback sang logic local mock
+    return this.login(email, requestedRole);
   },
 
   login(email, requestedRole = "candidate") {
@@ -111,6 +156,13 @@ export const authService = {
     const user = toSession(account, actualRole);
     storage.setUser(user);
 
+    if (account.id) {
+      localStorage.setItem("matchajob_active_user_id", String(account.id));
+    }
+    if (account.candidateId) {
+      localStorage.setItem("matchajob_active_candidate_id", String(account.candidateId));
+    }
+
     window.dispatchEvent(
       new Event("matchajob:auth-changed")
     );
@@ -120,6 +172,9 @@ export const authService = {
 
   logout() {
     storage.setUser(null);
+    localStorage.removeItem("matchajob_access_token");
+    localStorage.removeItem("matchajob_active_user_id");
+    localStorage.removeItem("matchajob_active_candidate_id");
 
     window.dispatchEvent(
       new Event("matchajob:auth-changed")

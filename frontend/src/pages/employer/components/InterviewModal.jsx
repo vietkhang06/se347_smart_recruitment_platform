@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import {
-  Modal, Button, Form, Row, Col, Alert
+  Modal, Button, Form, Row, Col, Alert, Spinner
 } from "react-bootstrap";
-import { mockStore } from "../../../services/mockStore";
+import { interviewService } from "../../../services";
+import MatchaDatePicker from "../../../components/common/MatchaDatePicker";
 
 export default function InterviewModal({
   show,
@@ -13,6 +14,7 @@ export default function InterviewModal({
 }) {
   const [form, setForm] = useState({});
   const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (show) {
@@ -26,6 +28,7 @@ export default function InterviewModal({
         note: ""
       });
       setError("");
+      setIsSubmitting(false);
     }
   }, [show, defaultCandidate?.id]);
 
@@ -48,7 +51,7 @@ export default function InterviewModal({
     setForm(current => ({ ...current, [key]: value }));
   };
 
-  function submit(event) {
+  async function submit(event) {
     event.preventDefault();
     setError("");
 
@@ -57,16 +60,25 @@ export default function InterviewModal({
         throw new Error("Chọn hồ sơ ứng tuyển hợp lệ.");
       }
 
-      const item = mockStore.createInterview({
+      if (!form.date) {
+        throw new Error("Vui lòng chọn ngày phỏng vấn.");
+      }
+
+      setIsSubmitting(true);
+      const item = await interviewService.createInterview({
         ...form,
         candidateId: selected.id,
+        applicationId: selected.applicationId || selected.id,
+        jobId: selected.appliedJobId || selected.jobId,
         meetingLink: online ? form.meetingLink.trim() : ""
       });
 
       onScheduleCreated?.(item);
       onHide();
     } catch (err) {
-      setError(err.message);
+      setError(err.message || "Không thể tạo lịch phỏng vấn.");
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -117,22 +129,29 @@ export default function InterviewModal({
           </div>
 
           <Row className="g-3 mb-3">
-            {[
-              ["date", "Ngày", "date"],
-              ["time", "Giờ Việt Nam", "time"]
-            ].map(([key, label, type]) => (
-              <Col sm={6} key={key}>
-                <Form.Label>{label}</Form.Label>
-                <Form.Control
-                  required
-                  type={type}
-                  value={form[key] || ""}
-                  onChange={event =>
-                    change(key, event.target.value)
-                  }
+            <Col sm={6}>
+              <Form.Label className="small fw-semibold">Ngày phỏng vấn *</Form.Label>
+              <div>
+                <MatchaDatePicker
+                  value={form.date || ""}
+                  onChange={(d) => change("date", d)}
+                  placeholder="Chọn ngày phỏng vấn"
+                  showSelectedTag={true}
+                  outputFormat="YYYY-MM-DD"
                 />
-              </Col>
-            ))}
+              </div>
+            </Col>
+            <Col sm={6}>
+              <Form.Label className="small fw-semibold">Giờ (Giờ VN) *</Form.Label>
+              <Form.Control
+                required
+                type="time"
+                value={form.time || ""}
+                onChange={(event) =>
+                  change("time", event.target.value)
+                }
+              />
+            </Col>
           </Row>
 
           <Form.Group className="mb-3">
@@ -197,11 +216,24 @@ export default function InterviewModal({
         </Modal.Body>
 
         <Modal.Footer>
-          <Button variant="secondary" onClick={onHide}>
+          <Button variant="outline-secondary" size="sm" onClick={onHide}>
             Hủy
           </Button>
-          <Button type="submit" variant="success">
-            Gửi lịch chờ xác nhận
+          <Button
+            type="submit"
+            variant="success"
+            size="sm"
+            className="fw-bold d-inline-flex align-items-center"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <>
+                <Spinner size="sm" animation="border" className="me-1.5" />
+                Đang gửi lịch...
+              </>
+            ) : (
+              "Gửi lịch chờ xác nhận"
+            )}
           </Button>
         </Modal.Footer>
       </Form>
