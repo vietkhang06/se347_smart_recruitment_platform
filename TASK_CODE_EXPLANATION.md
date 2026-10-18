@@ -15,7 +15,16 @@
    - [1.4. Chi tiết thay đổi Frontend (React & Services)](#14-chi-tiết-thay-đổi-frontend-react--services)
    - [1.5. Bảng tổng hợp các thay đổi của Task 4](#15-bảng-tổng-hợp-các-thay-đổi-của-task-4)
 2. [TASK 5: Hồ sơ Doanh nghiệp (Company Profile & Branding)](#phần-2-task-5-hồ-sơ-doanh-nghiệp-company-profile--branding)
-   - *(Sẽ được cập nhật chi tiết ngay sau khi hoàn thành triển khai mã nguồn)*
+   - [2.1. Bối cảnh & Vấn đề trước khi thay đổi](#21-bối-cảnh--vấn-đề-trước-khi-thay-đổi)
+   - [2.2. Sơ đồ luồng dữ liệu (Data Flow) của Task 5](#22-sơ-đồ-luồng-dữ-liệu-data-flow-của-task-5)
+   - [2.3. Chi tiết thay đổi Backend (Spring Boot & PostgreSQL)](#23-chi-tiết-thay-đổi-backend-spring-boot--postgresql)
+   - [2.4. Chi tiết thay đổi Frontend (React & Services)](#24-chi-tiết-thay-đổi-frontend-react--services)
+   - [2.5. Bảng tổng hợp các thay đổi của Task 5](#25-bảng-tổng-hợp-các-thay-đổi-của-task-5)
+3. [TASK 6: Rà soát Giao diện Toàn diện & Responsive (Laptop, Tablet, Mobile)](#phần-3-task-6-rà-soát-giao-diện-toàn-diện--responsive-laptop-tablet-mobile)
+   - [3.1. Bối cảnh & Vấn đề phát hiện khi kiểm thử đa độ phân giải](#31-bối-cảnh--vấn-đề-phát-hiện-khi-kiểm-thử-đa-độ-phân-giải)
+   - [3.2. Sơ đồ cấu trúc Responsive Header & Layout Navigation](#32-sơ-đồ-cấu-trúc-responsive-header--layout-navigation)
+   - [3.3. Chi tiết thay đổi Frontend (Header, Navigation & View Components)](#33-chi-tiết-thay-đổi-frontend-header-navigation--view-components)
+   - [3.4. Bảng tổng hợp các thay đổi của Task 6](#34-bảng-tổng-hợp-các-thay-đổi-của-task-6)
 
 ---
 
@@ -801,5 +810,216 @@ const refreshStoreData = useCallback(async () => {
 | **`apiCompanyService.js`** | Fallback mù quáng sang mock | Gọi API thực tế, bắt lỗi 400/403/409 | Tương tác trực tiếp với PostgreSQL |
 | **`EmployerPortal.jsx`** | Đọc dữ liệu công ty từ mock | Nạp dữ liệu thực qua `companyService` | Giao diện Header và thẻ xem trước cập nhật thật |
 | **`CompanyView.jsx`** | Nút đổi ảnh chỉ là demo | Thêm modal đổi Logo/Ảnh bìa + Presets | Trải nghiệm Employer Branding trực quan, chuyên nghiệp |
+
+---
+
+# PHẦN 3: TASK 6: RÀ SOÁT GIAO DIỆN TOÀN DIỆN & RESPONSIVE (LAPTOP, TABLET, MOBILE)
+
+---
+
+### 3.1. Bối cảnh & Vấn đề phát hiện khi kiểm thử đa độ phân giải
+
+Trong quá trình kiểm thử tự động đa độ phân giải (Laptop 1366x768, Tablet Landscape 1024x768, Tablet Portrait 768x1024, Mobile 390x844), hệ thống phát hiện các vấn đề giao diện nghiêm trọng như sau:
+1. **Lỗi tràn và chồng lấn Header khi thu nhỏ (< 1200px):**
+   - Header trước đây được gán cứng `height: 64px` dạng inline style trong component `<Navbar>`.
+   - Khi màn hình nhỏ hơn `1200px` (`expand="xl"`), thanh điều hướng thu gọn thành nút hamburger. Khi người dùng bấm mở menu (`Navbar.Toggle`), container cha bị ép cứng ở chiều cao 64px, khiến danh sách menu bị tràn ra ngoài mà không có nền che phủ, **chữ menu đè trực tiếp lên tiêu đề trang "FPT Digital Talent" bên dưới**.
+2. **Kẹt nút Theme Switch và Avatar trong Menu ẩn:**
+   - Nút gạt Dark/Light Mode và Avatar người dùng bị nằm bên trong `<Navbar.Collapse>`. Khi ở chế độ Mobile/Tablet, người dùng muốn đổi Theme hoặc xem Profile bắt buộc phải bấm mở hamburger menu trước, làm giảm đáng kể trải nghiệm người dùng.
+3. **Menu Hover không khả dụng trên màn hình cảm ứng:**
+   - Trên desktop, các menu con "Tuyển dụng" và "Hồ sơ" sử dụng cơ chế hover (`:hover`). Khi sang màn hình Tablet/Mobile (cảm ứng, không có con trỏ chuột), người dùng không thể hover để mở menu con.
+4. **Gạch chân active tràn toàn màn hình trên Mobile:**
+   - Pseudo-element `.header-nav-tab::after` trên Mobile có `left: 6px; right: 6px;` kéo dài thành một dải xanh ngang hết toàn bộ chiều rộng màn hình.
+5. **Thanh lọc ứng viên cố định pixel (`width: 190px`, `185px`):**
+   - Các dropdown chọn vị trí, giai đoạn trên [CandidatesView.jsx](frontend/src/pages/employer/views/CandidatesView.jsx) dùng kích thước cố định pixel, dẫn đến việc trên màn hình điện thoại 390px các dropdown bị co ngắn hoặc gãy hàng không đồng đều.
+
+---
+
+### 3.2. Sơ đồ cấu trúc Responsive Header & Layout Navigation
+
+```
+[ MÀN HÌNH DESKTOP / LAPTOP (>= 1200px) ]
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│ [Logo] MatchaJob    |  Tổng quan   Tuyển dụng ▼   Hồ sơ ▼  |    [Theme]  [Avatar Pill]  │
+└────────────────────────────────────────────────────────────────────────────────────────┘
+                      └── Hover xổ menu con mượt mà ──┘
+
+[ MÀN HÌNH TABLET & MOBILE (< 1200px) ]
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│ [Logo] MatchaJob                                        [Theme]  [Avatar]  [Hamburger] │
+└────────────────────────────────────────────────────────────────────────────────────────┘
+      │
+      ▼ Khi bấm nút [Hamburger]
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│ ┌─ CARD MENU NỔI (Có nền Surface, Viền Border, Bo góc 14px, Đổ bóng mờ) ─────────────┐ │
+│ │ ▣ Tổng quan (Highlight xanh dịu khi active)                                        │ │
+│ │ ▾ Tuyển dụng                                                                       │ │
+│ │   ┌─ Hộp phân mục con (Thụt lề, màu nền Surface-2) ──────────────────────────────┐ │ │
+│ │   │ • Tin tuyển dụng                                                             │ │ │
+│ │   │ • Kho ứng viên                                                               │ │ │
+│ │   │ • Quy trình (Kanban)                                                         │ │ │
+│ │   │ • Phỏng vấn                                                                  │ │ │
+│ │   └──────────────────────────────────────────────────────────────────────────────┘ │ │
+│ │ ▾ Hồ sơ                                                                            │ │
+│ │   ┌─ Hộp phân mục con ───────────────────────────────────────────────────────────┐ │ │
+│ │   │ • Hồ sơ cá nhân                                                              │ │ │
+│ │   │ • Hồ sơ doanh nghiệp                                                         │ │ │
+│ │   │ • Phân tích                                                                  │ │ │
+│ │   │ • Gói dịch vụ                                                                │ │ │
+│ │   └──────────────────────────────────────────────────────────────────────────────┘ │ │
+│ └────────────────────────────────────────────────────────────────────────────────────┘ │
+└────────────────────────────────────────────────────────────────────────────────────────┘
+      │
+      ▼ Tiêu đề trang đẩy xuống dưới tự nhiên, KHÔNG HỀ BỊ ĐÈ CHỮ
+[ FPT Digital Talent - Trung tâm quản lý tuyển dụng ]
+```
+
+---
+
+### 3.3. Chi tiết thay đổi Frontend (Header, Navigation & View Components)
+
+#### 1. Tách cụm Action Controls và Tự động đóng Menu: `Header.jsx`
+* **Vị trí file:** `frontend/src/components/common/Header.jsx`
+* **Mã nguồn:**
+```javascript
+// State quản lý đóng/mở menu trên mobile/tablet
+const [navExpanded, setNavExpanded] = useState(false);
+const closeNav = () => setNavExpanded(false);
+
+const handleEmployerTabClick = (key) => {
+  navigate(`/employer#${key}`);
+  closeNav(); // Tự động đóng menu sau khi chọn trang
+};
+
+// Đưa cụm Action Controls ra ngoài Navbar.Collapse với Flexbox Order
+<div className="d-flex align-items-center gap-2 gap-sm-3 ms-auto order-xl-last">
+  {/* Nút Theme Switch */}
+  <button className="theme-toggle-switch" ... />
+  {/* Nút Avatar Profile */}
+  <NavDropdown ... />
+  {/* Nút Hamburger Toggle Menu chỉ hiện trên màn hình < 1200px */}
+  <Navbar.Toggle aria-controls="main-navbar-nav" className="p-1 border-0 ms-1 d-xl-none" />
+</div>
+
+{/* Navbar.Collapse chỉ chứa danh sách điều hướng trung tâm */}
+<Navbar.Collapse id="main-navbar-nav" className="order-xl-1 flex-grow-1">
+  ...
+</Navbar.Collapse>
+```
+* **Lý do kỹ thuật chi tiết:**
+  - `order-xl-last` và `order-xl-1`: Kỹ thuật Flexbox Reordering cho phép trên Desktop Navbar cụm controls nằm bên phải ngoài cùng và menu nằm ở giữa; còn trên Mobile/Tablet thì cụm controls nằm cùng hàng với Logo, còn Menu xổ xuống bên dưới.
+  - `closeNav()`: Lắng nghe sự kiện click trên từng mục điều hướng để tự động thu gọn menu, người dùng không cần phải bấm lại nút hamburger để đóng.
+* **Ví dụ đơn giản:** Giống như một **ngăn kéo thông minh**. Nút bật đèn (Theme) và chìa khóa (Avatar) luôn được móc sẵn ngay ở mặt trước ngăn bàn để rút dùng ngay. Khi cần xem bản đồ chi tiết, ta mới kéo ngăn bàn ra; chọn xong điểm đến thì ngăn bàn tự động trượt khép lại.
+
+---
+
+#### 2. Kiến trúc CSS Responsive cho Header & Sub-menu: `tokens.css`
+* **Vị trí file:** `frontend/src/styles/tokens.css`
+* **Mã nguồn:**
+```css
+@media (max-width: 1199px) {
+  .navbar-matcha {
+    min-height: 64px;
+    height: auto !important; /* Xóa bỏ ép cứng 64px */
+  }
+  .navbar-matcha .navbar-collapse {
+    width: 100%;
+    background-color: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 12px 14px 16px;
+    margin-top: 10px;
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.16); /* Đổ bóng tách biệt khỏi body */
+  }
+  .header-nav-tab {
+    height: 42px !important;
+    border-radius: 8px !important;
+    justify-content: flex-start !important;
+    width: 100% !important;
+  }
+  .header-nav-tab::after {
+    display: none !important; /* Bỏ gạch chân dài trên mobile */
+  }
+  .header-nav-tab.active {
+    background-color: var(--primary-soft) !important;
+    color: var(--primary) !important;
+  }
+  .nav-hover-dropdown .dropdown-menu {
+    position: static !important;
+    display: flex !important;
+    flex-direction: column !important;
+    box-shadow: none !important;
+    background-color: var(--surface-2) !important;
+    margin: 4px 0 8px 12px !important;
+    width: calc(100% - 12px) !important;
+  }
+}
+```
+* **Lý do kỹ thuật chi tiết:**
+  - `position: static`: Chuyển dropdown menu từ cơ chế trôi nổi (*absolute*) sang nằm trong luồng tài liệu chuẩn (*in-flow block*), giúp menu đẩy nội dung trang bên dưới xuống thay vì đè lên chữ.
+  - Hiển thị trực tiếp các mục con dưới dạng hộp thụt lề có nền `var(--surface-2)`, giúp người dùng cảm ứng chạm được ngay các trang con mà không cần phụ thuộc vào chuột hover.
+
+---
+
+#### 3. Thanh cuộn mượt cảm ứng cho Kanban Pipeline: `PipelineView.jsx` & `tokens.css`
+* **Vị trí file:** `frontend/src/pages/employer/views/PipelineView.jsx` & `frontend/src/styles/tokens.css`
+* **Mã nguồn:**
+```css
+.kanban-board-row {
+  -webkit-overflow-scrolling: touch; /* Hỗ trợ lướt quán tính trên iOS Safari */
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: var(--primary) var(--surface-2);
+}
+.kanban-board-row::-webkit-scrollbar {
+  height: 8px;
+}
+.kanban-board-row::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 9999px;
+}
+.kanban-board-row::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
+}
+```
+* **Lý do kỹ thuật chi tiết:**
+  - Bảng Kanban có 6 cột cần lướt ngang. Thêm `-webkit-overflow-scrolling: touch` giúp thao tác quẹt tay trên màn hình điện thoại/tablet có gia tốc mượt mà, không bị khựng; thanh cuộn 8px màu bo tròn tăng tính thẩm mỹ cao cấp.
+
+---
+
+#### 4. Linh hoạt bộ lọc ứng viên trên Mobile: `CandidatesView.jsx`
+* **Vị trí file:** `frontend/src/pages/employer/views/CandidatesView.jsx`
+* **Mã nguồn:**
+```jsx
+// Thay vì cố định pixel (width: 190px, 185px):
+<div className="filter-select-col">
+  <Form.Select size="sm" value={jobFilter} ... />
+</div>
+```
+```css
+.filter-select-col {
+  flex: 1 1 180px;
+  min-width: 150px;
+}
+@media (max-width: 576px) {
+  .filter-select-col {
+    flex: 1 1 100% !important;
+    width: 100% !important;
+  }
+}
+```
+* **Lý do kỹ thuật chi tiết:**
+  - Trên màn hình điện thoại dưới 576px, các dropdown tự động mở rộng 100% chiều rộng để HR dễ dàng bấm ngón tay chọn vị trí hoặc giai đoạn mà không bị gãy giao diện.
+
+---
+
+### 3.4. Bảng tổng hợp các thay đổi của Task 6
+
+| Tệp tin | Vấn đề trước đó | Sau khi sửa đổi | Giá trị kỹ thuật đem lại |
+| :--- | :--- | :--- | :--- |
+| **`Header.jsx`** | Gán cứng `height: 64px`, giấu Theme & Avatar vào menu ẩn | Tách controls lên thanh trên, hỗ trợ `closeNav` | Đổi theme & xem profile 1 chạm, menu đóng mở mượt |
+| **`tokens.css`** | Thiếu media query menu mobile, dropdown hover không chạm được | Thêm card menu nổi, static in-flow, thụt lề rõ ràng | Không còn lỗi đè chữ lên trang, trải nghiệm cảm ứng hoàn hảo |
+| **`PipelineView.jsx`** | Thanh cuộn ngang mặc định thô sơ | Bổ sung `.kanban-board-row` touch scrolling | Vuốt Kanban trên điện thoại/tablet êm ái, thanh cuộn đẹp mắt |
+| **`CandidatesView.jsx`** | Dropdown cố định pixel 190px | Áp dụng `.filter-select-col` co giãn linh hoạt | Hiển thị 100% chiều ngang vừa vặn trên mọi kích thước điện thoại |
+| **`CompanyView.jsx`** | Nút đổi ảnh bìa bị dài trên màn hình 375px | Thêm class responsive `d-none d-sm-inline` | Nút gọn gàng "Đổi ảnh" trên mobile, không vỡ layout banner |
 
 ---

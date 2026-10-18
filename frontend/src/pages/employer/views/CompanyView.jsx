@@ -241,7 +241,7 @@ export default function CompanyView({ companyData, onCompanyUpdated }) {
                 className="shadow-sm bg-white text-dark fw-semibold"
                 onClick={handleOpenMediaModal}
               >
-                <i className="bi bi-camera me-1"></i>Đổi ảnh bìa & Logo
+                <i className="bi bi-camera me-1"></i>Đổi ảnh<span className="d-none d-sm-inline"> bìa & Logo</span>
               </Button>
               <div
                 className="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold shadow position-absolute start-0 bottom-0 ms-4 translate-middle-y overflow-hidden"

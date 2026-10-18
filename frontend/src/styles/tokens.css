@@ -1030,6 +1030,132 @@ select option {
 }
 
 /* ========================================================
+   RESPONSIVE HEADER & MOBILE COLLAPSE NAVIGATION (< 1200px)
+   ======================================================== */
+@media (max-width: 1199px) {
+  .navbar-matcha {
+    min-height: 64px;
+    height: auto !important;
+  }
+  .navbar-matcha .container-fluid {
+    padding-top: 8px;
+    padding-bottom: 8px;
+    min-height: 64px;
+  }
+  .navbar-matcha .navbar-collapse {
+    width: 100%;
+    background-color: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 12px 14px 16px;
+    margin-top: 10px;
+    margin-bottom: 8px;
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.16);
+  }
+  [data-bs-theme="dark"] .navbar-matcha .navbar-collapse,
+  body.dark .navbar-matcha .navbar-collapse {
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.55);
+  }
+  .navbar-matcha .navbar-collapse .nav {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 4px !important;
+    height: auto !important;
+    width: 100%;
+  }
+  .header-nav-tab {
+    height: 42px !important;
+    border-radius: 8px !important;
+    padding: 0 12px !important;
+    justify-content: flex-start !important;
+    width: 100% !important;
+    font-size: 14px !important;
+  }
+  .header-nav-tab::after {
+    display: none !important;
+  }
+  .header-nav-tab.active {
+    background-color: var(--primary-soft) !important;
+    color: var(--primary) !important;
+  }
+  .header-nav-tab .tab-icon {
+    opacity: 1 !important;
+    max-width: 20px !important;
+    margin-right: 8px !important;
+    transform: scale(1) !important;
+  }
+  .nav-hover-dropdown {
+    width: 100% !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    height: auto !important;
+  }
+  .nav-hover-dropdown .header-nav-tab .dropdown-arrow {
+    margin-left: auto !important;
+  }
+  .nav-hover-dropdown .dropdown-menu {
+    position: static !important;
+    transform: none !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    box-shadow: none !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 10px !important;
+    background-color: var(--surface-2) !important;
+    margin: 4px 0 8px 12px !important;
+    padding: 6px !important;
+    width: calc(100% - 12px) !important;
+  }
+  .nav-hover-dropdown .dropdown-item {
+    padding: 8px 12px !important;
+    border-radius: 6px !important;
+    font-size: 13.5px !important;
+    height: auto !important;
+  }
+}
+
+/* ========================================================
+   RESPONSIVE KANBAN BOARD SCROLLBAR & TOUCH POLISH
+   ======================================================== */
+.kanban-board-row {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: var(--primary) var(--surface-2);
+}
+.kanban-board-row::-webkit-scrollbar {
+  height: 8px;
+}
+.kanban-board-row::-webkit-scrollbar-track {
+  background: var(--surface-2);
+  border-radius: 9999px;
+}
+.kanban-board-row::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 9999px;
+}
+.kanban-board-row::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
+}
+
+/* ========================================================
+   RESPONSIVE FILTER COLUMNS ON TABLET / MOBILE
+   ======================================================== */
+.filter-select-col {
+  flex: 1 1 180px;
+  min-width: 150px;
+}
+@media (max-width: 576px) {
+  .filter-select-col {
+    flex: 1 1 100% !important;
+    width: 100% !important;
+  }
+}
+
+/* ========================================================
    CÂN ĐỐI NÚT THEME SWITCH VÀ AVATAR PILL (BỎ CARET THỪA)
    ======================================================== */
 .user-profile-nav-dropdown {

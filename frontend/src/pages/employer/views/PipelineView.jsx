@@ -73,7 +73,7 @@ export default function PipelineView({ candidates = [], setCandidates, onOpenCan
         </div>
       </div>
 
-      <Row className="g-3 flex-nowrap overflow-auto pb-4">
+      <Row className="g-3 flex-nowrap overflow-auto pb-4 kanban-board-row">
         {STAGES_PIPELINE.map((stage, sIdx) => {
           const stageCandidates = filteredCandidates.filter((c) => !candidateClosed(c) && (c.stage || "Mới") === stage);
 
