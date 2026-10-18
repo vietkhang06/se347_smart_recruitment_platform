@@ -16,6 +16,10 @@ import com.matchajob.processing.model.ProcessingJob;
 import com.matchajob.processing.service.ProcessingJobService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -339,6 +343,121 @@ public class ApplicationService {
     }
 
     // =========================================================================
+    // 5. List & Detail Applications
+    // =========================================================================
+
+    /**
+     * Retrieves paginated applications submitted by the given candidate.
+     * Enforces that the authenticated user owns this candidate profile.
+     *
+     * @param candidateId candidate profile ID
+     * @param userId      authenticated user ID
+     * @param page        0-based page number
+     * @param size        number of items per page
+     * @param stageFilter optional stage filter
+     * @return ApplicationListResponse
+     */
+    public ApplicationListResponse getMyApplications(UUID candidateId, UUID userId, int page, int size, String stageFilter) {
+        if (resourceOwnershipService != null && userId != null) {
+            resourceOwnershipService.checkCandidateProfileOwnership(userId, candidateId);
+        }
+
+        int validatedPage = Math.max(page, 0);
+        int validatedSize = (size <= 0 || size > 100) ? 10 : size;
+        Pageable pageable = PageRequest.of(validatedPage, validatedSize, Sort.by(Sort.Direction.DESC, "appliedAt"));
+
+        Page<ApplicationEntity> appPage;
+        if (stageFilter != null && !stageFilter.isBlank()) {
+            appPage = applicationRepository.findByCandidateIdAndStage(candidateId, stageFilter.trim().toLowerCase(), pageable);
+        } else {
+            appPage = applicationRepository.findByCandidateId(candidateId, pageable);
+        }
+
+        List<ApplicationDetailResponse> items = appPage.getContent().stream()
+                .map(this::toDetailResponse)
+                .toList();
+
+        return ApplicationListResponse.builder()
+                .items(items)
+                .totalItems(appPage.getTotalElements())
+                .page(appPage.getNumber())
+                .size(appPage.getSize())
+                .totalPages(appPage.getTotalPages())
+                .build();
+    }
+
+    public ApplicationListResponse getMyApplications(UUID candidateId, int page, int size, String stageFilter) {
+        return getMyApplications(candidateId, null, page, size, stageFilter);
+    }
+
+    /**
+     * Retrieves full application details by application ID.
+     * Enforces access control: accessible by the candidate owner OR the managing employer.
+     *
+     * @param applicationId application ID
+     * @param userId        authenticated user ID
+     * @return ApplicationDetailResponse
+     */
+    public ApplicationDetailResponse getApplicationDetail(UUID applicationId, UUID userId) {
+        if (resourceOwnershipService != null && userId != null) {
+            resourceOwnershipService.checkApplicationAccess(userId, applicationId);
+        }
+
+        ApplicationEntity application = applicationRepository.findById(applicationId)
+                .orElseThrow(() -> new IllegalArgumentException("Application not found: " + applicationId));
+
+        return toDetailResponse(application);
+    }
+
+    public ApplicationDetailResponse getApplicationDetail(UUID applicationId) {
+        return getApplicationDetail(applicationId, null);
+    }
+
+    /**
+     * Retrieves paginated applications for a specific job for HR/Employers.
+     * Enforces employer job ownership.
+     *
+     * @param jobId       job ID
+     * @param userId      authenticated HR/employer user ID
+     * @param page        0-based page number
+     * @param size        number of items per page
+     * @param stageFilter optional stage filter
+     * @return ApplicationListResponse
+     */
+    public ApplicationListResponse getJobApplications(UUID jobId, UUID userId, int page, int size, String stageFilter) {
+        if (resourceOwnershipService != null && userId != null) {
+            resourceOwnershipService.checkEmployerJobOwnership(userId, jobId);
+        }
+
+        int validatedPage = Math.max(page, 0);
+        int validatedSize = (size <= 0 || size > 100) ? 10 : size;
+        Pageable pageable = PageRequest.of(validatedPage, validatedSize, Sort.by(Sort.Direction.DESC, "appliedAt"));
+
+        Page<ApplicationEntity> appPage;
+        if (stageFilter != null && !stageFilter.isBlank()) {
+            appPage = applicationRepository.findByJobIdAndStage(jobId, stageFilter.trim().toLowerCase(), pageable);
+        } else {
+            appPage = applicationRepository.findByJobId(jobId, pageable);
+        }
+
+        List<ApplicationDetailResponse> items = appPage.getContent().stream()
+                .map(this::toDetailResponse)
+                .toList();
+
+        return ApplicationListResponse.builder()
+                .items(items)
+                .totalItems(appPage.getTotalElements())
+                .page(appPage.getNumber())
+                .size(appPage.getSize())
+                .totalPages(appPage.getTotalPages())
+                .build();
+    }
+
+    public ApplicationListResponse getJobApplications(UUID jobId, int page, int size, String stageFilter) {
+        return getJobApplications(jobId, null, page, size, stageFilter);
+    }
+
+    // =========================================================================
     // Internal helpers
     // =========================================================================
 
@@ -391,6 +510,55 @@ public class ApplicationService {
         } catch (Exception e) {
             return "Unknown";
         }
+    }
+
+    private record JobInfo(String title, String companyName) {}
+
+    /**
+     * Looks up job title and company name for an application.
+     */
+    private JobInfo lookupJobInfo(UUID jobId) {
+        try {
+            return jdbcClient.sql("""
+                    SELECT j.title, c.name AS company_name
+                    FROM jobs j
+                    JOIN companies c ON c.id = j.company_id
+                    WHERE j.id = ?
+                    """)
+                    .param(jobId)
+                    .query((rs, rowNum) -> new JobInfo(
+                            rs.getString("title"),
+                            rs.getString("company_name")
+                    ))
+                    .optional()
+                    .orElse(new JobInfo("Unknown Job", "Unknown Company"));
+        } catch (Exception e) {
+            return new JobInfo("Unknown Job", "Unknown Company");
+        }
+    }
+
+    /**
+     * Enriches an ApplicationEntity into an ApplicationDetailResponse DTO.
+     */
+    private ApplicationDetailResponse toDetailResponse(ApplicationEntity app) {
+        String candidateName = lookupCandidateName(app.getCandidateId());
+        JobInfo jobInfo = lookupJobInfo(app.getJobId());
+
+        return ApplicationDetailResponse.builder()
+                .applicationId(app.getId())
+                .candidateId(app.getCandidateId())
+                .candidateName(candidateName)
+                .jobId(app.getJobId())
+                .jobTitle(jobInfo.title())
+                .companyName(jobInfo.companyName())
+                .coverLetter(app.getCoverLetter())
+                .cvSnapshotUrl(app.getCvSnapshotUrl())
+                .stage(app.getStage())
+                .rejectReason(app.getRejectReason())
+                .matchScore(app.getMatchScore())
+                .appliedAt(app.getAppliedAt())
+                .updatedAt(app.getUpdatedAt())
+                .build();
     }
 
     // =========================================================================

@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.util.List;
@@ -352,5 +353,128 @@ class ApplicationWorkflowIT {
         assertThat(ranking.getItems().get(1).getRanking()).isEqualTo(2);
         assertThat(ranking.getItems().get(1).getApplicationId()).isEqualTo(app1.getApplicationId());
         assertThat(ranking.getItems().get(1).getOverallScore()).isEqualTo(60);
+    }
+
+    @Test
+    @DisplayName("Submitting application with CV version belonging to another candidate fails with AccessDeniedException")
+    void submitApplication_cvBelongsToOtherCandidate_fails() {
+        CandidateFixture cand1 = createCandidateFixture();
+        CandidateFixture cand2 = createCandidateFixture();
+        UUID employerId = createEmployerUser();
+        UUID jobId = createJobFixture(employerId, "active");
+
+        UUID cvVersion2 = createCvVersionFixture(cand2.candidateId());
+
+        assertThatThrownBy(() -> applicationService.applyForJob(
+                cand1.candidateId(), cand1.userId(),
+                ApplicationApplyRequest.builder()
+                        .jobId(jobId)
+                        .cvVersionId(cvVersion2)
+                        .coverLetter("Attempt to use another candidate's CV")
+                        .build()))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessageContaining("does not belong to this candidate");
+    }
+
+    @Test
+    @DisplayName("getApplicationDetail returns complete enriched application info")
+    void getApplicationDetail_returnsFullInfo() {
+        CandidateFixture candidate = createCandidateFixture();
+        UUID employerId = createEmployerUser();
+        UUID jobId = createJobFixture(employerId, "active");
+        UUID cvVersionId = createCvVersionFixture(candidate.candidateId());
+
+        ApplicationResponse app = applicationService.applyForJob(
+                candidate.candidateId(), candidate.userId(),
+                ApplicationApplyRequest.builder()
+                        .jobId(jobId)
+                        .cvVersionId(cvVersionId)
+                        .coverLetter("Full info test")
+                        .build());
+
+        ApplicationDetailResponse detail = applicationService.getApplicationDetail(app.getApplicationId(), null);
+
+        assertThat(detail).isNotNull();
+        assertThat(detail.getApplicationId()).isEqualTo(app.getApplicationId());
+        assertThat(detail.getCandidateId()).isEqualTo(candidate.candidateId());
+        assertThat(detail.getJobId()).isEqualTo(jobId);
+        assertThat(detail.getStage()).isEqualTo("new");
+        assertThat(detail.getCandidateName()).isEqualTo("Test Candidate");
+        assertThat(detail.getJobTitle()).isEqualTo("Software Engineer");
+        assertThat(detail.getCompanyName()).isEqualTo("Acme Corp");
+    }
+
+    @Test
+    @DisplayName("getMyApplications returns paginated and filtered applications for candidate")
+    void getMyApplications_paginatedAndFiltered() {
+        CandidateFixture candidate = createCandidateFixture();
+        UUID employerId = createEmployerUser();
+        UUID job1 = createJobFixture(employerId, "active");
+        UUID job2 = createJobFixture(employerId, "active");
+        UUID cv1 = createCvVersionFixture(candidate.candidateId());
+        UUID cv2 = createCvVersionFixture(candidate.candidateId());
+
+        ApplicationResponse app1 = applicationService.applyForJob(
+                candidate.candidateId(), candidate.userId(),
+                ApplicationApplyRequest.builder().jobId(job1).cvVersionId(cv1).build());
+
+        ApplicationResponse app2 = applicationService.applyForJob(
+                candidate.candidateId(), candidate.userId(),
+                ApplicationApplyRequest.builder().jobId(job2).cvVersionId(cv2).build());
+
+        // Transition app1 to screening
+        applicationService.updateStage(app1.getApplicationId(), employerId,
+                ApplicationStageUpdateRequest.builder().toStage("screening").build());
+
+        // Query all
+        ApplicationListResponse allApps = applicationService.getMyApplications(
+                candidate.candidateId(), null, 0, 10, null);
+        assertThat(allApps.getTotalItems()).isGreaterThanOrEqualTo(2);
+
+        // Query filtered by screening
+        ApplicationListResponse screeningApps = applicationService.getMyApplications(
+                candidate.candidateId(), null, 0, 10, "screening");
+        assertThat(screeningApps.getItems())
+                .allMatch(item -> "screening".equalsIgnoreCase(item.getStage()));
+    }
+
+    @Test
+    @DisplayName("getJobApplications returns applications for HR/employer view")
+    void getJobApplications_employerView() {
+        CandidateFixture cand1 = createCandidateFixture();
+        CandidateFixture cand2 = createCandidateFixture();
+        UUID employerId = createEmployerUser();
+        UUID jobId = createJobFixture(employerId, "active");
+        UUID cv1 = createCvVersionFixture(cand1.candidateId());
+        UUID cv2 = createCvVersionFixture(cand2.candidateId());
+
+        applicationService.applyForJob(cand1.candidateId(), cand1.userId(),
+                ApplicationApplyRequest.builder().jobId(jobId).cvVersionId(cv1).build());
+        applicationService.applyForJob(cand2.candidateId(), cand2.userId(),
+                ApplicationApplyRequest.builder().jobId(jobId).cvVersionId(cv2).build());
+
+        ApplicationListResponse jobApps = applicationService.getJobApplications(jobId, null, 0, 10, null);
+
+        assertThat(jobApps.getTotalItems()).isEqualTo(2);
+        assertThat(jobApps.getItems()).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("updateStage fails when transition violates state machine rules")
+    void updateStage_invalidTransition_fails() {
+        CandidateFixture candidate = createCandidateFixture();
+        UUID employerId = createEmployerUser();
+        UUID jobId = createJobFixture(employerId, "active");
+        UUID cvId = createCvVersionFixture(candidate.candidateId());
+
+        ApplicationResponse app = applicationService.applyForJob(candidate.candidateId(), candidate.userId(),
+                ApplicationApplyRequest.builder().jobId(jobId).cvVersionId(cvId).build());
+
+        // Direct transition from new to offer violates state machine
+        assertThatThrownBy(() -> applicationService.updateStage(
+                app.getApplicationId(), employerId,
+                ApplicationStageUpdateRequest.builder().toStage("offer").reason("Skipping stages").build()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Invalid stage transition");
     }
 }
