@@ -44,4 +44,28 @@ public interface ApplicationRepository extends JpaRepository<com.matchajob.appli
      * Find all applications for a specific candidate, ordered by applied_at desc.
      */
     List<com.matchajob.application.model.ApplicationEntity> findByCandidateIdOrderByAppliedAtDesc(UUID candidateId);
+
+    /**
+     * Find paginated applications for a specific candidate.
+     */
+    org.springframework.data.domain.Page<com.matchajob.application.model.ApplicationEntity> findByCandidateId(
+            UUID candidateId, org.springframework.data.domain.Pageable pageable);
+
+    /**
+     * Find paginated applications for a specific candidate filtered by stage.
+     */
+    org.springframework.data.domain.Page<com.matchajob.application.model.ApplicationEntity> findByCandidateIdAndStage(
+            UUID candidateId, String stage, org.springframework.data.domain.Pageable pageable);
+
+    /**
+     * Find paginated applications for a specific job.
+     */
+    org.springframework.data.domain.Page<com.matchajob.application.model.ApplicationEntity> findByJobId(
+            UUID jobId, org.springframework.data.domain.Pageable pageable);
+
+    /**
+     * Find paginated applications for a specific job filtered by stage.
+     */
+    org.springframework.data.domain.Page<com.matchajob.application.model.ApplicationEntity> findByJobIdAndStage(
+            UUID jobId, String stage, org.springframework.data.domain.Pageable pageable);
 }
