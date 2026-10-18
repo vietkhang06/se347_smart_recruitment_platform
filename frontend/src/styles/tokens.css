@@ -864,11 +864,11 @@ select option {
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   color: var(--muted) !important;
-  font-size: 14.5px !important;
+  font-size: 15px !important;
   font-weight: 500;
-  padding: 0 16px !important;
+  padding: 0 20px !important;
   height: 100% !important;
   border-radius: 0;
   text-decoration: none;
@@ -877,6 +877,7 @@ select option {
   border: none;
   cursor: pointer;
   line-height: 1;
+  letter-spacing: -0.2px;
   transition: color 0.2s ease, background-color 0.2s ease;
 }
 
@@ -886,41 +887,45 @@ select option {
   background-color: var(--surface-2);
 }
 
-/* Icon ruột rỗng viền mảnh (outline icon): xuất hiện gọn gàng khi active hoặc hover */
+/* Icon ruột rỗng viền mảnh (outline icon): luôn hiển thị trang nhã, sắc nét, không bị giật layout */
 .header-nav-tab .tab-icon,
 .header-task-link .tab-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1;
-  opacity: 0;
-  max-width: 0;
-  margin-right: 0;
-  transform: scale(0.65);
-  transition: opacity 0.22s ease, max-width 0.22s ease, transform 0.22s ease, margin-right 0.22s ease;
-  overflow: hidden;
+  opacity: 0.82;
+  max-width: 22px;
+  margin-right: 2px;
+  transform: scale(1);
+  transition: opacity 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  overflow: visible;
   vertical-align: middle;
 }
 
 .header-nav-tab.active .tab-icon,
-.header-task-link.active .tab-icon,
+.header-task-link.active .tab-icon {
+  opacity: 1;
+  color: var(--primary) !important;
+  transform: scale(1.08);
+}
+
 .header-nav-tab:hover .tab-icon,
 .header-task-link:hover .tab-icon {
   opacity: 1;
-  max-width: 20px;
-  margin-right: 2px;
-  transform: scale(1);
+  color: var(--text);
+  transform: scale(1.04);
 }
 
-/* Gạch chân dưới tab đang active: TRÙNG KHỚP HOÀN TOÀN VỚI VIỀN DƯỚI HEADER (Hình 2) */
+/* Gạch chân dưới tab đang active: TRÙNG KHỚP HOÀN TOÀN VỚI VIỀN DƯỚI HEADER (bottom: 0) */
 .header-nav-tab::after,
 .header-task-link::after {
   content: "";
   position: absolute;
   bottom: 0; /* <<< TRÙNG KHỚP HOÀN TOÀN VỚI ĐƯỜNG VIỀN DƯỚI CỦA HEADER */
-  left: 6px;
-  right: 6px;
+  left: 10px;
+  right: 10px;
   height: 3px;
   border-radius: 3px 3px 0 0;
   background-color: var(--primary);
@@ -1114,6 +1119,42 @@ select option {
     border-radius: 6px !important;
     font-size: 13.5px !important;
     height: auto !important;
+  }
+}
+
+/* ========================================================
+   DESKTOP & LAPTOP HEADER DIMENSIONS (>= 1200px)
+   - Chiều cao 68px chuẩn thiết kế, khoảng đệm thoáng đãng
+   - Tab phân bổ rộng rãi, vạch active nằm cách xa chữ thanh lịch
+   ======================================================== */
+@media (min-width: 1200px) {
+  .navbar-matcha {
+    height: 68px !important;
+    min-height: 68px !important;
+  }
+  .navbar-matcha .container-fluid {
+    height: 68px !important;
+    min-height: 68px !important;
+  }
+  .navbar-matcha .navbar-collapse {
+    height: 100% !important;
+  }
+  .navbar-matcha .navbar-nav {
+    height: 100% !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+  }
+  .header-nav-tab,
+  .header-task-link,
+  .nav-hover-dropdown {
+    height: 68px !important;
+  }
+  .header-nav-tab {
+    padding: 0 20px !important;
+    font-size: 15px !important;
+  }
+  .nav-hover-dropdown .dropdown-menu {
+    top: 68px !important;
   }
 }
 

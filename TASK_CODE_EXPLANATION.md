@@ -24,7 +24,8 @@
    - [3.1. Bối cảnh & Vấn đề phát hiện khi kiểm thử đa độ phân giải](#31-bối-cảnh--vấn-đề-phát-hiện-khi-kiểm-thử-đa-độ-phân-giải)
    - [3.2. Sơ đồ cấu trúc Responsive Header & Layout Navigation](#32-sơ-đồ-cấu-trúc-responsive-header--layout-navigation)
    - [3.3. Chi tiết thay đổi Frontend (Header, Navigation & View Components)](#33-chi-tiết-thay-đổi-frontend-header-navigation--view-components)
-   - [3.4. Bảng tổng hợp các thay đổi của Task 6](#34-bảng-tổng-hợp-các-thay-đổi-của-task-6)
+   - [3.4. Tinh chỉnh Kích thước Header & Nhận diện Tab trên Màn hình Laptop (>= 1200px)](#34-tinh-chỉnh-kích-thước-header--nhận-diện-tab-trên-màn-hình-laptop--1200px)
+   - [3.5. Bảng tổng hợp các thay đổi của Task 6](#35-bảng-tổng-hợp-các-thay-đổi-của-task-6)
 
 ---
 
@@ -1012,14 +1013,102 @@ const handleEmployerTabClick = (key) => {
 
 ---
 
-### 3.4. Bảng tổng hợp các thay đổi của Task 6
+### 3.4. Tinh chỉnh Kích thước Header & Nhận diện Tab trên Màn hình Laptop (>= 1200px)
+
+#### 1. Bối cảnh & Vấn đề thực tế
+* Trên màn hình Laptop (độ phân giải 1366x768 hoặc viewport 1352x674), thanh Header bị co lại quá mỏng (chỉ khoảng ~46px - 48px) do thiếu chiều cao cố định trên Desktop.
+* **Hậu quả trực quan:**
+  1. Các tab ("Tổng quan", "Tuyển dụng", "Hồ sơ") bị dính sát nhau do khoảng cách chỉ 4px (`gap-1`), padding hẹp (`16px`).
+  2. Icon của các tab chưa active bị ẩn hoàn toàn (`opacity: 0; max-width: 0`), khiến tab "Tuyển dụng" và "Hồ sơ" chỉ còn lại dòng chữ xám mỏng manh, chìm nghỉm giữa header.
+  3. Khi rê chuột vào tab, icon đột ngột bung ra làm giật chữ sang bên phải (layout shift).
+  4. Vạch gạch chân active màu xanh dán sát sàn sạt ngay dưới chân chữ, tạo cảm giác chật chội, thiếu không gian thở (*breathing room*).
+
+---
+
+#### 2. Chi tiết Giải pháp Code đã triển khai
+
+##### A. Thiết lập Chiều cao Chuẩn 68px cho Header Laptop/Desktop: `tokens.css`
+```css
+@media (min-width: 1200px) {
+  .navbar-matcha {
+    height: 68px !important;
+    min-height: 68px !important;
+  }
+  .navbar-matcha .container-fluid {
+    height: 68px !important;
+    min-height: 68px !important;
+  }
+  .navbar-matcha .navbar-collapse {
+    height: 100% !important;
+  }
+  .navbar-matcha .navbar-nav {
+    height: 100% !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+  }
+  .header-nav-tab,
+  .header-task-link,
+  .nav-hover-dropdown {
+    height: 68px !important;
+  }
+  .header-nav-tab {
+    padding: 0 20px !important;
+    font-size: 15px !important;
+  }
+  .nav-hover-dropdown .dropdown-menu {
+    top: 68px !important;
+  }
+}
+```
+* **Lý do kỹ thuật:** Khi Header và các Tab cùng đạt chuẩn `68px`, chữ và icon được căn giữa hoàn hảo theo chiều dọc (`align-items: center`), còn vạch gạch chân `::after` (`bottom: 0`) nằm chính xác ở đường viền đáy 1px của Navbar, cách chân chữ khoảng 18px tạo nên phong cách thiết kế thoáng đãng, sang trọng.
+
+##### B. Luôn hiển thị Icon Tab trực quan, triệt tiêu Layout Shift: `tokens.css`
+```css
+.header-nav-tab .tab-icon,
+.header-task-link .tab-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  line-height: 1;
+  opacity: 0.82;
+  max-width: 22px;
+  margin-right: 2px;
+  transform: scale(1);
+  transition: opacity 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  overflow: visible;
+  vertical-align: middle;
+}
+
+.header-nav-tab.active .tab-icon,
+.header-task-link.active .tab-icon {
+  opacity: 1;
+  color: var(--primary) !important;
+  transform: scale(1.08);
+}
+```
+* **Lý do kỹ thuật:** Cả 3 tab ("Tổng quan", "Tuyển dụng", "Hồ sơ") luôn có biểu tượng rõ nét (📊, 💼, 📁), giúp người dùng nhận diện chức năng ngay lập tức mà không cần phải rê chuột, đồng thời loại bỏ hoàn toàn hiện tượng giật chữ khi hover.
+
+##### C. Ngăn chặn rớt dòng & Tăng khoảng cách tab: `Header.jsx`
+```jsx
+// 1. Chống rớt dòng trên Desktop
+<Container fluid className="px-3 px-xl-4 d-flex align-items-center flex-wrap flex-xl-nowrap h-100">
+
+// 2. Tăng khoảng cách giữa các tab trên màn hình lớn
+<Nav className="mx-auto align-items-stretch gap-1 gap-xl-2 gap-xxl-3 my-0 h-100 overflow-visible">
+```
+
+---
+
+### 3.5. Bảng tổng hợp các thay đổi của Task 6
 
 | Tệp tin | Vấn đề trước đó | Sau khi sửa đổi | Giá trị kỹ thuật đem lại |
 | :--- | :--- | :--- | :--- |
-| **`Header.jsx`** | Gán cứng `height: 64px`, giấu Theme & Avatar vào menu ẩn | Tách controls lên thanh trên, hỗ trợ `closeNav` | Đổi theme & xem profile 1 chạm, menu đóng mở mượt |
-| **`tokens.css`** | Thiếu media query menu mobile, dropdown hover không chạm được | Thêm card menu nổi, static in-flow, thụt lề rõ ràng | Không còn lỗi đè chữ lên trang, trải nghiệm cảm ứng hoàn hảo |
+| **`Header.jsx`** | Gán cứng `height: 64px`, giấu Theme & Avatar; thiếu khoảng cách tab trên desktop | Tách controls lên thanh trên, thêm `flex-xl-nowrap`, tăng gap tab `gap-xl-2 gap-xxl-3` | Đổi theme & xem profile 1 chạm, chống rớt dòng, tab thoáng đãng |
+| **`tokens.css`** | Header desktop bị co dẹp, tab thiếu icon khi chưa hover, vạch active sát chữ | Thiết lập chuẩn 68px trên `>= 1200px`, font 15px, padding 20px, icon tab luôn hiển thị | Header cao ráo, tab thể hiện rõ nét, vạch active cách xa chữ thanh lịch |
 | **`PipelineView.jsx`** | Thanh cuộn ngang mặc định thô sơ | Bổ sung `.kanban-board-row` touch scrolling | Vuốt Kanban trên điện thoại/tablet êm ái, thanh cuộn đẹp mắt |
 | **`CandidatesView.jsx`** | Dropdown cố định pixel 190px | Áp dụng `.filter-select-col` co giãn linh hoạt | Hiển thị 100% chiều ngang vừa vặn trên mọi kích thước điện thoại |
 | **`CompanyView.jsx`** | Nút đổi ảnh bìa bị dài trên màn hình 375px | Thêm class responsive `d-none d-sm-inline` | Nút gọn gàng "Đổi ảnh" trên mobile, không vỡ layout banner |
 
 ---
+

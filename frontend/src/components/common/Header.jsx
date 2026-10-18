@@ -125,7 +125,7 @@ export default function Header() {
       className="navbar-matcha sticky-top p-0 shadow-sm"
       style={{ zIndex: 1020 }}
     >
-      <Container fluid className="px-3 px-xl-4 d-flex align-items-center flex-wrap h-100">
+      <Container fluid className="px-3 px-xl-4 d-flex align-items-center flex-wrap flex-xl-nowrap h-100">
         {/* Brand / Logo */}
         <Navbar.Brand
           as={Link}
@@ -347,7 +347,7 @@ export default function Header() {
 
         {/* Central Nav Links (Gom nhóm, hover dropdown trên desktop, menu xổ xuống gọn gàng trên mobile) */}
         <Navbar.Collapse id="main-navbar-nav" className="order-xl-1 flex-grow-1">
-          <Nav className="mx-auto align-items-stretch gap-1 my-0 h-100 overflow-visible">
+          <Nav className="mx-auto align-items-stretch gap-1 gap-xl-2 gap-xxl-3 my-0 h-100 overflow-visible">
             {isEmployer ? (
               <>
                 {/* 1. Tổng quan */}
