@@ -1,10 +1,10 @@
 /* ========================================================
-   MAT पंतप्रधानB DESIGN TOKENS & SYSTEM STYLES
+   DESIGN TOKENS & SYSTEM STYLES
    Tương thích đồng thời với CSS thuần và Bootstrap 5
    ======================================================== */
 
 :root {
-  /* Bảng màu thương hiệu MatchaJob */
+  /* Bảng màu MatchaJob */
   --primary: #2d8653;
   --primary-hover: #246e43;
   --primary-soft: #ecfdf5;
@@ -46,14 +46,14 @@ body.dark,
   --shadow: 0 14px 36px rgba(0, 0, 0, 0.45);
 }
 
-/* ========================================================
-   <<< [MỤC 8] CHỖ TÙY CHỈNH THỜI GIAN CHUYỂN MÀU THEME TOÀN TRANG (CHỐNG CHÓI) >>>
+/*
+   THỜI GIAN CHUYỂN MÀU THEME TOÀN TRANG
    Thay đổi biến --theme-transition-duration bên dưới để tăng/giảm tốc độ chuyển màu.
-   Giá trị hiện tại: 0.75s (750ms) giúp màu nền & chữ đổi từ từ, không bị chói mắt.
-   ======================================================== */
+*/
 :root {
   --theme-transition-duration: 0.75s;
-  --toggle-duration: 0.5s; /* <<< [MỤC 1] THỜI GIAN ANIMATION NÚT GẠT SÁNG/TỐI */
+  --toggle-duration: 0.5s;
+  /*THỜI GIAN ANIMATION NÚT GẠT SÁNG/TỐI */
 }
 
 body {
@@ -64,7 +64,7 @@ body {
   min-height: 100vh;
 }
 
-/* Chuyển màu êm dịu đồng bộ cho tất cả thành phần giao diện khi đổi theme (không bị giật/chói) */
+/* đồng bộ cho tất cả thành phần giao diện khi đổi theme*/
 .navbar-matcha,
 .matcha-card,
 .card,
@@ -79,12 +79,12 @@ body {
 .header-nav-tab,
 .user-avatar-pill {
   transition: background-color var(--theme-transition-duration) ease,
-              color var(--theme-transition-duration) ease,
-              border-color var(--theme-transition-duration) ease,
-              box-shadow var(--theme-transition-duration) ease;
+    color var(--theme-transition-duration) ease,
+    border-color var(--theme-transition-duration) ease,
+    box-shadow var(--theme-transition-duration) ease;
 }
 
-/* Tùy biến nút Primary theo màu Matcha */
+/* Tùy biến nút Primary theo màu*/
 .btn-primary {
   background-color: var(--primary) !important;
   border-color: var(--primary) !important;
@@ -95,7 +95,8 @@ body {
   transition: all 0.2s ease;
 }
 
-.btn-primary:hover, .btn-primary:focus {
+.btn-primary:hover,
+.btn-primary:focus {
   background-color: var(--primary-hover) !important;
   border-color: var(--primary-hover) !important;
   transform: translateY(-1px);
@@ -126,7 +127,7 @@ body {
   box-shadow: var(--shadow);
 }
 
-/* Thẻ Badge/Chip phong cách Matcha */
+/* Thẻ Badge/Chip*/
 .badge-matcha {
   background-color: var(--primary-soft);
   color: var(--primary);
@@ -180,7 +181,7 @@ body {
   font-weight: 600;
 }
 
-/* Nút thả tim yêu thích */
+/* Nút thả tim*/
 .btn-fav {
   background: none;
   border: 1px solid var(--border);
@@ -222,10 +223,26 @@ body {
   align-items: center;
   gap: 4px;
 }
-.status-chip.is-success { background: rgba(22, 163, 74, 0.12); color: #16a34a; }
-.status-chip.is-warning { background: rgba(217, 119, 6, 0.12); color: #d97706; }
-.status-chip.is-danger  { background: rgba(239, 68, 68, 0.12); color: #ef4444; }
-.status-chip.is-neutral { background: rgba(100, 116, 139, 0.12); color: var(--muted); }
+
+.status-chip.is-success {
+  background: rgba(22, 163, 74, 0.12);
+  color: #16a34a;
+}
+
+.status-chip.is-warning {
+  background: rgba(217, 119, 6, 0.12);
+  color: #d97706;
+}
+
+.status-chip.is-danger {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+}
+
+.status-chip.is-neutral {
+  background: rgba(100, 116, 139, 0.12);
+  color: var(--muted);
+}
 
 /* Animation Timeline cho Ứng viên */
 .timeline-step {
@@ -233,6 +250,7 @@ body {
   padding-bottom: 1.5rem;
   padding-left: 2rem;
 }
+
 .timeline-step::before {
   content: "";
   position: absolute;
@@ -242,9 +260,11 @@ body {
   width: 2px;
   background: var(--border);
 }
+
 .timeline-step:last-child::before {
   display: none;
 }
+
 .timeline-dot {
   position: absolute;
   left: 0;
@@ -254,10 +274,12 @@ body {
   border-radius: 50%;
   background: var(--muted);
 }
+
 .timeline-step.completed .timeline-dot {
   background: var(--primary);
   box-shadow: 0 0 0 3px var(--primary-soft);
 }
+
 .timeline-step.completed::before {
   background: var(--primary);
 }
@@ -283,18 +305,20 @@ body {
   display: flex;
   flex-direction: column;
 }
+
 .kanban-card {
   background-color: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 12px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
+
 .kanban-card:hover {
   transform: translateY(-2px);
   border-color: var(--primary);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 /* WYSIWYG Mini Toolbar & Editor */
@@ -303,6 +327,7 @@ body {
   gap: 6px;
   align-items: center;
 }
+
 .toolbar-btn {
   background: var(--surface-2);
   border: 1px solid var(--border);
@@ -317,11 +342,13 @@ body {
   gap: 4px;
   transition: all 0.15s ease;
 }
+
 .toolbar-btn:hover {
   background: var(--primary-soft);
   color: var(--primary);
   border-color: var(--primary);
 }
+
 .rich-editor-box {
   min-height: 120px;
   max-height: 240px;
@@ -333,11 +360,13 @@ body {
   color: var(--text);
   line-height: 1.6;
 }
+
 .rich-editor-box:focus {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px var(--primary-soft);
 }
+
 .rich-editor-box ul {
   padding-left: 20px;
   margin-bottom: 0;
@@ -351,13 +380,18 @@ body {
 }
 
 .composer-custom-dialog .modal-content {
-  width: 860px; /* Độ rộng ban đầu */
-  min-width: 580px; /* Giới hạn co nhỏ tối thiểu để không gãy form */
-  max-width: 95vw; /* Giới hạn độ rộng tối đa theo màn hình */
+  width: 860px;
+  /* Độ rộng ban đầu */
+  min-width: 580px;
+  /* Giới hạn co nhỏ tối thiểu để không gãy form */
+  max-width: 95vw;
+  /* Giới hạn độ rộng tối đa theo màn hình */
   min-height: 520px;
   max-height: 92vh;
-  resize: both; /* Cho phép người dùng kéo giãn cả 2 chiều */
-  overflow: hidden; /* Bắt buộc để trình duyệt hiện resize handle ở góc */
+  resize: both;
+  /* Cho phép người dùng kéo giãn cả 2 chiều */
+  overflow: hidden;
+  /* Bắt buộc để trình duyệt hiện resize handle ở góc */
   display: flex;
   flex-direction: column;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25);
@@ -377,6 +411,7 @@ body {
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   user-select: none;
 }
+
 .composer-draft-badge:hover {
   background-color: var(--primary) !important;
   color: #fff !important;
@@ -390,11 +425,13 @@ body {
     max-width: 96% !important;
     margin: 0.5rem auto;
   }
+
   .composer-custom-dialog .modal-content {
     width: 100% !important;
     min-width: 100% !important;
     max-width: 100% !important;
-    resize: none; /* Thiết bị di động không cần resize */
+    resize: none;
+    /* Thiết bị di động không cần resize */
   }
 }
 
@@ -404,9 +441,11 @@ body {
     opacity: 0;
     transform: translateY(10px) scale(0.88);
   }
+
   60% {
     transform: translateY(-2px) scale(1.02);
   }
+
   100% {
     opacity: 1;
     transform: translateY(0) scale(1);
@@ -418,6 +457,7 @@ body {
     opacity: 0;
     transform: translateY(-8px) scale(0.88);
   }
+
   100% {
     opacity: 1;
     transform: translateY(0) scale(1);
@@ -438,6 +478,7 @@ body {
   animation: tagFlyUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   transition: all 0.2s ease;
 }
+
 .tag-chip:hover {
   border-color: var(--primary);
   box-shadow: 0 2px 6px rgba(45, 134, 83, 0.15);
@@ -454,6 +495,7 @@ body {
   opacity: 0.7;
   transition: opacity 0.15s ease, transform 0.15s ease;
 }
+
 .tag-chip-remove:hover {
   opacity: 1;
   transform: scale(1.2);
@@ -474,6 +516,7 @@ body {
   transition: all 0.2s ease;
   user-select: none;
 }
+
 .suggest-chip:hover {
   background: var(--primary-soft);
   color: var(--primary);
@@ -511,6 +554,7 @@ body {
     opacity: 0;
     transform: translateY(-6px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -574,6 +618,7 @@ body {
   border-left: 4px solid var(--primary);
   padding-left: 12px;
 }
+
 .summary-icon-row {
   display: flex;
   align-items: flex-start;
@@ -583,6 +628,7 @@ body {
   border-radius: 8px;
   border: 1px solid var(--border);
 }
+
 .summary-icon {
   font-size: 20px;
   line-height: 1;
@@ -597,35 +643,42 @@ body {
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 }
+
 .priority-alert-card:hover {
   transform: translateX(4px);
   box-shadow: var(--shadow-sm);
   background: var(--surface);
 }
+
 .priority-alert-card.danger {
   border-left: 4px solid #ef4444;
   background: rgba(239, 68, 68, 0.04);
 }
+
 .priority-alert-card.warning {
   border-left: 4px solid #f59e0b;
   background: rgba(245, 158, 11, 0.04);
 }
+
 .priority-alert-card.info {
   border-left: 4px solid #3b82f6;
   background: rgba(59, 130, 246, 0.04);
 }
+
 [data-bs-theme="dark"] .priority-alert-card.danger,
 body.dark .priority-alert-card.danger {
   background: rgba(239, 68, 68, 0.08);
   border-color: rgba(239, 68, 68, 0.25);
   border-left: 4px solid #ef4444;
 }
+
 [data-bs-theme="dark"] .priority-alert-card.warning,
 body.dark .priority-alert-card.warning {
   background: rgba(245, 158, 11, 0.08);
   border-color: rgba(245, 158, 11, 0.25);
   border-left: 4px solid #f59e0b;
 }
+
 [data-bs-theme="dark"] .priority-alert-card.info,
 body.dark .priority-alert-card.info {
   background: rgba(59, 130, 246, 0.08);
@@ -633,22 +686,39 @@ body.dark .priority-alert-card.info {
   border-left: 4px solid #3b82f6;
 }
 
-.alert-title-danger { color: #dc2626; }
-.alert-title-warning { color: #d97706; }
-.alert-title-info { color: #2563eb; }
-[data-bs-theme="dark"] .alert-title-danger,
-body.dark .alert-title-danger { color: #f87171 !important; }
-[data-bs-theme="dark"] .alert-title-warning,
-body.dark .alert-title-warning { color: #fbbf24 !important; }
-[data-bs-theme="dark"] .alert-title-info,
-body.dark .alert-title-info { color: #60a5fa !important; }
+.alert-title-danger {
+  color: #dc2626;
+}
 
-/* ========================================================
-   <<< [MỤC 1] THEME TOGGLE SLIDING SWITCH (LIGHT / DARK) >>>
-   Chỗ tùy chỉnh thời gian animation của nút gạt:
+.alert-title-warning {
+  color: #d97706;
+}
+
+.alert-title-info {
+  color: #2563eb;
+}
+
+[data-bs-theme="dark"] .alert-title-danger,
+body.dark .alert-title-danger {
+  color: #f87171 !important;
+}
+
+[data-bs-theme="dark"] .alert-title-warning,
+body.dark .alert-title-warning {
+  color: #fbbf24 !important;
+}
+
+[data-bs-theme="dark"] .alert-title-info,
+body.dark .alert-title-info {
+  color: #60a5fa !important;
+}
+
+/*
+   THEME TOGGLE SLIDING SWITCH (LIGHT / DARK)
+   tùy chỉnh thời gian animation của nút gạt:
    - Dùng biến CSS: --toggle-duration (hiện tại đặt là 0.5s ở đầu file tokens.css)
    - Hoặc chỉnh trực tiếp thời gian ở thuộc tính 'transition' của .theme-toggle-thumb bên dưới.
-   ======================================================== */
+*/
 .theme-toggle-switch {
   position: relative;
   display: inline-flex;
@@ -661,16 +731,17 @@ body.dark .alert-title-info { color: #60a5fa !important; }
   padding: 3px;
   cursor: pointer;
   outline: none;
-  /* <<< TÙY CHỈNH THỜI GIAN ĐỔI MÀU KHUNG SWITCH TẠI ĐÂY >>> */
   transition: background-color var(--toggle-duration, 0.5s) ease,
-              border-color var(--toggle-duration, 0.5s) ease,
-              box-shadow 0.2s ease;
+    border-color var(--toggle-duration, 0.5s) ease,
+    box-shadow 0.2s ease;
   user-select: none;
 }
+
 .theme-toggle-switch:hover {
   border-color: var(--primary);
   box-shadow: 0 0 0 2px var(--primary-soft);
 }
+
 .theme-toggle-track {
   position: absolute;
   top: 0;
@@ -684,14 +755,17 @@ body.dark .alert-title-info { color: #60a5fa !important; }
   pointer-events: none;
   font-size: 11.5px;
 }
+
 .theme-icon-sun {
   color: #f59e0b;
   opacity: 0.85;
 }
+
 .theme-icon-moon {
   color: #94a3b8;
   opacity: 0.85;
 }
+
 .theme-toggle-thumb {
   position: relative;
   z-index: 2;
@@ -705,31 +779,33 @@ body.dark .alert-title-info { color: #60a5fa !important; }
   justify-content: center;
   font-size: 12px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18), 0 1px 2px rgba(0, 0, 0, 0.08);
-  /* ========================================================
-     <<< [MỤC 1] DÒNG TRANSITION QUYẾT ĐỊNH TỐC ĐỘ TRƯỢT NÚT GẠT >>>
+  /* DÒNG TRANSITION QUYẾT ĐỊNH TỐC ĐỘ TRƯỢT NÚT GẠT
      Đang đặt thời gian là var(--toggle-duration, 0.5s).
-     Bạn có thể thay đổi biến --toggle-duration ở dòng 55 hoặc sửa trực tiếp số giây tại đây (VD: 0.6s, 0.7s)
-     ======================================================== */
+     có thể thay đổi biến --toggle-duration ở dòng 55 hoặc sửa trực tiếp số giây tại đây
+  */
   transition: transform var(--toggle-duration, 0.5s) cubic-bezier(0.34, 1.25, 0.64, 1),
-              background-color var(--toggle-duration, 0.5s) ease,
-              color var(--toggle-duration, 0.5s) ease,
-              box-shadow var(--toggle-duration, 0.5s) ease;
+    background-color var(--toggle-duration, 0.5s) ease,
+    color var(--toggle-duration, 0.5s) ease,
+    box-shadow var(--toggle-duration, 0.5s) ease;
   transform: translateX(0);
 }
 
-/* Dark mode: khung màu xanh slate đậm, thumb trắng nổi bật với icon trăng sao xanh dương (Hình 1) */
+/* Dark mode*/
 .theme-toggle-switch.is-dark {
   background: #475569;
   border-color: #334155;
 }
+
 .theme-toggle-switch.is-dark .theme-icon-sun {
   color: #94a3b8;
   opacity: 0.5;
 }
+
 .theme-toggle-switch.is-dark .theme-icon-moon {
   color: #93c5fd;
   opacity: 0.85;
 }
+
 .theme-toggle-switch.is-dark .theme-toggle-thumb {
   transform: translateX(30px);
   background: #ffffff;
@@ -744,6 +820,7 @@ body.dark .alert-title-info { color: #60a5fa !important; }
   border-radius: 50%;
   display: inline-block;
 }
+
 .service-dot.online {
   background-color: #16a34a;
   box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.2);
@@ -756,6 +833,7 @@ body.dark .alert-title-info { color: #60a5fa !important; }
   background: linear-gradient(135deg, #10b981 0%, #047857 50%, #064e3b 100%);
   position: relative;
 }
+
 .company-avatar-overlap {
   width: 72px;
   height: 72px;
@@ -774,11 +852,7 @@ body.dark .alert-title-info { color: #60a5fa !important; }
   color: var(--primary);
 }
 
-/* ========================================================
-   <<< [MỤC 7] TÙY CHỈNH COMBOBOX / SELECT TOÀN DIỆN >>>
-   Đồng bộ giao diện MatchaJob cao cấp, viền bo tròn mềm mại,
-   mũi tên chevron xanh Matcha, hiệu ứng focus/hover dịu mắt.
-   ======================================================== */
+/*COMBOBOX*/
 .form-select,
 select.form-control,
 select {
@@ -850,15 +924,7 @@ select option {
   padding: 8px 12px;
 }
 
-/* ========================================================
-   <<< [MỤC 2, 3, 6, 9] HEADER TABS, HOVER DROPDOWN & HIGHLIGHT >>>
-/* ========================================================
-   <<< [MỤC 2, 3, 6, 9] HEADER TABS, HOVER DROPDOWN & HIGHLIGHT >>>
-   - [Mục 2] Kích thước thoáng, dễ nhìn, cao 64px
-   - [Mục 3] Menu hover tự động xổ xuống dần, đóng ngay khi click
-   - [Mục 6] Avatar profile pill & nút theme cân đối thẳng hàng, ẩn caret thừa
-   - [Mục 9] Active highlight: viền gạch dưới TRÙNG VỚI VIỀN DƯỚI HEADER (bottom: 0)
-   ======================================================== */
+/*HEADER TABS, HOVER DROPDOWN*/
 .header-nav-tab,
 .header-task-link {
   position: relative;
@@ -887,43 +953,45 @@ select option {
   background-color: var(--surface-2);
 }
 
-/* Icon ruột rỗng viền mảnh (outline icon): luôn hiển thị trang nhã, sắc nét, không bị giật layout */
 .header-nav-tab .tab-icon,
 .header-task-link .tab-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1;
-  opacity: 0.82;
-  max-width: 22px;
-  margin-right: 2px;
-  transform: scale(1);
-  transition: opacity 0.2s ease, color 0.2s ease, transform 0.2s ease;
-  overflow: visible;
+  opacity: 0;
+  max-width: 0;
+  margin-right: 0;
+  transform: scale(0.65);
+  transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              max-width 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              margin-right 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
   vertical-align: middle;
-}
-
-.header-nav-tab.active .tab-icon,
-.header-task-link.active .tab-icon {
-  opacity: 1;
-  color: var(--primary) !important;
-  transform: scale(1.08);
+  pointer-events: none;
 }
 
 .header-nav-tab:hover .tab-icon,
 .header-task-link:hover .tab-icon {
   opacity: 1;
+  max-width: 20px;
+  margin-right: 4px;
+  transform: scale(1);
   color: var(--text);
-  transform: scale(1.04);
 }
 
-/* Gạch chân dưới tab đang active: TRÙNG KHỚP HOÀN TOÀN VỚI VIỀN DƯỚI HEADER (bottom: 0) */
+.header-nav-tab.active:hover .tab-icon,
+.header-task-link.active:hover .tab-icon {
+  color: var(--primary) !important;
+}
+
 .header-nav-tab::after,
 .header-task-link::after {
   content: "";
   position: absolute;
-  bottom: 0; /* <<< TRÙNG KHỚP HOÀN TOÀN VỚI ĐƯỜNG VIỀN DƯỚI CỦA HEADER */
+  bottom: 0;
   left: 10px;
   right: 10px;
   height: 3px;
@@ -947,17 +1015,15 @@ select option {
   transform: scaleX(1);
 }
 
-/* Dropdown arrow xoay êm khi hover */
+/* Dropdown arrow khi hover */
 .header-nav-tab .dropdown-arrow {
   transition: transform 0.2s ease;
 }
+
 .nav-hover-dropdown:hover .header-nav-tab .dropdown-arrow {
   transform: rotate(180deg);
 }
 
-/* ========================================================
-   HOVER DROPDOWN MENU WITH SMOOTH SLIDE-DOWN ANIMATION
-   ======================================================== */
 .nav-hover-dropdown {
   position: relative;
   display: inline-flex;
@@ -971,8 +1037,8 @@ select option {
   visibility: hidden;
   transform: translateY(6px);
   transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1),
-              transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
-              visibility 0.2s ease;
+    transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0.2s ease;
   pointer-events: none;
   min-width: 210px;
   border-radius: 12px;
@@ -985,7 +1051,6 @@ select option {
   z-index: 1050;
 }
 
-/* Cầu nối vô hình giúp chuột di chuyển mượt mà vào menu không bị mất hover */
 .nav-hover-dropdown .dropdown-menu::before {
   content: "";
   position: absolute;
@@ -995,7 +1060,6 @@ select option {
   height: 6px;
 }
 
-/* CHỈ HIỆN KHI HOVER - TỰ ĐỘNG ĐÓNG KHI NGƯNG HOVER (RỜI CHUỘT) */
 .nav-hover-dropdown:hover .dropdown-menu {
   opacity: 1;
   visibility: visible;
@@ -1021,6 +1085,7 @@ select option {
   text-align: left;
 }
 
+/*hover dropdown item*/
 .nav-hover-dropdown .dropdown-item:hover {
   background-color: var(--surface-2) !important;
   color: var(--primary) !important;
@@ -1034,19 +1099,19 @@ select option {
   font-weight: 600;
 }
 
-/* ========================================================
-   RESPONSIVE HEADER & MOBILE COLLAPSE NAVIGATION (< 1200px)
-   ======================================================== */
+/*RESPONSIVE HEADER & MOBILE COLLAPSE NAVIGATION (< 1200px)*/
 @media (max-width: 1199px) {
   .navbar-matcha {
     min-height: 64px;
     height: auto !important;
   }
+
   .navbar-matcha .container-fluid {
     padding-top: 8px;
     padding-bottom: 8px;
     min-height: 64px;
   }
+
   .navbar-matcha .navbar-collapse {
     width: 100%;
     background-color: var(--surface);
@@ -1057,10 +1122,12 @@ select option {
     margin-bottom: 8px;
     box-shadow: 0 16px 36px rgba(0, 0, 0, 0.16);
   }
+
   [data-bs-theme="dark"] .navbar-matcha .navbar-collapse,
   body.dark .navbar-matcha .navbar-collapse {
     box-shadow: 0 16px 36px rgba(0, 0, 0, 0.55);
   }
+
   .navbar-matcha .navbar-collapse .nav {
     flex-direction: column !important;
     align-items: stretch !important;
@@ -1068,6 +1135,7 @@ select option {
     height: auto !important;
     width: 100%;
   }
+
   .header-nav-tab {
     height: 42px !important;
     border-radius: 8px !important;
@@ -1076,28 +1144,34 @@ select option {
     width: 100% !important;
     font-size: 14px !important;
   }
+
   .header-nav-tab::after {
     display: none !important;
   }
+
   .header-nav-tab.active {
     background-color: var(--primary-soft) !important;
     color: var(--primary) !important;
   }
+
   .header-nav-tab .tab-icon {
     opacity: 1 !important;
     max-width: 20px !important;
     margin-right: 8px !important;
     transform: scale(1) !important;
   }
+
   .nav-hover-dropdown {
     width: 100% !important;
     flex-direction: column !important;
     align-items: stretch !important;
     height: auto !important;
   }
+
   .nav-hover-dropdown .header-nav-tab .dropdown-arrow {
     margin-left: auto !important;
   }
+
   .nav-hover-dropdown .dropdown-menu {
     position: static !important;
     transform: none !important;
@@ -1114,6 +1188,7 @@ select option {
     padding: 6px !important;
     width: calc(100% - 12px) !important;
   }
+
   .nav-hover-dropdown .dropdown-item {
     padding: 8px 12px !important;
     border-radius: 6px !important;
@@ -1122,73 +1197,76 @@ select option {
   }
 }
 
-/* ========================================================
-   DESKTOP & LAPTOP HEADER DIMENSIONS (>= 1200px)
-   - Chiều cao 68px chuẩn thiết kế, khoảng đệm thoáng đãng
-   - Tab phân bổ rộng rãi, vạch active nằm cách xa chữ thanh lịch
-   ======================================================== */
+/*DESKTOP & LAPTOP HEADER DIMENSIONS*/
 @media (min-width: 1200px) {
   .navbar-matcha {
     height: 68px !important;
     min-height: 68px !important;
   }
+
   .navbar-matcha .container-fluid {
     height: 68px !important;
     min-height: 68px !important;
   }
+
   .navbar-matcha .navbar-collapse {
     height: 100% !important;
   }
+
   .navbar-matcha .navbar-nav {
     height: 100% !important;
     align-items: stretch !important;
     gap: 8px !important;
   }
+
   .header-nav-tab,
   .header-task-link,
   .nav-hover-dropdown {
     height: 68px !important;
   }
+
   .header-nav-tab {
     padding: 0 20px !important;
     font-size: 15px !important;
   }
+
   .nav-hover-dropdown .dropdown-menu {
     top: 68px !important;
   }
 }
 
-/* ========================================================
-   RESPONSIVE KANBAN BOARD SCROLLBAR & TOUCH POLISH
-   ======================================================== */
+/*RESPONSIVE KANBAN BOARD SCROLLBAR & TOUCH POLISH*/
 .kanban-board-row {
   -webkit-overflow-scrolling: touch;
   scroll-behavior: smooth;
   scrollbar-width: thin;
   scrollbar-color: var(--primary) var(--surface-2);
 }
+
 .kanban-board-row::-webkit-scrollbar {
   height: 8px;
 }
+
 .kanban-board-row::-webkit-scrollbar-track {
   background: var(--surface-2);
   border-radius: 9999px;
 }
+
 .kanban-board-row::-webkit-scrollbar-thumb {
   background: var(--border);
   border-radius: 9999px;
 }
+
 .kanban-board-row::-webkit-scrollbar-thumb:hover {
   background: var(--primary);
 }
 
-/* ========================================================
-   RESPONSIVE FILTER COLUMNS ON TABLET / MOBILE
-   ======================================================== */
+/*RESPONSIVE FILTER COLUMNS ON TABLET / MOBILE*/
 .filter-select-col {
   flex: 1 1 180px;
   min-width: 150px;
 }
+
 @media (max-width: 576px) {
   .filter-select-col {
     flex: 1 1 100% !important;
@@ -1196,16 +1274,13 @@ select option {
   }
 }
 
-/* ========================================================
-   CÂN ĐỐI NÚT THEME SWITCH VÀ AVATAR PILL (BỎ CARET THỪA)
-   ======================================================== */
+/*CÂN ĐỐI NÚT THEME SWITCH VÀ AVATAR PILL*/
 .user-profile-nav-dropdown {
   display: flex;
   align-items: center;
   height: 100%;
 }
 
-/* Ẩn dấu tam giác mặc định của Bootstrap dropdown */
 .user-profile-nav-dropdown .dropdown-toggle::after,
 .user-profile-nav-dropdown .dropdown-toggle::before,
 .navbar-matcha .dropdown-toggle::after {
@@ -1241,9 +1316,7 @@ select option {
   background-color: var(--surface);
 }
 
-/* ========================================================
-   PROFILE DROPDOWN MENU (MODERN SPH / DRIBBBLE STYLE)
-   ======================================================== */
+/*PROFILE DROPDOWN MENU*/
 .user-profile-nav-dropdown .dropdown-menu {
   min-width: 255px !important;
   border-radius: 18px !important;
@@ -1261,7 +1334,7 @@ body.dark .user-profile-nav-dropdown .dropdown-menu {
   box-shadow: 0 20px 48px rgba(0, 0, 0, 0.55), 0 4px 16px rgba(0, 0, 0, 0.25) !important;
 }
 
-/* Gradient Ring cho Avatar (giống ảnh mẫu) */
+/* Gradient Ring cho Avatar*/
 .avatar-gradient-ring {
   width: 40px;
   height: 40px;
@@ -1333,7 +1406,7 @@ body.dark .user-profile-nav-dropdown .dropdown-menu {
   color: inherit;
 }
 
-/* Badge Gói dịch vụ hiện tại (Pill ● PRO / GROWTH) */
+/* Badge Gói dịch vụ hiện tại*/
 .profile-plan-pill {
   font-size: 10.5px;
   font-weight: 700;
@@ -1358,10 +1431,7 @@ body.dark .profile-plan-pill {
   color: #4ade80;
 }
 
-/* ========================================================
-   THEME-AWARE FILTER PILLS (LIGHT & DARK MODE)
-   Khắc phục chói mắt, hỗ trợ focus dịu nhẹ
-   ======================================================== */
+/*THEME-AWARE FILTER PILLS*/
 .filter-pill {
   background-color: var(--surface-2) !important;
   color: var(--muted) !important;
@@ -1409,11 +1479,7 @@ body.dark .profile-plan-pill {
   color: #ffffff !important;
 }
 
-/* ========================================================
-   MATCHA THEME-AWARE TABLE
-   Xóa bỏ table-light gây chói trắng ở dark mode,
-   chữ vừa vặn, không quá to, hàng gọn gàng
-   ======================================================== */
+/*MATCHA TABLE*/
 .matcha-table {
   font-size: 13px !important;
 }
@@ -1462,11 +1528,7 @@ body.dark .profile-plan-pill {
   font-size: 11.5px !important;
 }
 
-/* ========================================================
-   ENHANCED ACCESSIBLE CHECKBOXES (LIGHT & DARK MODE)
-   Tăng kích thước từ 13px -> 19px, viền 2px Slate đậm nét,
-   nền sáng rõ, căn giữa ô cột và tương thích hoàn hảo Light/Dark Mode.
-   ======================================================== */
+/*ENHANCED ACCESSIBLE CHECKBOXES*/
 .matcha-table th.table-check-col,
 .matcha-table td.table-check-col,
 .matcha-table th:has(.form-check),
@@ -1485,10 +1547,12 @@ body.dark .profile-plan-pill {
 .matcha-table tbody td.text-start {
   text-align: left !important;
 }
+
 .matcha-table thead th.text-end,
 .matcha-table tbody td.text-end {
   text-align: right !important;
 }
+
 .matcha-table thead th.text-center,
 .matcha-table tbody td.text-center {
   text-align: center !important;
@@ -1512,7 +1576,7 @@ body.dark .profile-plan-pill {
   height: 19px !important;
   min-width: 19px !important;
   min-height: 19px !important;
-  border: 2px solid #94a3b8 !important; /* Viền xám đậm Slate-400 tương phản cao trên nền sáng */
+  border: 2px solid #94a3b8 !important;
   background-color: var(--surface, #ffffff) !important;
   border-radius: 5px !important;
   cursor: pointer !important;
@@ -1540,12 +1604,12 @@ body.dark .profile-plan-pill {
   background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='M6 10h8'/%3e%3c/svg%3e") !important;
 }
 
-/* Dark mode cho ô Checkbox */
+/*Dark mode cho ô Checkbox*/
 [data-bs-theme="dark"] .matcha-table .form-check-input,
 body.dark .matcha-table .form-check-input,
 [data-bs-theme="dark"] .matcha-checkbox,
 body.dark .matcha-checkbox {
-  border-color: #64748b !important; /* Viền sáng rõ Slate-500 trên nền dark mode */
+  border-color: #64748b !important;
   background-color: var(--surface-2, #1e293b) !important;
 }
 
@@ -1569,11 +1633,7 @@ body.dark .matcha-checkbox:indeterminate {
   border-color: var(--primary, #3fb978) !important;
 }
 
-/* ========================================================
-   MATCHA STATUS BADGES (SYNCHRONIZED HARMONIOUS PALETTE)
-   Không bị quá đậm (như solid bg), không bị quá nhạt (như opacity-10 text-body),
-   đẹp mắt hài hòa trên cả Light Mode & Dark Mode.
-   ======================================================== */
+/*MATCHA STATUS BADGES*/
 .status-badge {
   display: inline-flex;
   align-items: center;
@@ -1587,12 +1647,13 @@ body.dark .matcha-checkbox:indeterminate {
   white-space: nowrap;
 }
 
-/* Biến thể Xanh lá (Đang tuyển, Đã xác nhận, Đã thanh toán, Hoàn thành) */
+/*Biến thể Xanh lá*/
 .status-badge-success {
   background-color: rgba(34, 197, 94, 0.15) !important;
   color: #15803d !important;
   border: 1px solid rgba(34, 197, 94, 0.3) !important;
 }
+
 [data-bs-theme="dark"] .status-badge-success,
 body.dark .status-badge-success {
   background-color: rgba(34, 197, 94, 0.22) !important;
@@ -1600,12 +1661,13 @@ body.dark .status-badge-success {
   border-color: rgba(74, 222, 128, 0.35) !important;
 }
 
-/* Biến thể Xanh lam / Cyan (Mới, Đang kích hoạt) */
+/*Biến thể Xanh lam / Cyan*/
 .status-badge-info {
   background-color: rgba(14, 165, 233, 0.15) !important;
   color: #0284c7 !important;
   border: 1px solid rgba(14, 165, 233, 0.3) !important;
 }
+
 [data-bs-theme="dark"] .status-badge-info,
 body.dark .status-badge-info {
   background-color: rgba(14, 165, 233, 0.22) !important;
@@ -1613,12 +1675,13 @@ body.dark .status-badge-info {
   border-color: rgba(56, 189, 248, 0.35) !important;
 }
 
-/* Biến thể Tím / Purple (Sàng lọc, Đánh giá) */
+/*Biến thể Tím*/
 .status-badge-purple {
   background-color: rgba(168, 85, 247, 0.15) !important;
   color: #7e22ce !important;
   border: 1px solid rgba(168, 85, 247, 0.3) !important;
 }
+
 [data-bs-theme="dark"] .status-badge-purple,
 body.dark .status-badge-purple {
   background-color: rgba(168, 85, 247, 0.22) !important;
@@ -1626,12 +1689,13 @@ body.dark .status-badge-purple {
   border-color: rgba(192, 132, 252, 0.35) !important;
 }
 
-/* Biến thể Xanh dương / Tím (Sắp diễn ra, Phỏng vấn) */
+/*Biến thể Xanh dương*/
 .status-badge-primary {
   background-color: rgba(59, 130, 246, 0.15) !important;
   color: #1d4ed8 !important;
   border: 1px solid rgba(59, 130, 246, 0.3) !important;
 }
+
 [data-bs-theme="dark"] .status-badge-primary,
 body.dark .status-badge-primary {
   background-color: rgba(59, 130, 246, 0.22) !important;
@@ -1639,12 +1703,13 @@ body.dark .status-badge-primary {
   border-color: rgba(96, 165, 250, 0.35) !important;
 }
 
-/* Biến thể Vàng cam (Chờ duyệt, Chờ xác nhận, Bài kiểm tra) */
+/* Biến thể Vàng cam*/
 .status-badge-warning {
   background-color: rgba(245, 158, 11, 0.15) !important;
   color: #b45309 !important;
   border: 1px solid rgba(245, 158, 11, 0.3) !important;
 }
+
 [data-bs-theme="dark"] .status-badge-warning,
 body.dark .status-badge-warning {
   background-color: rgba(245, 158, 11, 0.22) !important;
@@ -1652,12 +1717,13 @@ body.dark .status-badge-warning {
   border-color: rgba(251, 191, 36, 0.35) !important;
 }
 
-/* Biến thể Trung tính / Xám (Tạm dừng, Hoàn tất, Lưu trữ) */
+/* Biến thể Trung tính / Xám*/
 .status-badge-secondary {
   background-color: rgba(148, 163, 184, 0.16) !important;
   color: #475569 !important;
   border: 1px solid rgba(148, 163, 184, 0.3) !important;
 }
+
 [data-bs-theme="dark"] .status-badge-secondary,
 body.dark .status-badge-secondary {
   background-color: rgba(148, 163, 184, 0.22) !important;
@@ -1665,12 +1731,13 @@ body.dark .status-badge-secondary {
   border-color: rgba(203, 213, 225, 0.35) !important;
 }
 
-/* Biến thể Đỏ (Đã đóng, Đã hủy, Từ chối) */
+/* Biến thể Đỏ*/
 .status-badge-danger {
   background-color: rgba(239, 68, 68, 0.15) !important;
   color: #b91c1c !important;
   border: 1px solid rgba(239, 68, 68, 0.3) !important;
 }
+
 [data-bs-theme="dark"] .status-badge-danger,
 body.dark .status-badge-danger {
   background-color: rgba(239, 68, 68, 0.22) !important;
@@ -1700,9 +1767,7 @@ body.dark .status-badge-danger {
   font-weight: 600 !important;
 }
 
-/* ========================================================
-   THEME-AWARE MINI CALENDAR WIDGET (LIGHT & DARK MODE)
-   ======================================================== */
+/*MINI CALENDAR WIDGET*/
 .matcha-calendar-popover {
   background-color: var(--surface) !important;
   color: var(--text) !important;
@@ -1789,10 +1854,7 @@ body.dark .status-badge-danger {
   color: var(--primary) !important;
 }
 
-/* ========================================================
-   BILLING & INVOICES ENHANCED STYLING
-   Hiệu ứng mã hóa đơn, phân biệt nhận diện các gói dịch vụ
-   ======================================================== */
+/*BILLING & INVOICES STYLING*/
 .invoice-code-badge {
   display: inline-flex;
   align-items: center;
@@ -1819,7 +1881,7 @@ body.dark .status-badge-danger {
   box-shadow: 0 2px 8px rgba(34, 197, 94, 0.15);
 }
 
-/* Plan Badges - Nhận diện màu sắc và icon riêng biệt cho từng gói */
+/* Plan Badges*/
 .plan-pill {
   display: inline-flex;
   align-items: center;
@@ -1837,13 +1899,14 @@ body.dark .status-badge-danger {
   transform: scale(1.05);
 }
 
-/* Gói Growth (Đặc trưng MatchaJob) */
+/* Gói Growth*/
 .plan-pill-growth {
   background-color: rgba(34, 197, 94, 0.12);
   color: #15803d;
   border: 1px solid rgba(34, 197, 94, 0.35);
   box-shadow: 0 1px 4px rgba(34, 197, 94, 0.08);
 }
+
 [data-bs-theme="dark"] .plan-pill-growth,
 body.dark .plan-pill-growth {
   background-color: rgba(34, 197, 94, 0.22);
@@ -1851,12 +1914,13 @@ body.dark .plan-pill-growth {
   border-color: rgba(74, 222, 128, 0.4);
 }
 
-/* Gói Starter (Gói cơ bản / khởi động) */
+/* Gói Starter*/
 .plan-pill-starter {
   background-color: rgba(148, 163, 184, 0.15);
   color: #475569;
   border: 1px solid rgba(148, 163, 184, 0.35);
 }
+
 [data-bs-theme="dark"] .plan-pill-starter,
 body.dark .plan-pill-starter {
   background-color: rgba(148, 163, 184, 0.22);
@@ -1864,13 +1928,14 @@ body.dark .plan-pill-starter {
   border-color: rgba(203, 213, 225, 0.4);
 }
 
-/* Gói Enterprise (Cao cấp) */
+/* Gói Enterprise*/
 .plan-pill-enterprise {
   background-color: rgba(168, 85, 247, 0.14);
   color: #7e22ce;
   border: 1px solid rgba(168, 85, 247, 0.35);
   box-shadow: 0 1px 4px rgba(168, 85, 247, 0.1);
 }
+
 [data-bs-theme="dark"] .plan-pill-enterprise,
 body.dark .plan-pill-enterprise {
   background-color: rgba(168, 85, 247, 0.22);
@@ -1884,6 +1949,7 @@ body.dark .plan-pill-enterprise {
   color: #b45309;
   border: 1px solid rgba(245, 158, 11, 0.35);
 }
+
 [data-bs-theme="dark"] .plan-pill-pro,
 body.dark .plan-pill-pro {
   background-color: rgba(245, 158, 11, 0.22);
@@ -1910,6 +1976,3 @@ body.dark .plan-pill-pro {
   transform: translateY(-1px);
   box-shadow: 0 2px 6px rgba(220, 53, 69, 0.15);
 }
-
-
-

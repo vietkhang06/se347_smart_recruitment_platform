@@ -96,18 +96,27 @@ export default function Header() {
     currentPath.startsWith("/employer") &&
     PROFILE_TABS.some((t) => t.key === currentHash);
 
-  // Tab Admin
-  const ADMIN_TABS = [
-    { key: "overview", label: "Tổng quan", icon: "bi-speedometer2" },
+  // Nhóm tab dành cho Admin (Thu gọn theo nhóm Quản lý & Hệ thống tương tự Employer Portal)
+  const ADMIN_MANAGEMENT_TABS = [
     { key: "moderation", label: "Kiểm duyệt", icon: "bi-shield-check" },
     { key: "users", label: "Người dùng", icon: "bi-people" },
     { key: "reports", label: "Báo cáo", icon: "bi-flag" },
+    { key: "notifications", label: "Thông báo", icon: "bi-bell" }
+  ];
+
+  const ADMIN_SYSTEM_TABS = [
     { key: "categories", label: "Ngành nghề", icon: "bi-tags" },
     { key: "system", label: "Cấu hình", icon: "bi-sliders" },
-    { key: "logs", label: "Nhật ký", icon: "bi-journal-text" },
-    { key: "notifications", label: "Thông báo", icon: "bi-bell" },
-    { key: "profile", label: "Hồ sơ Admin", icon: "bi-person-badge" }
+    { key: "logs", label: "Nhật ký", icon: "bi-journal-text" }
   ];
+
+  const isAdminManagementActive =
+    currentPath.startsWith("/admin") &&
+    ADMIN_MANAGEMENT_TABS.some((t) => t.key === currentHash);
+
+  const isAdminSystemActive =
+    currentPath.startsWith("/admin") &&
+    ADMIN_SYSTEM_TABS.some((t) => t.key === currentHash);
 
   // Tab Khách / Ứng viên
   const PUBLIC_TABS = [
@@ -439,21 +448,109 @@ export default function Header() {
                 </div>
               </>
             ) : isAdmin ? (
-              ADMIN_TABS.map((tab) => {
-                const isActive =
-                  currentPath.startsWith("/admin") && currentHash === tab.key;
-                return (
+              <>
+                {/* 1. Tổng quan */}
+                <button
+                  type="button"
+                  className={`header-nav-tab ${
+                    currentPath.startsWith("/admin") && currentHash === "overview"
+                      ? "active"
+                      : ""
+                  }`}
+                  onClick={() => handleAdminTabClick("overview")}
+                >
+                  <i className="bi bi-speedometer2 tab-icon"></i>
+                  <span>Tổng quan</span>
+                </button>
+
+                {/* 2. Quản lý (Kiểm duyệt, Người dùng, Báo cáo, Thông báo) */}
+                <div className="nav-hover-dropdown">
                   <button
-                    key={tab.key}
                     type="button"
-                    className={`header-nav-tab ${isActive ? "active" : ""}`}
-                    onClick={() => handleAdminTabClick(tab.key)}
+                    className={`header-nav-tab ${
+                      isAdminManagementActive ? "active" : ""
+                    }`}
+                    onClick={() => handleAdminTabClick("moderation")}
                   >
-                    <i className={`bi ${tab.icon} tab-icon`}></i>
-                    <span>{tab.label}</span>
+                    <i className="bi bi-shield-check tab-icon"></i>
+                    <span>Quản lý</span>
+                    <i
+                      className="bi bi-chevron-down ms-1 dropdown-arrow"
+                      style={{ fontSize: "11px" }}
+                    ></i>
                   </button>
-                );
-              })
+
+                  <div className="dropdown-menu">
+                    {ADMIN_MANAGEMENT_TABS.map((tab) => {
+                      const isActive =
+                        currentPath.startsWith("/admin") &&
+                        currentHash === tab.key;
+                      return (
+                        <button
+                          key={tab.key}
+                          type="button"
+                          className={`dropdown-item ${isActive ? "active" : ""}`}
+                          onClick={() => handleAdminTabClick(tab.key)}
+                        >
+                          <i className={`bi ${tab.icon} me-2 text-muted`}></i>
+                          <span>{tab.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 3. Hệ thống (Ngành nghề, Cấu hình, Nhật ký) */}
+                <div className="nav-hover-dropdown">
+                  <button
+                    type="button"
+                    className={`header-nav-tab ${
+                      isAdminSystemActive ? "active" : ""
+                    }`}
+                    onClick={() => handleAdminTabClick("categories")}
+                  >
+                    <i className="bi bi-sliders tab-icon"></i>
+                    <span>Hệ thống</span>
+                    <i
+                      className="bi bi-chevron-down ms-1 dropdown-arrow"
+                      style={{ fontSize: "11px" }}
+                    ></i>
+                  </button>
+
+                  <div className="dropdown-menu">
+                    {ADMIN_SYSTEM_TABS.map((tab) => {
+                      const isActive =
+                        currentPath.startsWith("/admin") &&
+                        currentHash === tab.key;
+                      return (
+                        <button
+                          key={tab.key}
+                          type="button"
+                          className={`dropdown-item ${isActive ? "active" : ""}`}
+                          onClick={() => handleAdminTabClick(tab.key)}
+                        >
+                          <i className={`bi ${tab.icon} me-2 text-muted`}></i>
+                          <span>{tab.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 4. Hồ sơ */}
+                <button
+                  type="button"
+                  className={`header-nav-tab ${
+                    currentPath.startsWith("/admin") && currentHash === "profile"
+                      ? "active"
+                      : ""
+                  }`}
+                  onClick={() => handleAdminTabClick("profile")}
+                >
+                  <i className="bi bi-person-badge tab-icon"></i>
+                  <span>Hồ sơ</span>
+                </button>
+              </>
             ) : (
               PUBLIC_TABS.map((tab) => {
                 const isActive = currentPath === tab.path;

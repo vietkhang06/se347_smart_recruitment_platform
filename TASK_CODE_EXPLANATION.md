@@ -25,7 +25,8 @@
    - [3.2. Sơ đồ cấu trúc Responsive Header & Layout Navigation](#32-sơ-đồ-cấu-trúc-responsive-header--layout-navigation)
    - [3.3. Chi tiết thay đổi Frontend (Header, Navigation & View Components)](#33-chi-tiết-thay-đổi-frontend-header-navigation--view-components)
    - [3.4. Tinh chỉnh Kích thước Header & Nhận diện Tab trên Màn hình Laptop (>= 1200px)](#34-tinh-chỉnh-kích-thước-header--nhận-diện-tab-trên-màn-hình-laptop--1200px)
-   - [3.5. Bảng tổng hợp các thay đổi của Task 6](#35-bảng-tổng-hợp-các-thay-đổi-của-task-6)
+   - [3.5. Thu gọn Nhóm Tab Admin & Hiệu ứng Icon chỉ xuất hiện khi Hover](#35-thu-gọn-nhóm-tab-admin--hiệu-ứng-icon-chỉ-xuất-hiện-khi-hover)
+   - [3.6. Bảng tổng hợp các thay đổi của Task 6](#36-bảng-tổng-hợp-các-thay-đổi-của-task-6)
 
 ---
 
@@ -1098,17 +1099,108 @@ const handleEmployerTabClick = (key) => {
 <Nav className="mx-auto align-items-stretch gap-1 gap-xl-2 gap-xxl-3 my-0 h-100 overflow-visible">
 ```
 
+### 3.5. Thu gọn Nhóm Tab Admin & Hiệu ứng Icon chỉ xuất hiện khi Hover
+
+#### 1. Bối cảnh & Vấn đề thực tế
+* Trên trang **Admin Portal**, Header trước đây hiển thị toàn bộ **9 tab dàn trải hàng ngang**: *Tổng quan, Kiểm duyệt, Người dùng, Báo cáo, Ngành nghề, Cấu hình, Nhật ký, Thông báo, Hồ sơ Admin*.
+* Khi hiển thị trên màn hình laptop (độ phân giải 1366x768 hoặc 1352x674), thanh Header bị **tràn màn hình về phía bên phải**, đẩy các nút điều khiển quan trọng như **Công tắc chuyển Theme** và **Avatar người dùng** ra khỏi khung nhìn.
+
 ---
 
-### 3.5. Bảng tổng hợp các thay đổi của Task 6
+#### 2. Chi tiết Giải pháp Code đã triển khai
+
+##### A. Thu gọn 9 Tab Admin thành 4 Nhóm Tab chuẩn hóa: `Header.jsx`
+* Tương tự như cơ chế của Employer Portal, các tính năng Admin được phân nhóm logic thành:
+  1. **Tổng quan:** Tab điều hướng nhanh về bảng điều khiển trung tâm (`#overview`).
+  2. **Quản lý (Dropdown Menu hover):** Gom 4 tính năng quản lý nghiệp vụ:
+     - *Kiểm duyệt* (`#moderation`)
+     - *Người dùng* (`#users`)
+     - *Báo cáo* (`#reports`)
+     - *Thông báo* (`#notifications`)
+  3. **Hệ thống (Dropdown Menu hover):** Gom 3 tính năng cấu hình hạ tầng:
+     - *Ngành nghề* (`#categories`)
+     - *Cấu hình* (`#system`)
+     - *Nhật ký* (`#logs`)
+  4. **Hồ sơ:** Tab truy cập hồ sơ tài khoản Admin (`#profile`).
+
+```jsx
+// Định nghĩa nhóm tab Admin trong Header.jsx
+const ADMIN_MANAGEMENT_TABS = [
+  { key: "moderation", label: "Kiểm duyệt", icon: "bi-shield-check" },
+  { key: "users", label: "Người dùng", icon: "bi-people" },
+  { key: "reports", label: "Báo cáo", icon: "bi-flag" },
+  { key: "notifications", label: "Thông báo", icon: "bi-bell" }
+];
+
+const ADMIN_SYSTEM_TABS = [
+  { key: "categories", label: "Ngành nghề", icon: "bi-tags" },
+  { key: "system", label: "Cấu hình", icon: "bi-sliders" },
+  { key: "logs", label: "Nhật ký", icon: "bi-journal-text" }
+];
+
+const isAdminManagementActive =
+  currentPath.startsWith("/admin") &&
+  ADMIN_MANAGEMENT_TABS.some((t) => t.key === currentHash);
+
+const isAdminSystemActive =
+  currentPath.startsWith("/admin") &&
+  ADMIN_SYSTEM_TABS.some((t) => t.key === currentHash);
+```
+
+##### B. Cấu hình Icon Tab chỉ xuất hiện khi Hover: `tokens.css`
+* Trạng thái mặc định: Icon ẩn hoàn toàn (`opacity: 0; max-width: 0`), tab chỉ hiển thị chữ thanh mảnh, gọn gàng, giúp tiết kiệm tối đa chiều ngang.
+* Khi di chuột vào tab (`:hover`): Icon trượt mượt mà hiện ra (`opacity: 1; max-width: 20px; margin-right: 4px`) với gia tốc cubic-bezier dịu mắt.
+
+```css
+.header-nav-tab .tab-icon,
+.header-task-link .tab-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  line-height: 1;
+  opacity: 0;
+  max-width: 0;
+  margin-right: 0;
+  transform: scale(0.65);
+  transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              max-width 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              margin-right 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+  vertical-align: middle;
+  pointer-events: none;
+}
+
+.header-nav-tab:hover .tab-icon,
+.header-task-link:hover .tab-icon {
+  opacity: 1;
+  max-width: 20px;
+  margin-right: 4px;
+  transform: scale(1);
+  color: var(--text);
+}
+
+.header-nav-tab.active:hover .tab-icon,
+.header-task-link.active:hover .tab-icon {
+  color: var(--primary) !important;
+}
+```
+
+---
+
+### 3.6. Bảng tổng hợp các thay đổi của Task 6
 
 | Tệp tin | Vấn đề trước đó | Sau khi sửa đổi | Giá trị kỹ thuật đem lại |
 | :--- | :--- | :--- | :--- |
-| **`Header.jsx`** | Gán cứng `height: 64px`, giấu Theme & Avatar; thiếu khoảng cách tab trên desktop | Tách controls lên thanh trên, thêm `flex-xl-nowrap`, tăng gap tab `gap-xl-2 gap-xxl-3` | Đổi theme & xem profile 1 chạm, chống rớt dòng, tab thoáng đãng |
-| **`tokens.css`** | Header desktop bị co dẹp, tab thiếu icon khi chưa hover, vạch active sát chữ | Thiết lập chuẩn 68px trên `>= 1200px`, font 15px, padding 20px, icon tab luôn hiển thị | Header cao ráo, tab thể hiện rõ nét, vạch active cách xa chữ thanh lịch |
+| **`Header.jsx`** | 9 tab Admin dàn phẳng gây tràn viền header trên laptop | Gom 9 tab thành 4 nhóm (Tổng quan, Quản lý, Hệ thống, Hồ sơ) | Header vừa vặn 100% viewport, nút Theme & Avatar hiển thị trọn vẹn |
+| **`tokens.css`** | Icon luôn hiện chiếm diện tích ngang | Icon ẩn mặc định, chỉ xuất hiện mượt mà khi hover | Giao diện thanh mảnh, tinh tế, tiết kiệm không gian ngang |
+| **`Header.jsx`** | Gán cứng `height: 64px`, giấu Theme & Avatar | Tách controls lên thanh trên, hỗ trợ `closeNav`, `flex-xl-nowrap` | Đổi theme & xem profile 1 chạm, menu đóng mở mượt |
+| **`tokens.css`** | Menu mobile bị đè chữ, dropdown hover không chạm được | Thêm card menu nổi, static in-flow, thụt lề rõ ràng | Không còn lỗi đè chữ lên trang, trải nghiệm cảm ứng hoàn hảo |
 | **`PipelineView.jsx`** | Thanh cuộn ngang mặc định thô sơ | Bổ sung `.kanban-board-row` touch scrolling | Vuốt Kanban trên điện thoại/tablet êm ái, thanh cuộn đẹp mắt |
 | **`CandidatesView.jsx`** | Dropdown cố định pixel 190px | Áp dụng `.filter-select-col` co giãn linh hoạt | Hiển thị 100% chiều ngang vừa vặn trên mọi kích thước điện thoại |
 | **`CompanyView.jsx`** | Nút đổi ảnh bìa bị dài trên màn hình 375px | Thêm class responsive `d-none d-sm-inline` | Nút gọn gàng "Đổi ảnh" trên mobile, không vỡ layout banner |
 
 ---
+
 
