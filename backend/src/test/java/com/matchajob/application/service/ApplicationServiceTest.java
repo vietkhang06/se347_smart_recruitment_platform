@@ -339,6 +339,83 @@ class ApplicationServiceTest {
         }
     }
 
+    @Nested
+    @DisplayName("Employer Applications")
+    class EmployerApplications {
+
+        @Test
+        @DisplayName("getEmployerApplications queries jdbcClient and returns mapped DTOs")
+        @SuppressWarnings("unchecked")
+        void getEmployerApplications_success() {
+            UUID companyId = UUID.randomUUID();
+            UUID jobId = UUID.randomUUID();
+            UUID appId = UUID.randomUUID();
+            UUID candidateId = UUID.randomUUID();
+
+            JdbcClient.StatementSpec mockSpec = mock(JdbcClient.StatementSpec.class);
+            JdbcClient.MappedQuerySpec<EmployerApplicationItemResponse> mockQuerySpec = mock(JdbcClient.MappedQuerySpec.class);
+
+            when(jdbcClient.sql(anyString())).thenReturn(mockSpec);
+            when(mockSpec.param(any())).thenReturn(mockSpec);
+            when(mockSpec.query(any(org.springframework.jdbc.core.RowMapper.class))).thenReturn(mockQuerySpec);
+
+            EmployerApplicationItemResponse item = EmployerApplicationItemResponse.builder()
+                    .id(appId)
+                    .applicationId(appId)
+                    .candidateId(candidateId)
+                    .candidateName("Nguyen Van A")
+                    .jobId(jobId)
+                    .companyId(companyId)
+                    .stage("interview")
+                    .matchScore(88)
+                    .build();
+
+            when(mockQuerySpec.list()).thenReturn(List.of(item));
+
+            List<EmployerApplicationItemResponse> result = applicationService.getEmployerApplications(
+                    null, companyId, jobId, "interview", "Nguyen");
+
+            assertThat(result).isNotNull().hasSize(1);
+            assertThat(result.get(0).getApplicationId()).isEqualTo(appId);
+            assertThat(result.get(0).getCandidateName()).isEqualTo("Nguyen Van A");
+            assertThat(result.get(0).getStage()).isEqualTo("interview");
+            assertThat(result.get(0).getMatchScore()).isEqualTo(88);
+        }
+
+        @Test
+        @DisplayName("getApplicationDetail queries single application and returns DTO")
+        @SuppressWarnings("unchecked")
+        void getEmployerApplicationDetail_success() {
+            UUID appId = UUID.randomUUID();
+            UUID candidateId = UUID.randomUUID();
+
+            JdbcClient.StatementSpec mockSpec = mock(JdbcClient.StatementSpec.class);
+            JdbcClient.MappedQuerySpec<EmployerApplicationItemResponse> mockQuerySpec = mock(JdbcClient.MappedQuerySpec.class);
+
+            when(jdbcClient.sql(anyString())).thenReturn(mockSpec);
+            when(mockSpec.param(any())).thenReturn(mockSpec);
+            when(mockSpec.query(any(org.springframework.jdbc.core.RowMapper.class))).thenReturn(mockQuerySpec);
+
+            EmployerApplicationItemResponse item = EmployerApplicationItemResponse.builder()
+                    .id(appId)
+                    .applicationId(appId)
+                    .candidateId(candidateId)
+                    .candidateName("Tran Thi B")
+                    .stage("screening")
+                    .matchScore(95)
+                    .build();
+
+            when(mockQuerySpec.optional()).thenReturn(Optional.of(item));
+
+            EmployerApplicationItemResponse result = applicationService.getEmployerApplicationDetail(appId, null);
+
+            assertThat(result).isNotNull();
+            assertThat(result.getApplicationId()).isEqualTo(appId);
+            assertThat(result.getCandidateName()).isEqualTo("Tran Thi B");
+            assertThat(result.getStage()).isEqualTo("screening");
+        }
+    }
+
     // =========================================================================
     // Helper method to stub job queries
     // =========================================================================
@@ -710,3 +787,4 @@ class ApplicationServiceTest {
         }
     }
 }
+

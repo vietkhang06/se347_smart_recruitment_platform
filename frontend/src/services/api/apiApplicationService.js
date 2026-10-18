@@ -1,88 +1,59 @@
 import { httpClient } from "../httpClient";
-import { toApplicationViewModel, toApplicationStageUpdateRequest } from "../../mappers/applicationMapper";
+import { toApplicationViewModel, toApplicationStageUpdateRequest, STAGE_TEXT_TO_CODE } from "../../mappers/applicationMapper";
 import { toRankingListViewModel } from "../../mappers/rankingMapper";
 import { mockApplicationService } from "../mock/mockApplicationService";
-import { apiJobService } from "./apiJobService";
+import { mockStore } from "../mockStore";
 
 export const apiApplicationService = {
   /**
-   * Lấy danh sách toàn bộ hồ sơ ứng tuyển của công ty.
-   * Do Backend hiện chưa có endpoint /v1/employer/applications, service sẽ tự động
-   * tổng hợp ranking từ các job đang hoạt động hoặc fallback an toàn sang Mock.
+   * Lấy danh sách toàn bộ hồ sơ ứng tuyển của công ty từ API backend:
+   * GET /v1/employer/applications (hỗ trợ lọc theo companyId, jobId, stage, search)
    */
-  async getApplications(companyId = "COMP-01", filters = {}) {
+  async getApplications(companyId, filters = {}) {
     try {
+      const params = {};
+      if (companyId && companyId !== "COMP-01") {
+        params.companyId = companyId;
+      }
       if (filters.jobId && filters.jobId !== "all") {
-        const ranking = await this.getJobRanking(filters.jobId);
-        if (ranking && ranking.length > 0) {
-          return ranking.map((r) =>
-            toApplicationViewModel({
-              id: r.applicationId,
-              candidateId: r.candidateId,
-              candidateName: r.candidateName,
-              jobId: filters.jobId,
-              stage: r.stage,
-              matchScore: r.overallScore,
-              appliedDate: r.appliedDate
-            })
-          );
-        }
+        params.jobId = filters.jobId;
+      }
+      if (filters.stage && filters.stage !== "all") {
+        params.stage = STAGE_TEXT_TO_CODE[filters.stage] || filters.stage.toLowerCase();
+      }
+      if (filters.search && filters.search.trim()) {
+        params.search = filters.search.trim();
       }
 
-      // Thử lấy danh sách các job rồi gom candidate ranking
-      const jobs = await apiJobService.getEmployerJobs(companyId);
-      if (jobs && jobs.length > 0) {
-        const aggregated = [];
-        for (const job of jobs.slice(0, 5)) {
-          try {
-            const ranking = await this.getJobRanking(job.id);
-            if (ranking && ranking.length > 0) {
-              ranking.forEach((r) => {
-                aggregated.push(
-                  toApplicationViewModel({
-                    id: r.applicationId,
-                    candidateId: r.candidateId,
-                    candidateName: r.candidateName,
-                    appliedJobId: job.id,
-                    appliedJobTitle: job.title,
-                    stage: r.stage,
-                    matchScore: r.overallScore,
-                    appliedDate: r.appliedDate
-                  })
-                );
-              });
-            }
-          } catch {}
-        }
-        if (aggregated.length > 0) {
-          let result = aggregated;
-          if (filters.stage && filters.stage !== "all") {
-            const target = filters.stage.toLowerCase();
-            result = result.filter((a) => a.stageCode === target || a.stage.toLowerCase() === target);
-          }
-          return result;
-        }
+      const response = await httpClient.get("/v1/employer/applications", { params });
+      if (Array.isArray(response)) {
+        return response.map((item) => toApplicationViewModel(item));
       }
     } catch (err) {
-      console.warn("[apiApplicationService] Không thể tổng hợp applications qua API, fallback sang mock:", err.message);
+      console.warn("[apiApplicationService] Không thể tải applications từ /v1/employer/applications, fallback sang mock:", err.message);
     }
 
     return mockApplicationService.getApplications(companyId, filters);
   },
 
+  /**
+   * Lấy chi tiết hồ sơ ứng tuyển: GET /v1/employer/applications/{applicationId} (hoặc fallback /v1/applications/{id})
+   */
   async getApplicationById(applicationId) {
     try {
-      // Gọi chi tiết nếu có endpoint, hiện tại fallback kết hợp match score
-      const matchScore = await this.getApplicationMatchScore(applicationId);
-      const mockApp = await mockApplicationService.getApplicationById(applicationId);
-      if (mockApp && matchScore) {
-        return {
-          ...mockApp,
-          matchScore: matchScore.overallScore || mockApp.matchScore
-        };
+      const response = await httpClient.get(`/v1/employer/applications/${applicationId}`);
+      if (response && (response.id || response.applicationId)) {
+        return toApplicationViewModel(response);
       }
-    } catch (err) {
-      console.warn(`[apiApplicationService] Lỗi lấy app ${applicationId}, fallback sang mock:`, err.message);
+    } catch {
+      try {
+        const fallbackRes = await httpClient.get(`/v1/applications/${applicationId}`);
+        if (fallbackRes && (fallbackRes.id || fallbackRes.applicationId)) {
+          return toApplicationViewModel(fallbackRes);
+        }
+      } catch (err) {
+        console.warn(`[apiApplicationService] Lỗi lấy app ${applicationId} qua API, fallback sang mock:`, err.message);
+      }
     }
     return mockApplicationService.getApplicationById(applicationId);
   },
@@ -107,12 +78,24 @@ export const apiApplicationService = {
     const payload = toApplicationStageUpdateRequest(nextStage, reason, notes);
     try {
       const response = await httpClient.patch(`/v1/applications/${applicationId}/stage`, payload);
+      
+      // Đồng bộ vào mockStore nếu có bản ghi cục bộ
+      try {
+        mockStore.updateCandidateStage(applicationId, nextStage);
+      } catch {}
+
       return toApplicationViewModel({
         id: applicationId,
+        applicationId,
         stage: response?.currentStage || nextStage
       });
     } catch (err) {
-      console.warn(`[apiApplicationService] Lỗi cập nhật stage cho ${applicationId}, fallback sang mock:`, err.message);
+      console.warn(`[apiApplicationService] Lỗi cập nhật stage cho ${applicationId}:`, err.message);
+      // Nếu backend trả về lỗi nghiệp vụ 400 (Invalid transition...), ném lỗi để UI hiển thị thông báo
+      if (err.status === 400 || err.response?.status === 400) {
+        const detail = err.response?.data?.detail || err.response?.data?.message || err.message;
+        throw new Error(detail || "Không thể chuyển giai đoạn.");
+      }
       return mockApplicationService.updateApplicationStage(applicationId, nextStage, reason, notes);
     }
   },

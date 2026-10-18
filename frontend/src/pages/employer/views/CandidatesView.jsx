@@ -129,8 +129,8 @@ export default function CandidatesView({ candidates = [], onOpenCandidate, onInv
           </InputGroup>
         </div>
 
-        {/* Lọc vị trí: 190px */}
-        <div style={{ width: "190px" }}>
+        {/* Lọc vị trí: linh hoạt theo màn hình */}
+        <div className="filter-select-col">
           <Form.Select
             size="sm"
             value={jobFilter}
@@ -143,8 +143,8 @@ export default function CandidatesView({ candidates = [], onOpenCandidate, onInv
           </Form.Select>
         </div>
 
-        {/* Lọc giai đoạn: Nới rộng lên 185px để hiển thị đầy đủ 'Tất cả giai đoạn' không bị co ngắn */}
-        <div style={{ width: "185px" }}>
+        {/* Lọc giai đoạn: linh hoạt theo màn hình */}
+        <div className="filter-select-col">
           <Form.Select
             size="sm"
             value={stageFilter}
@@ -157,8 +157,8 @@ export default function CandidatesView({ candidates = [], onOpenCandidate, onInv
           </Form.Select>
         </div>
 
-        {/* Lọc mức độ phù hợp: 160px */}
-        <div style={{ width: "160px" }}>
+        {/* Lọc mức độ phù hợp: linh hoạt theo màn hình */}
+        <div className="filter-select-col">
           <Form.Select
             size="sm"
             value={matchFilter}

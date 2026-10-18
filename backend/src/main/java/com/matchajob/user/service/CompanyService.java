@@ -1,8 +1,10 @@
 package com.matchajob.user.service;
 
 import com.matchajob.auth.exception.AccountSuspendedException;
+import com.matchajob.security.ResourceOwnershipService;
 import com.matchajob.user.dto.CompanyResponse;
 import com.matchajob.user.dto.CreateCompanyRequest;
+import com.matchajob.user.dto.UpdateCompanyRequest;
 import com.matchajob.user.exception.DuplicateTaxCodeException;
 import com.matchajob.user.exception.EmployerRoleRequiredException;
 import com.matchajob.user.exception.UserNotFoundException;
@@ -15,10 +17,12 @@ import com.matchajob.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 @Slf4j
@@ -29,6 +33,128 @@ public class CompanyService {
     private final CompanyRepository companyRepository;
     private final CompanyMemberRepository companyMemberRepository;
     private final UserRepository userRepository;
+    private final ResourceOwnershipService resourceOwnershipService;
+    private final JdbcClient jdbcClient;
+
+    @Transactional(readOnly = true)
+    public CompanyResponse getCompanyById(UUID id) {
+        if (id == null) {
+            throw new IllegalArgumentException("Company ID cannot be null");
+        }
+        Company company = companyRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Company not found with id: " + id));
+
+        if (company.getDeletedAt() != null) {
+            throw new IllegalArgumentException("Company has been deleted: " + id);
+        }
+
+        List<String> perks = jdbcClient.sql("SELECT perk FROM company_perks WHERE company_id = ? ORDER BY sort_order ASC, id ASC")
+                .param(id)
+                .query(String.class)
+                .list();
+
+        return CompanyResponse.fromEntity(company, perks);
+    }
+
+    @Transactional(readOnly = true)
+    public CompanyResponse getEmployerCompany(UUID userId) {
+        if (userId == null) {
+            throw new UserNotFoundException("User ID cannot be null");
+        }
+
+        UUID companyId = jdbcClient.sql("""
+                SELECT c.id FROM companies c
+                WHERE c.deleted_at IS NULL
+                  AND (
+                    c.owner_id = ?
+                    OR EXISTS (
+                      SELECT 1 FROM company_members cm
+                      WHERE cm.company_id = c.id AND cm.user_id = ?
+                    )
+                  )
+                ORDER BY c.created_at ASC
+                LIMIT 1
+                """)
+                .params(userId, userId)
+                .query(UUID.class)
+                .optional()
+                .orElseThrow(() -> new IllegalArgumentException("No company found for employer user: " + userId));
+
+        return getCompanyById(companyId);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public CompanyResponse updateCompany(UUID userId, UUID companyId, UpdateCompanyRequest request) {
+        if (companyId == null) {
+            throw new IllegalArgumentException("Company ID cannot be null");
+        }
+        if (request == null) {
+            throw new IllegalArgumentException("Update payload cannot be null");
+        }
+
+        if (userId != null) {
+            resourceOwnershipService.checkEmployerCompanyOwnership(userId, companyId);
+        }
+
+        Company company = companyRepository.findById(companyId)
+                .orElseThrow(() -> new IllegalArgumentException("Company not found with id: " + companyId));
+
+        if (company.getDeletedAt() != null) {
+            throw new IllegalArgumentException("Company has been deleted: " + companyId);
+        }
+
+        String newTax = trimToNull(request.getTaxCode());
+        if (newTax != null && !newTax.equalsIgnoreCase(company.getTaxCode())) {
+            if (companyRepository.existsByTaxCode(newTax)) {
+                throw new DuplicateTaxCodeException("Company with tax code " + newTax + " already exists");
+            }
+            company.setTaxCode(newTax);
+        }
+
+        company.setName(request.getName().trim());
+        company.setShortName(trimToNull(request.getShortName()));
+        company.setIndustry(trimToNull(request.getIndustry()));
+        company.setSize(trimToNull(request.getSize()));
+        company.setLocation(trimToNull(request.getLocation()));
+        company.setAddress(trimToNull(request.getAddress()));
+        company.setWebsite(trimToNull(request.getWebsite()));
+        company.setEmail(trimToNull(request.getEmail()));
+        company.setPhone(trimToNull(request.getPhone()));
+        company.setAbout(request.resolveAbout());
+
+        if (request.getLogoUrl() != null) {
+            company.setLogoUrl(trimToNull(request.getLogoUrl()));
+        }
+        if (request.getCoverImageUrl() != null) {
+            company.setCoverImageUrl(trimToNull(request.getCoverImageUrl()));
+        }
+        company.setUpdatedAt(Instant.now());
+
+        Company savedCompany = companyRepository.saveAndFlush(company);
+
+        if (request.getPerks() != null) {
+            jdbcClient.sql("DELETE FROM company_perks WHERE company_id = ?")
+                    .param(companyId)
+                    .update();
+
+            short sortOrder = 1;
+            for (String p : request.getPerks()) {
+                if (p != null && !p.trim().isEmpty()) {
+                    jdbcClient.sql("INSERT INTO company_perks (id, company_id, perk, sort_order) VALUES (?, ?, ?, ?)")
+                            .params(UUID.randomUUID(), companyId, p.trim(), sortOrder++)
+                            .update();
+                }
+            }
+        }
+
+        List<String> perks = jdbcClient.sql("SELECT perk FROM company_perks WHERE company_id = ? ORDER BY sort_order ASC, id ASC")
+                .param(companyId)
+                .query(String.class)
+                .list();
+
+        log.info("Updated company {} (userId: {})", companyId, userId);
+        return CompanyResponse.fromEntity(savedCompany, perks);
+    }
 
     @Transactional(rollbackFor = Exception.class)
     public CompanyResponse createCompany(UUID userId, CreateCompanyRequest request) {

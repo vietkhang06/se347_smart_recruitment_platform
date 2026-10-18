@@ -26,7 +26,8 @@ export default function PipelineView({ candidates = [], setCandidates, onOpenCan
 
   const moveCandidate = async (id, direction) => {
     if (movingId !== null) return;
-    const target = mockStore.getCandidateById(id);
+    const target = candidates.find(c => String(c.id) === String(id) || String(c.applicationId) === String(id))
+      || mockStore.getCandidateById(id);
     if (!target || candidateClosed(target)) {
       showToast("Hồ sơ không còn cho phép chuyển giai đoạn.", "danger");
       return;
@@ -72,7 +73,7 @@ export default function PipelineView({ candidates = [], setCandidates, onOpenCan
         </div>
       </div>
 
-      <Row className="g-3 flex-nowrap overflow-auto pb-4">
+      <Row className="g-3 flex-nowrap overflow-auto pb-4 kanban-board-row">
         {STAGES_PIPELINE.map((stage, sIdx) => {
           const stageCandidates = filteredCandidates.filter((c) => !candidateClosed(c) && (c.stage || "Mới") === stage);
 

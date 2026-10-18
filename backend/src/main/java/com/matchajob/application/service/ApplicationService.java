@@ -343,7 +343,267 @@ public class ApplicationService {
     }
 
     // =========================================================================
-    // 5. List & Detail Applications
+    // 5. Get Employer Applications (Full pipeline list with candidate & job data)
+    // =========================================================================
+
+    public List<EmployerApplicationItemResponse> getEmployerApplications(
+            UUID userId, UUID companyId, UUID jobId, String stageFilter, String search) {
+
+        List<UUID> targetCompanyIds = new ArrayList<>();
+        if (companyId != null) {
+            if (resourceOwnershipService != null && userId != null) {
+                resourceOwnershipService.checkEmployerCompanyOwnership(userId, companyId);
+            }
+            targetCompanyIds.add(companyId);
+        } else if (jobId != null) {
+            if (resourceOwnershipService != null && userId != null) {
+                resourceOwnershipService.checkEmployerJobOwnership(userId, jobId);
+            }
+        } else if (resourceOwnershipService != null && userId != null) {
+            List<UUID> userCompanyIds = resourceOwnershipService.getEmployerCompanyIds(userId);
+            if (userCompanyIds.isEmpty()) {
+                return Collections.emptyList();
+            }
+            targetCompanyIds.addAll(userCompanyIds);
+        }
+
+        StringBuilder sql = new StringBuilder("""
+                SELECT 
+                    a.id AS application_id,
+                    a.candidate_id,
+                    u.full_name AS candidate_name,
+                    u.email AS candidate_email,
+                    COALESCE(u.phone, '') AS candidate_phone,
+                    u.avatar_url AS candidate_avatar,
+                    COALESCE(cp.headline, '') AS candidate_headline,
+                    a.job_id,
+                    j.title AS job_title,
+                    j.company_id,
+                    c.name AS company_name,
+                    a.stage,
+                    a.reject_reason,
+                    a.cover_letter,
+                    COALESCE(a.cv_snapshot_url, cp.cv_url) AS cv_snapshot_url,
+                    COALESCE(mr.overall_score, a.match_score) AS match_score,
+                    mr.skills_score,
+                    mr.experience_score,
+                    mr.rationale AS match_rationale,
+                    a.applied_at,
+                    a.updated_at
+                FROM applications a
+                JOIN jobs j ON a.job_id = j.id
+                JOIN companies c ON j.company_id = c.id
+                JOIN candidate_profiles cp ON a.candidate_id = cp.id
+                JOIN users u ON cp.user_id = u.id
+                LEFT JOIN match_results mr ON mr.application_id = a.id
+                WHERE j.deleted_at IS NULL
+                """);
+
+        List<Object> params = new ArrayList<>();
+
+        if (!targetCompanyIds.isEmpty()) {
+            sql.append(" AND j.company_id IN (");
+            for (int i = 0; i < targetCompanyIds.size(); i++) {
+                if (i > 0) sql.append(", ");
+                sql.append("?");
+                params.add(targetCompanyIds.get(i));
+            }
+            sql.append(")");
+        }
+
+        if (jobId != null) {
+            sql.append(" AND a.job_id = ?");
+            params.add(jobId);
+        }
+
+        if (stageFilter != null && !stageFilter.isBlank() && !stageFilter.equalsIgnoreCase("all")) {
+            sql.append(" AND LOWER(a.stage) = ?");
+            params.add(stageFilter.trim().toLowerCase());
+        }
+
+        if (search != null && !search.isBlank()) {
+            String pattern = "%" + search.trim().toLowerCase() + "%";
+            sql.append(" AND (LOWER(u.full_name) LIKE ? OR LOWER(u.email) LIKE ? OR LOWER(j.title) LIKE ?)");
+            params.add(pattern);
+            params.add(pattern);
+            params.add(pattern);
+        }
+
+        sql.append(" ORDER BY a.applied_at DESC");
+
+        var query = jdbcClient.sql(sql.toString());
+        for (Object param : params) {
+            query.param(param);
+        }
+
+        List<EmployerApplicationItemResponse> items = query.query((rs, rowNum) -> {
+            UUID id = rs.getObject("application_id", UUID.class);
+            UUID candId = rs.getObject("candidate_id", UUID.class);
+            UUID jId = rs.getObject("job_id", UUID.class);
+            UUID compId = rs.getObject("company_id", UUID.class);
+
+            Integer matchScore = rs.getObject("match_score") != null ? rs.getInt("match_score") : null;
+            Integer skillsScore = rs.getObject("skills_score") != null ? rs.getInt("skills_score") : null;
+            Integer expScore = rs.getObject("experience_score") != null ? rs.getInt("experience_score") : null;
+
+            java.sql.Timestamp appliedTs = rs.getTimestamp("applied_at");
+            java.sql.Timestamp updatedTs = rs.getTimestamp("updated_at");
+
+            return EmployerApplicationItemResponse.builder()
+                    .id(id)
+                    .applicationId(id)
+                    .candidateId(candId)
+                    .candidateName(rs.getString("candidate_name"))
+                    .candidateEmail(rs.getString("candidate_email"))
+                    .candidatePhone(rs.getString("candidate_phone"))
+                    .candidateAvatar(rs.getString("candidate_avatar"))
+                    .candidateHeadline(rs.getString("candidate_headline"))
+                    .jobId(jId)
+                    .jobTitle(rs.getString("job_title"))
+                    .companyId(compId)
+                    .companyName(rs.getString("company_name"))
+                    .stage(rs.getString("stage"))
+                    .rejectReason(rs.getString("reject_reason"))
+                    .coverLetter(rs.getString("cover_letter"))
+                    .cvSnapshotUrl(rs.getString("cv_snapshot_url"))
+                    .matchScore(matchScore)
+                    .skillsScore(skillsScore)
+                    .experienceScore(expScore)
+                    .matchRationale(rs.getString("match_rationale"))
+                    .appliedAt(appliedTs != null ? appliedTs.toInstant() : null)
+                    .updatedAt(updatedTs != null ? updatedTs.toInstant() : null)
+                    .build();
+        }).list();
+
+        attachCandidateSkills(items);
+        return items;
+    }
+
+    public EmployerApplicationItemResponse getEmployerApplicationDetail(UUID applicationId, UUID userId) {
+        if (resourceOwnershipService != null && userId != null) {
+            resourceOwnershipService.checkApplicationAccess(userId, applicationId);
+        }
+
+        String sql = """
+                SELECT 
+                    a.id AS application_id,
+                    a.candidate_id,
+                    u.full_name AS candidate_name,
+                    u.email AS candidate_email,
+                    COALESCE(u.phone, '') AS candidate_phone,
+                    u.avatar_url AS candidate_avatar,
+                    COALESCE(cp.headline, '') AS candidate_headline,
+                    a.job_id,
+                    j.title AS job_title,
+                    j.company_id,
+                    c.name AS company_name,
+                    a.stage,
+                    a.reject_reason,
+                    a.cover_letter,
+                    COALESCE(a.cv_snapshot_url, cp.cv_url) AS cv_snapshot_url,
+                    COALESCE(mr.overall_score, a.match_score) AS match_score,
+                    mr.skills_score,
+                    mr.experience_score,
+                    mr.rationale AS match_rationale,
+                    a.applied_at,
+                    a.updated_at
+                FROM applications a
+                JOIN jobs j ON a.job_id = j.id
+                JOIN companies c ON j.company_id = c.id
+                JOIN candidate_profiles cp ON a.candidate_id = cp.id
+                JOIN users u ON cp.user_id = u.id
+                LEFT JOIN match_results mr ON mr.application_id = a.id
+                WHERE a.id = ?
+                """;
+
+        EmployerApplicationItemResponse item = jdbcClient.sql(sql)
+                .param(applicationId)
+                .query((rs, rowNum) -> {
+                    UUID id = rs.getObject("application_id", UUID.class);
+                    UUID candId = rs.getObject("candidate_id", UUID.class);
+                    UUID jId = rs.getObject("job_id", UUID.class);
+                    UUID compId = rs.getObject("company_id", UUID.class);
+
+                    Integer matchScore = rs.getObject("match_score") != null ? rs.getInt("match_score") : null;
+                    Integer skillsScore = rs.getObject("skills_score") != null ? rs.getInt("skills_score") : null;
+                    Integer expScore = rs.getObject("experience_score") != null ? rs.getInt("experience_score") : null;
+
+                    java.sql.Timestamp appliedTs = rs.getTimestamp("applied_at");
+                    java.sql.Timestamp updatedTs = rs.getTimestamp("updated_at");
+
+                    return EmployerApplicationItemResponse.builder()
+                            .id(id)
+                            .applicationId(id)
+                            .candidateId(candId)
+                            .candidateName(rs.getString("candidate_name"))
+                            .candidateEmail(rs.getString("candidate_email"))
+                            .candidatePhone(rs.getString("candidate_phone"))
+                            .candidateAvatar(rs.getString("candidate_avatar"))
+                            .candidateHeadline(rs.getString("candidate_headline"))
+                            .jobId(jId)
+                            .jobTitle(rs.getString("job_title"))
+                            .companyId(compId)
+                            .companyName(rs.getString("company_name"))
+                            .stage(rs.getString("stage"))
+                            .rejectReason(rs.getString("reject_reason"))
+                            .coverLetter(rs.getString("cover_letter"))
+                            .cvSnapshotUrl(rs.getString("cv_snapshot_url"))
+                            .matchScore(matchScore)
+                            .skillsScore(skillsScore)
+                            .experienceScore(expScore)
+                            .matchRationale(rs.getString("match_rationale"))
+                            .appliedAt(appliedTs != null ? appliedTs.toInstant() : null)
+                            .updatedAt(updatedTs != null ? updatedTs.toInstant() : null)
+                            .build();
+                })
+                .optional()
+                .orElseThrow(() -> new IllegalArgumentException("Application not found: " + applicationId));
+
+        attachCandidateSkills(List.of(item));
+        return item;
+    }
+
+    public EmployerApplicationItemResponse getEmployerApplicationDetail(UUID applicationId) {
+        return getEmployerApplicationDetail(applicationId, null);
+    }
+
+    private void attachCandidateSkills(List<EmployerApplicationItemResponse> items) {
+        if (items.isEmpty()) return;
+        List<UUID> candidateIds = items.stream()
+                .map(EmployerApplicationItemResponse::getCandidateId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+
+        if (candidateIds.isEmpty()) return;
+
+        StringBuilder sql = new StringBuilder("SELECT candidate_id, skill FROM candidate_skills WHERE candidate_id IN (");
+        for (int i = 0; i < candidateIds.size(); i++) {
+            if (i > 0) sql.append(", ");
+            sql.append("?");
+        }
+        sql.append(")");
+
+        var q = jdbcClient.sql(sql.toString());
+        for (UUID cid : candidateIds) {
+            q.param(cid);
+        }
+
+        Map<UUID, List<String>> skillsMap = new HashMap<>();
+        q.query((rs, rowNum) -> {
+            UUID cid = rs.getObject("candidate_id", UUID.class);
+            String skill = rs.getString("skill");
+            skillsMap.computeIfAbsent(cid, k -> new ArrayList<>()).add(skill);
+            return null;
+        });
+
+        for (EmployerApplicationItemResponse it : items) {
+            it.setCandidateSkills(skillsMap.getOrDefault(it.getCandidateId(), List.of()));
+        }
+    }
+
+    // =========================================================================
+    // 6. List & Detail Applications (Candidate & Job view)
     // =========================================================================
 
     /**
