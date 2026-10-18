@@ -37,16 +37,23 @@ export const apiApplicationService = {
   },
 
   /**
-   * Lấy chi tiết hồ sơ ứng tuyển: GET /v1/applications/{applicationId}
+   * Lấy chi tiết hồ sơ ứng tuyển: GET /v1/employer/applications/{applicationId} (hoặc fallback /v1/applications/{id})
    */
   async getApplicationById(applicationId) {
     try {
-      const response = await httpClient.get(`/v1/applications/${applicationId}`);
+      const response = await httpClient.get(`/v1/employer/applications/${applicationId}`);
       if (response && (response.id || response.applicationId)) {
         return toApplicationViewModel(response);
       }
-    } catch (err) {
-      console.warn(`[apiApplicationService] Lỗi lấy app ${applicationId} qua API, fallback sang mock:`, err.message);
+    } catch {
+      try {
+        const fallbackRes = await httpClient.get(`/v1/applications/${applicationId}`);
+        if (fallbackRes && (fallbackRes.id || fallbackRes.applicationId)) {
+          return toApplicationViewModel(fallbackRes);
+        }
+      } catch (err) {
+        console.warn(`[apiApplicationService] Lỗi lấy app ${applicationId} qua API, fallback sang mock:`, err.message);
+      }
     }
     return mockApplicationService.getApplicationById(applicationId);
   },

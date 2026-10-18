@@ -6,10 +6,12 @@ import com.matchajob.application.model.ApplicationStage;
 import com.matchajob.application.model.ApplicationStatusHistory;
 import com.matchajob.application.repository.ApplicationRepository;
 import com.matchajob.application.repository.ApplicationStatusHistoryRepository;
+import com.matchajob.cv.model.CvVersion;
 import com.matchajob.cv.repository.ApplicationCvSnapshotRepository;
 import com.matchajob.cv.repository.CvVersionRepository;
 import com.matchajob.matching.model.MatchResult;
 import com.matchajob.matching.repository.MatchResultRepository;
+import com.matchajob.processing.model.ProcessingJob;
 import com.matchajob.processing.service.ProcessingJobService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -19,7 +21,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.security.access.AccessDeniedException;
 
 import java.time.Instant;
 import java.util.*;
@@ -27,6 +34,8 @@ import java.util.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -376,7 +385,7 @@ class ApplicationServiceTest {
         @Test
         @DisplayName("getApplicationDetail queries single application and returns DTO")
         @SuppressWarnings("unchecked")
-        void getApplicationDetail_success() {
+        void getEmployerApplicationDetail_success() {
             UUID appId = UUID.randomUUID();
             UUID candidateId = UUID.randomUUID();
 
@@ -398,12 +407,383 @@ class ApplicationServiceTest {
 
             when(mockQuerySpec.optional()).thenReturn(Optional.of(item));
 
-            EmployerApplicationItemResponse result = applicationService.getApplicationDetail(appId, null);
+            EmployerApplicationItemResponse result = applicationService.getEmployerApplicationDetail(appId, null);
 
             assertThat(result).isNotNull();
             assertThat(result.getApplicationId()).isEqualTo(appId);
             assertThat(result.getCandidateName()).isEqualTo("Tran Thi B");
             assertThat(result.getStage()).isEqualTo("screening");
+        }
+    }
+
+    // =========================================================================
+    // Helper method to stub job queries
+    // =========================================================================
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private void stubJobQuery(String status, Instant deadline) {
+        var mockSpec = mock(JdbcClient.StatementSpec.class);
+        var mockQuerySpec = mock(JdbcClient.MappedQuerySpec.class);
+        when(jdbcClient.sql(contains("FROM jobs"))).thenReturn(mockSpec);
+        when(mockSpec.param(any(UUID.class))).thenReturn(mockSpec);
+        when(mockSpec.query(any(RowMapper.class))).thenReturn(mockQuerySpec);
+
+        if (status == null) {
+            when(mockQuerySpec.optional()).thenReturn(Optional.empty());
+        } else {
+            Map<String, Object> row = new HashMap<>();
+            row.put("status", status);
+            row.put("deadline", deadline != null ? java.sql.Timestamp.from(deadline) : null);
+            when(mockQuerySpec.optional()).thenReturn(Optional.of(row));
+        }
+    }
+
+    // =========================================================================
+    // Nested tests: SubmitApplication
+    // =========================================================================
+
+    @Nested
+    @DisplayName("Submit Application Tests")
+    class SubmitApplication {
+
+        @Test
+        @DisplayName("applyForJob successfully creates application, snapshot, history, and processing job")
+        void applyForJob_success() {
+            UUID candidateId = UUID.randomUUID();
+            UUID userId = UUID.randomUUID();
+            UUID jobId = UUID.randomUUID();
+            UUID cvVersionId = UUID.randomUUID();
+            UUID createdAppId = UUID.randomUUID();
+            UUID processingJobId = UUID.randomUUID();
+
+            stubJobQuery("active", Instant.now().plusSeconds(86400));
+            when(applicationRepository.existsByCandidateIdAndJobId(candidateId, jobId)).thenReturn(false);
+
+            CvVersion cvVersion = CvVersion.builder()
+                    .id(cvVersionId)
+                    .candidateId(candidateId)
+                    .filePath("https://storage/cv.pdf")
+                    .build();
+            when(cvVersionRepository.findById(cvVersionId)).thenReturn(Optional.of(cvVersion));
+
+            when(applicationRepository.save(any(ApplicationEntity.class))).thenAnswer(invocation -> {
+                ApplicationEntity entity = invocation.getArgument(0);
+                entity.setId(createdAppId);
+                return entity;
+            });
+
+            ProcessingJob pJob = ProcessingJob.builder()
+                    .id(processingJobId)
+                    .jobType("APPLICATION_MATCHING")
+                    .build();
+            when(processingJobService.createJob(eq("APPLICATION_MATCHING"), eq("application"), eq(createdAppId), anyString()))
+                    .thenReturn(pJob);
+
+            ApplicationApplyRequest request = ApplicationApplyRequest.builder()
+                    .jobId(jobId)
+                    .cvVersionId(cvVersionId)
+                    .coverLetter("Looking forward to joining.")
+                    .build();
+
+            ApplicationResponse response = applicationService.applyForJob(candidateId, userId, request);
+
+            assertThat(response).isNotNull();
+            assertThat(response.getApplicationId()).isEqualTo(createdAppId);
+            assertThat(response.getCandidateId()).isEqualTo(candidateId);
+            assertThat(response.getJobId()).isEqualTo(jobId);
+            assertThat(response.getStage()).isEqualTo("new");
+            assertThat(response.getProcessingJobId()).isEqualTo(processingJobId);
+            assertThat(response.getMessage()).contains("Application submitted successfully");
+
+            verify(snapshotRepository).save(any());
+            verify(historyRepository).save(any(ApplicationStatusHistory.class));
+            verify(processingJobService).createJob(eq("APPLICATION_MATCHING"), eq("application"), eq(createdAppId), anyString());
+        }
+
+        @Test
+        @DisplayName("applyForJob throws DuplicateApplicationException when candidate already applied")
+        void applyForJob_duplicateThrows409() {
+            UUID candidateId = UUID.randomUUID();
+            UUID userId = UUID.randomUUID();
+            UUID jobId = UUID.randomUUID();
+            UUID cvVersionId = UUID.randomUUID();
+
+            stubJobQuery("active", null);
+            when(applicationRepository.existsByCandidateIdAndJobId(candidateId, jobId)).thenReturn(true);
+
+            ApplicationApplyRequest request = ApplicationApplyRequest.builder()
+                    .jobId(jobId)
+                    .cvVersionId(cvVersionId)
+                    .coverLetter("Duplicate attempt")
+                    .build();
+
+            assertThatThrownBy(() -> applicationService.applyForJob(candidateId, userId, request))
+                    .isInstanceOf(ApplicationService.DuplicateApplicationException.class)
+                    .hasMessageContaining("already applied");
+
+            verify(applicationRepository, never()).save(any());
+            verify(snapshotRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("applyForJob throws IllegalStateException when job is closed")
+        void applyForJob_closedJobThrows() {
+            UUID candidateId = UUID.randomUUID();
+            UUID userId = UUID.randomUUID();
+            UUID jobId = UUID.randomUUID();
+
+            stubJobQuery("closed", null);
+
+            ApplicationApplyRequest request = ApplicationApplyRequest.builder()
+                    .jobId(jobId)
+                    .cvVersionId(UUID.randomUUID())
+                    .coverLetter("Closed job attempt")
+                    .build();
+
+            assertThatThrownBy(() -> applicationService.applyForJob(candidateId, userId, request))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("not accepting");
+        }
+
+        @Test
+        @DisplayName("applyForJob throws IllegalStateException when deadline has passed")
+        void applyForJob_deadlinePassed() {
+            UUID candidateId = UUID.randomUUID();
+            UUID userId = UUID.randomUUID();
+            UUID jobId = UUID.randomUUID();
+
+            stubJobQuery("active", Instant.now().minusSeconds(7200));
+
+            ApplicationApplyRequest request = ApplicationApplyRequest.builder()
+                    .jobId(jobId)
+                    .cvVersionId(UUID.randomUUID())
+                    .coverLetter("Expired job attempt")
+                    .build();
+
+            assertThatThrownBy(() -> applicationService.applyForJob(candidateId, userId, request))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("deadline has passed");
+        }
+
+        @Test
+        @DisplayName("applyForJob throws IllegalArgumentException when job does not exist")
+        void applyForJob_jobNotFound() {
+            UUID candidateId = UUID.randomUUID();
+            UUID userId = UUID.randomUUID();
+            UUID jobId = UUID.randomUUID();
+
+            stubJobQuery(null, null);
+
+            ApplicationApplyRequest request = ApplicationApplyRequest.builder()
+                    .jobId(jobId)
+                    .cvVersionId(UUID.randomUUID())
+                    .coverLetter("Missing job attempt")
+                    .build();
+
+            assertThatThrownBy(() -> applicationService.applyForJob(candidateId, userId, request))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("Job not found");
+        }
+
+        @Test
+        @DisplayName("applyForJob throws IllegalArgumentException when CV version not found")
+        void applyForJob_cvNotFound() {
+            UUID candidateId = UUID.randomUUID();
+            UUID userId = UUID.randomUUID();
+            UUID jobId = UUID.randomUUID();
+            UUID cvVersionId = UUID.randomUUID();
+
+            stubJobQuery("active", null);
+            when(applicationRepository.existsByCandidateIdAndJobId(candidateId, jobId)).thenReturn(false);
+            when(cvVersionRepository.findById(cvVersionId)).thenReturn(Optional.empty());
+
+            ApplicationApplyRequest request = ApplicationApplyRequest.builder()
+                    .jobId(jobId)
+                    .cvVersionId(cvVersionId)
+                    .coverLetter("Missing CV attempt")
+                    .build();
+
+            assertThatThrownBy(() -> applicationService.applyForJob(candidateId, userId, request))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("CV version not found");
+        }
+
+        @Test
+        @DisplayName("applyForJob throws AccessDeniedException when CV belongs to another candidate")
+        void applyForJob_cvNotBelongToCandidate() {
+            UUID candidateId = UUID.randomUUID();
+            UUID anotherCandidateId = UUID.randomUUID();
+            UUID userId = UUID.randomUUID();
+            UUID jobId = UUID.randomUUID();
+            UUID cvVersionId = UUID.randomUUID();
+
+            stubJobQuery("active", null);
+            when(applicationRepository.existsByCandidateIdAndJobId(candidateId, jobId)).thenReturn(false);
+
+            CvVersion cvVersion = CvVersion.builder()
+                    .id(cvVersionId)
+                    .candidateId(anotherCandidateId)
+                    .filePath("https://storage/other_cv.pdf")
+                    .build();
+            when(cvVersionRepository.findById(cvVersionId)).thenReturn(Optional.of(cvVersion));
+
+            ApplicationApplyRequest request = ApplicationApplyRequest.builder()
+                    .jobId(jobId)
+                    .cvVersionId(cvVersionId)
+                    .coverLetter("Stolen CV attempt")
+                    .build();
+
+            assertThatThrownBy(() -> applicationService.applyForJob(candidateId, userId, request))
+                    .isInstanceOf(AccessDeniedException.class)
+                    .hasMessageContaining("CV version does not belong");
+        }
+    }
+
+    // =========================================================================
+    // Nested tests: ListAndDetailApplications
+    // =========================================================================
+
+    @Nested
+    @DisplayName("List and Detail Application Tests")
+    class ListAndDetailApplications {
+
+        @Test
+        @DisplayName("getMyApplications returns paginated applications")
+        void getMyApplications_returnsPaginated() {
+            UUID candidateId = UUID.randomUUID();
+            ApplicationEntity app1 = ApplicationEntity.builder()
+                    .id(UUID.randomUUID())
+                    .candidateId(candidateId)
+                    .jobId(UUID.randomUUID())
+                    .stage("new")
+                    .appliedAt(Instant.now().minusSeconds(100))
+                    .build();
+            ApplicationEntity app2 = ApplicationEntity.builder()
+                    .id(UUID.randomUUID())
+                    .candidateId(candidateId)
+                    .jobId(UUID.randomUUID())
+                    .stage("interview")
+                    .appliedAt(Instant.now().minusSeconds(200))
+                    .build();
+
+            when(applicationRepository.findByCandidateId(eq(candidateId), any(Pageable.class)))
+                    .thenReturn(new PageImpl<>(List.of(app1, app2), PageRequest.of(0, 10), 2));
+
+            ApplicationListResponse response = applicationService.getMyApplications(candidateId, 0, 10, null);
+
+            assertThat(response).isNotNull();
+            assertThat(response.getItems()).hasSize(2);
+            assertThat(response.getTotalItems()).isEqualTo(2);
+            assertThat(response.getPage()).isEqualTo(0);
+            assertThat(response.getSize()).isEqualTo(10);
+            assertThat(response.getTotalPages()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("getMyApplications filters by stage")
+        void getMyApplications_filterByStage() {
+            UUID candidateId = UUID.randomUUID();
+            ApplicationEntity app = ApplicationEntity.builder()
+                    .id(UUID.randomUUID())
+                    .candidateId(candidateId)
+                    .jobId(UUID.randomUUID())
+                    .stage("screening")
+                    .appliedAt(Instant.now())
+                    .build();
+
+            when(applicationRepository.findByCandidateIdAndStage(eq(candidateId), eq("screening"), any(Pageable.class)))
+                    .thenReturn(new PageImpl<>(List.of(app), PageRequest.of(0, 10), 1));
+
+            ApplicationListResponse response = applicationService.getMyApplications(candidateId, 0, 10, "screening");
+
+            assertThat(response.getItems()).hasSize(1);
+            assertThat(response.getItems().get(0).getStage()).isEqualTo("screening");
+            verify(applicationRepository).findByCandidateIdAndStage(eq(candidateId), eq("screening"), any(Pageable.class));
+        }
+
+        @Test
+        @DisplayName("getApplicationDetail returns application detail when found")
+        void getApplicationDetail_success() {
+            UUID appId = UUID.randomUUID();
+            UUID candidateId = UUID.randomUUID();
+            UUID jobId = UUID.randomUUID();
+
+            ApplicationEntity app = ApplicationEntity.builder()
+                    .id(appId)
+                    .candidateId(candidateId)
+                    .jobId(jobId)
+                    .stage("offer")
+                    .coverLetter("Detail test cover letter")
+                    .cvSnapshotUrl("https://snapshot.url")
+                    .appliedAt(Instant.now())
+                    .updatedAt(Instant.now())
+                    .build();
+
+            when(applicationRepository.findById(appId)).thenReturn(Optional.of(app));
+
+            ApplicationDetailResponse detail = applicationService.getApplicationDetail(appId);
+
+            assertThat(detail).isNotNull();
+            assertThat(detail.getApplicationId()).isEqualTo(appId);
+            assertThat(detail.getCandidateId()).isEqualTo(candidateId);
+            assertThat(detail.getJobId()).isEqualTo(jobId);
+            assertThat(detail.getStage()).isEqualTo("offer");
+            assertThat(detail.getCoverLetter()).isEqualTo("Detail test cover letter");
+        }
+
+        @Test
+        @DisplayName("getApplicationDetail throws IllegalArgumentException when not found")
+        void getApplicationDetail_notFound() {
+            UUID appId = UUID.randomUUID();
+            when(applicationRepository.findById(appId)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> applicationService.getApplicationDetail(appId))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("Application not found");
+        }
+
+        @Test
+        @DisplayName("getJobApplications returns applications for a job")
+        void getJobApplications_returnsForEmployer() {
+            UUID jobId = UUID.randomUUID();
+            ApplicationEntity app = ApplicationEntity.builder()
+                    .id(UUID.randomUUID())
+                    .candidateId(UUID.randomUUID())
+                    .jobId(jobId)
+                    .stage("new")
+                    .appliedAt(Instant.now())
+                    .build();
+
+            when(applicationRepository.findByJobId(eq(jobId), any(Pageable.class)))
+                    .thenReturn(new PageImpl<>(List.of(app), PageRequest.of(0, 10), 1));
+
+            ApplicationListResponse response = applicationService.getJobApplications(jobId, 0, 10, null);
+
+            assertThat(response).isNotNull();
+            assertThat(response.getItems()).hasSize(1);
+            assertThat(response.getTotalItems()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("getJobApplications filters by stage")
+        void getJobApplications_filterByStage() {
+            UUID jobId = UUID.randomUUID();
+            ApplicationEntity app = ApplicationEntity.builder()
+                    .id(UUID.randomUUID())
+                    .candidateId(UUID.randomUUID())
+                    .jobId(jobId)
+                    .stage("interview")
+                    .appliedAt(Instant.now())
+                    .build();
+
+            when(applicationRepository.findByJobIdAndStage(eq(jobId), eq("interview"), any(Pageable.class)))
+                    .thenReturn(new PageImpl<>(List.of(app), PageRequest.of(0, 10), 1));
+
+            ApplicationListResponse response = applicationService.getJobApplications(jobId, 0, 10, "interview");
+
+            assertThat(response.getItems()).hasSize(1);
+            assertThat(response.getItems().get(0).getStage()).isEqualTo("interview");
+            verify(applicationRepository).findByJobIdAndStage(eq(jobId), eq("interview"), any(Pageable.class));
         }
     }
 }

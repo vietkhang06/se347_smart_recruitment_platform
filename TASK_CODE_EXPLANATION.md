@@ -27,6 +27,10 @@
    - [3.4. Tinh chỉnh Kích thước Header & Nhận diện Tab trên Màn hình Laptop (>= 1200px)](#34-tinh-chỉnh-kích-thước-header--nhận-diện-tab-trên-màn-hình-laptop--1200px)
    - [3.5. Thu gọn Nhóm Tab Admin & Hiệu ứng Icon chỉ xuất hiện khi Hover](#35-thu-gọn-nhóm-tab-admin--hiệu-ứng-icon-chỉ-xuất-hiện-khi-hover)
    - [3.6. Bảng tổng hợp các thay đổi của Task 6](#36-bảng-tổng-hợp-các-thay-đổi-của-task-6)
+4. [PHẦN 4: Giải quyết Xung đột Mã nguồn (Git Merge Conflict Resolution)](#phần-4-giải-quyết-xung-đột-mã-nguồn-git-merge-conflict-resolution)
+   - [4.1. Bối cảnh & Bản chất xung đột](#41-bối-cảnh--bản-chất-xung-đột)
+   - [4.2. Chiến lược hợp nhất bảo toàn 100% tính năng](#42-chiến-lược-hợp-nhất-bảo-toàn-100-tính-năng-reconciliation-strategy)
+   - [4.3. Bảng đối chiếu sau khi giải quyết xung đột](#43-bảng-đối-chiếu-sau-khi-giải-quyết-xung-đột)
 
 ---
 
@@ -1214,6 +1218,71 @@ const isAdminSystemActive =
 | **`PipelineView.jsx`** | Thanh cuộn ngang mặc định thô sơ | Bổ sung `.kanban-board-row` touch scrolling | Vuốt Kanban trên điện thoại/tablet êm ái, thanh cuộn đẹp mắt |
 | **`CandidatesView.jsx`** | Dropdown cố định pixel 190px | Áp dụng `.filter-select-col` co giãn linh hoạt | Hiển thị 100% chiều ngang vừa vặn trên mọi kích thước điện thoại |
 | **`CompanyView.jsx`** | Nút đổi ảnh bìa bị dài trên màn hình 375px | Thêm class responsive `d-none d-sm-inline` | Nút gọn gàng "Đổi ảnh" trên mobile, không vỡ layout banner |
+
+---
+
+# PHẦN 4: GIẢI QUYẾT XUNG ĐỘT MÃ NGUỒN (GIT MERGE CONFLICT RESOLUTION)
+
+> **Nhánh xung đột:** `origin/main` ↔ `feature/employer-portal-ui-polish`  
+> **Tập tin xung đột chính:** `backend/src/main/java/com/matchajob/application/service/ApplicationService.java` & `ApplicationServiceTest.java`  
+> **Tập tin liên đới:** `ApplicationController.java` & `frontend/src/services/api/apiApplicationService.js`
+
+---
+
+### 4.1. Bối cảnh & Bản chất xung đột
+
+Khi tạo Pull Request hoặc hợp nhất (`git merge`) giữa nhánh chính `main` và nhánh tính năng `feature/employer-portal-ui-polish`, Git báo lỗi:
+```text
+CONFLICT (content): Merge conflict in backend/src/main/java/com/matchajob/application/service/ApplicationService.java
+CONFLICT (content): Merge conflict in backend/src/test/java/com/matchajob/application/service/ApplicationServiceTest.java
+```
+
+* **Phía nhánh `origin/main`:** Định nghĩa nhóm tính năng phục vụ **Người tìm việc (Candidate)** và **Quản lý đơn theo từng Job**:
+  - `getMyApplications(UUID candidateId, UUID userId, int page, int size, String stageFilter)`: Lấy danh sách đơn của Candidate có phân trang.
+  - `getApplicationDetail(UUID applicationId, UUID userId)`: Trả về `ApplicationDetailResponse` (DTO rút gọn chứa tên ứng viên, chức danh job, tên công ty, link CV, stage).
+  - `getJobApplications(UUID jobId, UUID userId, int page, int size, String stageFilter)`: Lấy danh sách đơn nộp vào một job cụ thể có phân trang.
+* **Phía nhánh `feature/employer-portal-ui-polish`:** Định nghĩa nhóm tính năng phục vụ **Nhà tuyển dụng (Employer Pipeline Kanban)**:
+  - `getEmployerApplications(UUID userId, UUID companyId, UUID jobId, String stageFilter, String search)`: Trả về danh sách pipeline với đầy đủ dữ liệu (avatar, contact, headline, AI match score, AI rationale).
+  - `getApplicationDetail(UUID applicationId, UUID userId)`: Trả về `EmployerApplicationItemResponse` (DTO chuyên biệt của Nhà tuyển dụng chứa điểm kỹ năng AI, kỹ năng trích xuất từ CV, avatar, phone).
+  - `attachCandidateSkills(...)`: Nối bảng `candidate_skills`.
+
+**Nguyên nhân gốc rễ:** Cả hai nhánh đều sửa đổi cùng một khu vực (Section 5) trong file `ApplicationService.java` và định nghĩa phương thức `getApplicationDetail(...)` với cùng chữ ký nhưng trả về 2 kiểu DTO khác nhau (`ApplicationDetailResponse` vs `EmployerApplicationItemResponse`). Nếu chỉ giữ một bên thì tính năng của bên kia sẽ bị hỏng.
+
+---
+
+### 4.2. Chiến lược hợp nhất bảo toàn 100% tính năng (Reconciliation Strategy)
+
+1. **Bảo toàn toàn bộ tính năng của Ứng viên (`origin/main`):**
+   - Giữ nguyên `getMyApplications(...)` (trả về `ApplicationListResponse`).
+   - Giữ nguyên `getApplicationDetail(...)` (trả về `ApplicationDetailResponse`).
+   - Giữ nguyên `getJobApplications(...)` (trả về `ApplicationListResponse`).
+   - Giữ nguyên các hàm bổ trợ: `toDetailResponse(...)`, `lookupJobInfo(...)`, `record JobInfo(...)`.
+
+2. **Bảo toàn toàn bộ tính năng của Nhà tuyển dụng (`feature`):**
+   - Giữ nguyên `getEmployerApplications(...)` (trả về `List<EmployerApplicationItemResponse>`).
+   - **Đổi tên phương thức chi tiết của Nhà tuyển dụng thành:** `getEmployerApplicationDetail(UUID applicationId, UUID userId)` (trả về `EmployerApplicationItemResponse`) để tránh xung đột chữ ký với phương thức của Candidate.
+   - Giữ nguyên hàm bổ trợ `attachCandidateSkills(...)`.
+
+3. **Phân định rõ ràng trong Controller (`ApplicationController.java`):**
+   - `GET /v1/applications`: Dành cho Candidate lấy danh sách đơn của mình.
+   - `GET /v1/applications/{applicationId}`: Dành cho Candidate/General xem chi tiết đơn (`ApplicationDetailResponse`).
+   - `GET /v1/jobs/{jobId}/applications`: Dành cho HR lấy danh sách đơn theo Job (`ApplicationListResponse`).
+   - `GET /v1/employer/applications`: Dành cho Employer xem toàn bộ Pipeline (`List<EmployerApplicationItemResponse>`).
+   - `GET /v1/employer/applications/{applicationId}`: Dành cho Employer xem chi tiết ứng viên với điểm AI subscores (`EmployerApplicationItemResponse`).
+
+4. **Tối ưu hóa Frontend (`apiApplicationService.js`):**
+   - Trong hàm `getApplicationById(applicationId)`: Tự động thử gọi endpoint `/v1/employer/applications/${applicationId}` trước để lấy đầy đủ chi tiết AI subscores, nếu không được sẽ fallback sang `/v1/applications/${applicationId}`.
+
+---
+
+### 4.3. Bảng đối chiếu sau khi giải quyết xung đột
+
+| Thành phần | Trước khi Resolve (Bị đè / Xung đột) | Sau khi Resolve (Hợp nhất hoàn chỉnh) |
+| :--- | :--- | :--- |
+| `ApplicationService.java` | 2 phiên bản `getApplicationDetail` đè nhau | Tách rõ: `getApplicationDetail` (Candidate DTO) và `getEmployerApplicationDetail` (Employer DTO) |
+| `ApplicationController.java` | Ambiguous mapping trùng path `/applications` | Đường dẫn tách bạch: `/v1/applications` (Candidate) và `/v1/employer/applications` (Employer) |
+| `ApplicationServiceTest.java` | Xung đột conflict markers, mất test suite | Hợp nhất cả test suite `SubmitApplication`, `ListAndDetailApplications` và `EmployerApplications` |
+| `apiApplicationService.js` | Chỉ gọi 1 endpoint tĩnh | Ưu tiên `/v1/employer/applications/{id}` có fallback tự động sang `/v1/applications/{id}` |
 
 ---
 
