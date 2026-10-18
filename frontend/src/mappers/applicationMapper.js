@@ -18,7 +18,9 @@ export const STAGE_TEXT_TO_CODE = {
   "Phỏng vấn": "interview",
   "Đề nghị": "offer",
   "Đã tuyển dụng": "hired",
-  "Từ chối": "rejected"
+  "Tiếp nhận": "hired",
+  "Từ chối": "rejected",
+  "Đã từ chối": "rejected"
 };
 
 /**
@@ -53,16 +55,20 @@ export function toApplicationViewModel(dto, candidateSnapshot = null) {
     candidateSnapshot?.fullName ||
     "Ứng viên";
 
-  const initials = dto.initials || getCandidateInitials(candidateName);
+  const initials = dto.initials || dto.candidateInitials || getCandidateInitials(candidateName);
 
-  const role = dto.candidateRole || dto.role || candidateSnapshot?.role || "Ứng viên";
+  const role = dto.candidateRole || dto.role || dto.candidateHeadline || candidateSnapshot?.role || "Ứng viên";
   const email = dto.candidateEmail || dto.email || candidateSnapshot?.email || "";
   const phone = dto.candidatePhone || dto.phone || candidateSnapshot?.phone || "";
   const match = Number(dto.matchScore ?? dto.overallScore ?? dto.match ?? 0);
   const appliedJobTitle = dto.appliedJobTitle || dto.jobTitle || "Vị trí tuyển dụng";
+  const skills = Array.isArray(dto.candidateSkills) && dto.candidateSkills.length > 0
+    ? dto.candidateSkills
+    : (Array.isArray(dto.skills) ? dto.skills : candidateSnapshot?.skills || []);
 
   return {
     id: String(dto.id || dto.applicationId || ""),
+    applicationId: String(dto.applicationId || dto.id || ""),
     candidateId: String(dto.candidateId || dto.candidate_id || candidateSnapshot?.id || ""),
     jobId: String(dto.jobId || dto.job_id || dto.appliedJobId || ""),
     name: candidateName,
@@ -73,22 +79,30 @@ export function toApplicationViewModel(dto, candidateSnapshot = null) {
     candidateEmail: email,
     phone,
     candidatePhone: phone,
+    avatar: dto.candidateAvatar || dto.avatar || "",
+    candidateAvatar: dto.candidateAvatar || dto.avatar || "",
     role,
     candidateRole: role,
+    headline: dto.candidateHeadline || role,
     location: dto.location || candidateSnapshot?.location || "TP. Hồ Chí Minh",
     education: dto.education || candidateSnapshot?.education || "Cử nhân",
     experience: dto.experience || candidateSnapshot?.experience || "Chưa cập nhật",
-    skills: Array.isArray(dto.skills) ? dto.skills : candidateSnapshot?.skills || [],
+    skills,
     bio: dto.bio || candidateSnapshot?.bio || "",
     workHistory: Array.isArray(dto.workHistory) ? dto.workHistory : candidateSnapshot?.workHistory || [],
     appliedJobId: String(dto.appliedJobId || dto.jobId || ""),
     appliedJobTitle,
     jobTitle: appliedJobTitle,
     companyId: String(dto.companyId || dto.company_id || "COMP-01"),
+    companyName: dto.companyName || "",
     stage: stageMeta.text,
     stageCode,
     match,
     matchScore: match,
+    skillsScore: dto.skillsScore ?? null,
+    experienceScore: dto.experienceScore ?? null,
+    matchRationale: dto.matchRationale || "",
+    rejectReason: dto.rejectReason || "",
     appliedDate: formatDate(dto.appliedAt || dto.appliedDate || dto.created_at),
     coverLetter: dto.coverLetter || dto.cover_letter || "",
     cvSnapshotUrl: dto.cvSnapshotUrl || dto.cv_snapshot_url || dto.cvUrl || "",
@@ -105,6 +119,7 @@ export function toApplicationStageUpdateRequest(targetStage, reason = "", notes 
     stageCode = STAGE_TEXT_TO_CODE[targetStage];
   }
   return {
+    toStage: stageCode,
     targetStage: stageCode,
     reason: reason || null,
     notes: notes || null

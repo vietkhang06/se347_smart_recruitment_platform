@@ -41,7 +41,7 @@ export default function InterviewModal({
 
   const selected = eligible.find(
     candidate => String(candidate.id) === form.candidateId
-  );
+  ) || defaultCandidate;
 
   const online = /Meet|Teams|trực tuyến/i.test(
     form.type || ""
@@ -67,7 +67,7 @@ export default function InterviewModal({
       setIsSubmitting(true);
       const item = await interviewService.createInterview({
         ...form,
-        candidateId: selected.id,
+        candidateId: selected.candidateId || selected.id,
         applicationId: selected.applicationId || selected.id,
         jobId: selected.appliedJobId || selected.jobId,
         meetingLink: online ? form.meetingLink.trim() : ""

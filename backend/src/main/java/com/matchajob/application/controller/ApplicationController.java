@@ -142,6 +142,60 @@ public class ApplicationController {
     }
 
     // =========================================================================
+    // GET /v1/employer/applications & GET /v1/applications — List Employer Applications
+    // =========================================================================
+
+    @GetMapping({"/employer/applications", "/applications"})
+    public ResponseEntity<List<EmployerApplicationItemResponse>> getEmployerApplications(
+            Authentication authentication,
+            @RequestParam(required = false) String companyId,
+            @RequestParam(required = false) UUID jobId,
+            @RequestParam(required = false) String stage,
+            @RequestParam(required = false) String search) {
+
+        UUID userId = authentication != null ? SecurityUtils.extractUserId(authentication) : null;
+        UUID companyUuid = null;
+        if (companyId != null && !companyId.isBlank()) {
+            try {
+                companyUuid = UUID.fromString(companyId.trim());
+            } catch (IllegalArgumentException ex) {
+                log.warn("Tham số companyId '{}' không phải UUID hợp lệ, fallback sang company của user", companyId);
+                companyUuid = null;
+            }
+        }
+
+        try {
+            List<EmployerApplicationItemResponse> list = applicationService.getEmployerApplications(
+                    userId, companyUuid, jobId, stage, search);
+            return ResponseEntity.ok(list);
+        } catch (IllegalArgumentException ex) {
+            HttpStatus status = ex.getMessage() != null && ex.getMessage().toLowerCase().contains("not found")
+                    ? HttpStatus.NOT_FOUND : HttpStatus.BAD_REQUEST;
+            throw new ResponseStatusException(status, ex.getMessage(), ex);
+        }
+    }
+
+    // =========================================================================
+    // GET /v1/applications/{applicationId} — Application Details
+    // =========================================================================
+
+    @GetMapping("/applications/{applicationId}")
+    public ResponseEntity<EmployerApplicationItemResponse> getApplicationById(
+            @PathVariable UUID applicationId,
+            Authentication authentication) {
+
+        UUID userId = authentication != null ? SecurityUtils.extractUserId(authentication) : null;
+        try {
+            EmployerApplicationItemResponse detail = applicationService.getApplicationDetail(applicationId, userId);
+            return ResponseEntity.ok(detail);
+        } catch (IllegalArgumentException ex) {
+            HttpStatus status = ex.getMessage() != null && ex.getMessage().toLowerCase().contains("not found")
+                    ? HttpStatus.NOT_FOUND : HttpStatus.BAD_REQUEST;
+            throw new ResponseStatusException(status, ex.getMessage(), ex);
+        }
+    }
+
+    // =========================================================================
     // Exception Handlers (RFC 7807 Problem Details)
     // =========================================================================
 

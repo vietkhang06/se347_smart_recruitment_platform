@@ -191,7 +191,7 @@ function EmployerWorkspace({ companyId }) {
   };
 
   const handleInviteCandidate = candidate => {
-    const current = mockStore.getCandidateById(candidate.id);
+    const current = candidate || mockStore.getCandidateById(candidate?.id);
     if (!current || current.withdrawnAt || /đã rút|từ chối|không phù hợp/i.test(current.stage || "")) {
       showToast("Hồ sơ không còn ở trạng thái cho phép mời phỏng vấn.", "danger");
       return;
@@ -201,19 +201,29 @@ function EmployerWorkspace({ companyId }) {
   };
 
   const handleCandidateStageChange = async (candidateId, nextStage) => {
-    mockStore.updateCandidateStage(candidateId, nextStage);
-    refreshStoreData();
-    setSelectedCandidate(current => current && String(current.id) === String(candidateId)
-      ? mockStore.getCandidateById(candidateId) : current);
-    showToast(`Đã chuyển ứng viên sang giai đoạn: ${nextStage}`);
+    try {
+      await applicationService.updateApplicationStage(candidateId, nextStage);
+      await refreshStoreData();
+      setSelectedCandidate(current => current && String(current.id) === String(candidateId)
+        ? { ...current, stage: nextStage } : current);
+      showToast(`Đã chuyển ứng viên sang giai đoạn: ${nextStage}`);
+    } catch (err) {
+      showToast(err?.message || "Không thể chuyển giai đoạn ứng viên.", "danger");
+      throw err;
+    }
   };
 
   const handleCandidateReject = async (candidateId, reason) => {
-    mockStore.rejectCandidate(candidateId, reason);
-    refreshStoreData();
-    setSelectedCandidate(current => current && String(current.id) === String(candidateId)
-      ? mockStore.getCandidateById(candidateId) : current);
-    showToast("Đã lưu lý do từ chối ứng viên.");
+    try {
+      await applicationService.updateApplicationStage(candidateId, "Từ chối", reason);
+      await refreshStoreData();
+      setSelectedCandidate(current => current && String(current.id) === String(candidateId)
+        ? { ...current, stage: "Từ chối", rejectReason: reason } : current);
+      showToast("Đã lưu lý do từ chối ứng viên.");
+    } catch (err) {
+      showToast(err?.message || "Không thể từ chối hồ sơ.", "danger");
+      throw err;
+    }
   };
 
   const handleJobCreated = () => {

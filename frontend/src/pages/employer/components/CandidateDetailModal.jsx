@@ -4,6 +4,7 @@ import {
 } from "react-bootstrap";
 import { STAGES_PIPELINE } from "../../../mock";
 import { mockStore } from "../../../services/mockStore";
+import { applicationService } from "../../../services";
 
 export default function CandidateDetailModal({
   candidate: supplied,
@@ -18,17 +19,26 @@ export default function CandidateDetailModal({
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [history, setHistory] = useState([]);
 
   useEffect(() => {
     setRejecting(false);
     setReason("");
     setError("");
+    if (show && supplied?.id) {
+      applicationService.getApplicationHistory(supplied.id)
+        .then(h => setHistory(Array.isArray(h) ? h : []))
+        .catch(() => setHistory([]));
+    } else {
+      setHistory([]);
+    }
   }, [show, supplied?.id]);
 
-  const candidate = supplied &&
+  const candidate = supplied && (
     mockStore.getCandidates().find(
       item => String(item.id) === String(supplied.id)
-    );
+    ) || supplied
+  );
 
   if (!candidate) {
     return (
@@ -49,10 +59,10 @@ export default function CandidateDetailModal({
       candidate.stage || ""
     );
 
-  const app = mockStore.getApplications().find(item =>
+  const app = supplied || (candidate && mockStore.getApplications().find(item =>
     String(item.candidateId) === String(candidate.id) &&
     String(item.jobId) === String(candidate.appliedJobId)
-  );
+  ));
 
   const displayName = candidate.name || candidate.candidateName || "Ứng viên";
   const displayRole = candidate.appliedJobTitle || candidate.role || candidate.candidateRole || "Chưa cập nhật";
@@ -64,9 +74,16 @@ export default function CandidateDetailModal({
     if (/từ chối|không phù hợp/i.test(value)) { setRejecting(true); return; }
     setSaving(true);
     setError("");
-    try { await onStageChange(candidate.id, value); }
-    catch (err) { setError(err?.message || "Không thể chuyển giai đoạn."); }
-    finally { setSaving(false); }
+    try {
+      await onStageChange(candidate.id, value);
+      // Reload history
+      const updatedHistory = await applicationService.getApplicationHistory(candidate.id);
+      if (Array.isArray(updatedHistory)) setHistory(updatedHistory);
+    } catch (err) {
+      setError(err?.message || "Không thể chuyển giai đoạn.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function reject(event) {
@@ -78,8 +95,13 @@ export default function CandidateDetailModal({
     try {
       await onRejectCandidate(candidate.id, reason.trim());
       setRejecting(false);
-    } catch (err) { setError(err?.message || "Không thể từ chối hồ sơ."); }
-    finally { setSaving(false); }
+      const updatedHistory = await applicationService.getApplicationHistory(candidate.id);
+      if (Array.isArray(updatedHistory)) setHistory(updatedHistory);
+    } catch (err) {
+      setError(err?.message || "Không thể từ chối hồ sơ.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -92,14 +114,19 @@ export default function CandidateDetailModal({
     >
       <Modal.Header closeButton={!saving && !busy}>
         <div className="d-flex align-items-center gap-3">
-          <div className="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white flex-shrink-0" style={{width: 52, height: 52, backgroundColor: "var(--primary)"}}>{candidate.initials || candidate.candidateInitials || displayName.slice(0, 2).toUpperCase()}</div>
+          <div
+            className="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white flex-shrink-0 shadow-sm"
+            style={{ width: 52, height: 52, backgroundColor: "var(--primary)" }}
+          >
+            {candidate.initials || candidate.candidateInitials || displayName.slice(0, 2).toUpperCase()}
+          </div>
           <div>
-          <Modal.Title className="fs-5">
-            {displayName}
-          </Modal.Title>
-          <small className="text-muted">
-            {displayRole} · {candidate.experience || "Chưa cập nhật kinh nghiệm"}
-          </small>
+            <Modal.Title className="fs-5">
+              {displayName}
+            </Modal.Title>
+            <small className="text-muted">
+              {displayRole} · {candidate.experience || candidate.candidateHeadline || "Chưa cập nhật kinh nghiệm"}
+            </small>
           </div>
         </div>
       </Modal.Header>
@@ -109,47 +136,75 @@ export default function CandidateDetailModal({
 
         {closed && (
           <Alert variant="secondary">
-            {candidate.stage}.{" "}
-            {candidate.withdrawReason || candidate.rejectReason}
+            {candidate.stage}. {candidate.withdrawReason || candidate.rejectReason}
           </Alert>
         )}
 
-        <div className="d-flex flex-wrap justify-content-between gap-3 border rounded p-3 mb-3">
+        <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 border rounded p-3 mb-3 bg-surface-2">
           <div>
-            <small className="text-muted">
-              Mức độ phù hợp
+            <small className="text-muted d-block mb-1">
+              Điểm phù hợp hồ sơ (AI Match)
             </small>
-            <div>
-              {hasScore
-                ? `${score}% (điểm demo)`
-                : "Chưa có điểm đối chiếu"}
+            <div className="d-flex align-items-center gap-2 flex-wrap">
+              <span className={`fw-bold fs-5 ${score >= 80 ? "text-success" : score >= 60 ? "text-primary" : "text-secondary"}`}>
+                <i className="bi bi-stars me-1"></i>{hasScore ? `${score}%` : "Chưa có"}
+              </span>
+              {candidate.skillsScore != null && (
+                <span className="badge bg-primary bg-opacity-10 text-primary small">
+                  Kỹ năng: {candidate.skillsScore}%
+                </span>
+              )}
+              {candidate.experienceScore != null && (
+                <span className="badge bg-warning bg-opacity-10 text-warning small">
+                  Kinh nghiệm: {candidate.experienceScore}%
+                </span>
+              )}
             </div>
           </div>
 
-          <Form.Select
-            style={{ width: "auto" }}
-            aria-label="Giai đoạn hồ sơ"
-            disabled={closed || saving || busy}
-            value={candidate.stage || "Mới"}
-            onChange={event =>
-              changeStage(event.target.value)
-            }
-          >
-            {STAGES_PIPELINE.map(stage => (
-              <option key={stage}>{stage}</option>
-            ))}
-            {!STAGES_PIPELINE.includes("Đã từ chối") && <option>Đã từ chối</option>}
-            {candidate.stage && ![...STAGES_PIPELINE, "Đã từ chối"].includes(candidate.stage) && <option>{candidate.stage}</option>}
-          </Form.Select>
+          <div className="d-flex align-items-center gap-2">
+            <span className="text-muted small">Giai đoạn:</span>
+            <Form.Select
+              style={{ width: "auto" }}
+              aria-label="Giai đoạn hồ sơ"
+              disabled={closed || saving || busy}
+              value={candidate.stage || "Mới"}
+              onChange={event => changeStage(event.target.value)}
+            >
+              {STAGES_PIPELINE.map(stage => (
+                <option key={stage} value={stage}>{stage}</option>
+              ))}
+              <option value="Đã tuyển dụng">Đã tuyển dụng</option>
+              <option value="Từ chối">Từ chối</option>
+            </Form.Select>
+          </div>
         </div>
 
-        <div className="alert alert-success small">
-          <strong>{candidate.appliedJobTitle}</strong>
-          {" · "}Ngày nộp: {candidate.appliedDate}
+        {candidate.matchRationale && (
+          <div className="alert alert-info py-2 px-3 small mb-3">
+            <strong><i className="bi bi-robot me-1"></i>Đánh giá AI:</strong> {candidate.matchRationale}
+          </div>
+        )}
+
+        <div className="alert alert-success small d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <div>
+            <strong>{candidate.appliedJobTitle || candidate.jobTitle}</strong>
+            {" · "}Ngày nộp: {candidate.appliedDate || "Gần đây"}
+          </div>
+          {candidate.cvSnapshotUrl && (
+            <a
+              href={candidate.cvSnapshotUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="btn btn-sm btn-outline-success bg-white text-decoration-none"
+            >
+              <i className="bi bi-file-earmark-pdf me-1"></i>Xem CV nộp kèm
+            </a>
+          )}
         </div>
 
         {candidate.bio && (
-          <p style={{ whiteSpace: "pre-wrap" }}>
+          <p style={{ whiteSpace: "pre-wrap" }} className="mb-3">
             {candidate.bio}
           </p>
         )}
@@ -170,76 +225,80 @@ export default function CandidateDetailModal({
           ))}
         </Row>
 
-        <h6>Kỹ năng</h6>
-        <div className="d-flex flex-wrap gap-2 mb-4">
-          {Array.isArray(candidate.skills) &&
-          candidate.skills.length ? (
+        <h6>Kỹ năng chuyên môn</h6>
+        <div className="d-flex flex-wrap gap-1 mb-4">
+          {Array.isArray(candidate.skills) && candidate.skills.length ? (
             candidate.skills.map((skill, index) => (
-              <Badge key={index} bg="secondary">
+              <span key={index} className="candidate-skill-badge">
                 {skill}
-              </Badge>
+              </span>
             ))
           ) : (
-            <small className="text-muted">
-              Chưa cập nhật
-            </small>
+            <small className="text-muted">Chưa cập nhật</small>
           )}
         </div>
 
-        <h6>Kinh nghiệm & dự án</h6>
-
-        {Array.isArray(candidate.workHistory) &&
-        candidate.workHistory.length ? (
-          candidate.workHistory.map((work, index) => (
-            <div
-              className="border rounded p-3 mb-2"
-              key={index}
-            >
-              <strong>
-                {work.period} · {work.role}
-              </strong>
-              <p className="small mb-0">{work.desc}</p>
-            </div>
-          ))
-        ) : (
-          <p className="small text-muted">Chưa cập nhật</p>
+        {Array.isArray(candidate.workHistory) && candidate.workHistory.length > 0 && (
+          <>
+            <h6>Kinh nghiệm làm việc</h6>
+            {candidate.workHistory.map((work, index) => (
+              <div className="border rounded p-3 mb-2 bg-surface" key={index}>
+                <strong>{work.period} · {work.role}</strong>
+                <p className="small mb-0 text-muted">{work.desc}</p>
+              </div>
+            ))}
+          </>
         )}
 
-        {app?.coverLetter && (
-          <>
-            <h6>Thư giới thiệu đã gửi</h6>
-            <p
-              className="small"
-              style={{
-                whiteSpace: "pre-wrap",
-                overflowWrap: "anywhere"
-              }}
+        {(candidate.coverLetter || app?.coverLetter) && (
+          <div className="mb-4">
+            <h6>Thư giới thiệu ứng viên (Cover Letter)</h6>
+            <div
+              className="small p-3 rounded border bg-surface-2"
+              style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}
             >
-              {app.coverLetter}
-            </p>
-          </>
+              {candidate.coverLetter || app.coverLetter}
+            </div>
+          </div>
+        )}
+
+        {history.length > 0 && (
+          <div className="mb-4">
+            <h6 className="fw-bold mb-2 small text-uppercase text-muted">
+              <i className="bi bi-clock-history me-1"></i>Lịch sử trạng thái ứng tuyển
+            </h6>
+            <div className="border rounded p-2 bg-surface small">
+              {history.map((h, idx) => (
+                <div key={h.id || idx} className="d-flex justify-content-between py-1 border-bottom last-border-0">
+                  <span>
+                    <strong className="text-secondary">{h.fromStage || "Mới"}</strong> &rarr; <strong className="text-success">{h.toStage}</strong>
+                    {h.reason && <span className="text-muted ms-2">({h.reason})</span>}
+                  </span>
+                  <span className="text-muted">{h.createdAt ? new Date(h.createdAt).toLocaleDateString("vi-VN") : ""}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
         {rejecting && (
           <Form
             onSubmit={reject}
-            className="border border-danger rounded p-3 mt-3"
+            className="border border-danger rounded p-3 mt-3 bg-danger bg-opacity-10"
           >
-            <Form.Label>
+            <Form.Label className="fw-bold text-danger">
               Lý do từ chối gửi cho ứng viên
             </Form.Label>
-
             <Form.Control
               as="textarea"
+              rows={3}
               required
               maxLength={1000}
               disabled={saving}
               value={reason}
-              onChange={event =>
-                setReason(event.target.value)
-              }
+              placeholder="Nhập lý do từ chối phù hợp để gửi thông báo cho ứng viên..."
+              onChange={event => setReason(event.target.value)}
             />
-
             <div className="d-flex justify-content-end gap-2 mt-3">
               <Button
                 size="sm"
@@ -249,7 +308,6 @@ export default function CandidateDetailModal({
               >
                 Quay lại
               </Button>
-
               <Button
                 size="sm"
                 disabled={saving}
@@ -266,19 +324,16 @@ export default function CandidateDetailModal({
       <Modal.Footer className="justify-content-between gap-2">
         <Button
           variant="outline-success"
-          disabled={
-            busy || saving ||
-            Boolean(candidate.withdrawnAt) ||
-            !app?.cvId
-          }
+          disabled={busy || saving || Boolean(candidate.withdrawnAt) || (!candidate.cvSnapshotUrl && !app?.cvId)}
           onClick={async () => {
+            if (candidate.cvSnapshotUrl) {
+              window.open(candidate.cvSnapshotUrl, "_blank");
+              return;
+            }
             setBusy(true);
             setError("");
-
             try {
-              await mockStore.downloadSubmittedCV(
-                candidate.id
-              );
+              await mockStore.downloadSubmittedCV(candidate.id);
             } catch (err) {
               setError(err.message);
             } finally {
@@ -288,6 +343,8 @@ export default function CandidateDetailModal({
         >
           {busy
             ? "Đang tải…"
+            : candidate.cvSnapshotUrl
+            ? "Xem tệp CV"
             : app?.cvName
             ? `Tải CV: ${app.cvName}`
             : "Đơn chưa có tệp CV"}
@@ -310,7 +367,7 @@ export default function CandidateDetailModal({
               onInviteInterview?.(candidate);
             }}
           >
-            Mời phỏng vấn
+            <i className="bi bi-calendar-event me-1"></i>Mời phỏng vấn
           </Button>
 
           <Button variant="secondary" disabled={saving || busy} onClick={onHide}>
