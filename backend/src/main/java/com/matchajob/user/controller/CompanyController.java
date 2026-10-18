@@ -2,6 +2,7 @@ package com.matchajob.user.controller;
 
 import com.matchajob.user.dto.CompanyResponse;
 import com.matchajob.user.dto.CreateCompanyRequest;
+import com.matchajob.user.dto.UpdateCompanyRequest;
 import com.matchajob.user.exception.UserNotAuthenticatedException;
 import com.matchajob.user.model.User;
 import com.matchajob.user.service.CompanyService;
@@ -17,10 +18,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
@@ -32,6 +30,32 @@ import java.util.UUID;
 public class CompanyController {
 
     private final CompanyService companyService;
+
+    @Operation(
+            summary = "Get company profile by ID",
+            description = "Retrieves public company profile details and perks by company ID"
+    )
+    @GetMapping("/{id}")
+    public ResponseEntity<CompanyResponse> getCompanyById(@PathVariable UUID id) {
+        CompanyResponse response = companyService.getCompanyById(id);
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(
+            summary = "Get employer company profile",
+            description = "Retrieves the company profile for the authenticated employer user",
+            security = @SecurityRequirement(name = "BearerAuth")
+    )
+    @GetMapping("/me")
+    @PreAuthorize("hasRole('EMPLOYER')")
+    public ResponseEntity<CompanyResponse> getEmployerCompany(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new UserNotAuthenticatedException("Full authentication is required to access this resource");
+        }
+        UUID userId = extractUserId(authentication);
+        CompanyResponse response = companyService.getEmployerCompany(userId);
+        return ResponseEntity.ok(response);
+    }
 
     @Operation(
             summary = "Create a new company",
@@ -58,6 +82,46 @@ public class CompanyController {
         UUID userId = extractUserId(authentication);
         CompanyResponse response = companyService.createCompany(userId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @Operation(
+            summary = "Update company profile",
+            description = "Updates company details and perks for an owned or managed company",
+            security = @SecurityRequirement(name = "BearerAuth")
+    )
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('EMPLOYER')")
+    public ResponseEntity<CompanyResponse> updateCompany(
+            Authentication authentication,
+            @PathVariable UUID id,
+            @Valid @RequestBody UpdateCompanyRequest request
+    ) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new UserNotAuthenticatedException("Full authentication is required to access this resource");
+        }
+        UUID userId = extractUserId(authentication);
+        CompanyResponse response = companyService.updateCompany(userId, id, request);
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(
+            summary = "Patch company profile",
+            description = "Partially updates company details and perks",
+            security = @SecurityRequirement(name = "BearerAuth")
+    )
+    @PatchMapping("/{id}")
+    @PreAuthorize("hasRole('EMPLOYER')")
+    public ResponseEntity<CompanyResponse> patchCompany(
+            Authentication authentication,
+            @PathVariable UUID id,
+            @Valid @RequestBody UpdateCompanyRequest request
+    ) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new UserNotAuthenticatedException("Full authentication is required to access this resource");
+        }
+        UUID userId = extractUserId(authentication);
+        CompanyResponse response = companyService.updateCompany(userId, id, request);
+        return ResponseEntity.ok(response);
     }
 
     private UUID extractUserId(Authentication authentication) {

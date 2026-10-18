@@ -7,8 +7,24 @@ import Form from "react-bootstrap/Form";
 import Badge from "react-bootstrap/Badge";
 import InputGroup from "react-bootstrap/InputGroup";
 import Spinner from "react-bootstrap/Spinner";
+import Modal from "react-bootstrap/Modal";
 import { useToast } from "../../../context/ToastContext";
 import { companyService } from "../../../services";
+
+const BANNER_PRESETS = [
+  {
+    name: "Tòa nhà Công nghệ Hiện đại",
+    url: "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1200&q=80"
+  },
+  {
+    name: "Không gian Sáng tạo & Co-working",
+    url: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1200&q=80"
+  },
+  {
+    name: "Campus Văn phòng Xanh",
+    url: "https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&w=1200&q=80"
+  }
+];
 
 export default function CompanyView({ companyData, onCompanyUpdated }) {
   const { showToast } = useToast();
@@ -29,6 +45,9 @@ export default function CompanyView({ companyData, onCompanyUpdated }) {
       "Đội ngũ công nghệ phát triển các sản phẩm số có tác động tích cực đến hàng triệu người dùng. Môi trường làm việc năng động, tôn trọng sáng tạo và khuyến khích học hỏi liên tục."
   );
 
+  const [logoUrl, setLogoUrl] = useState(companyData?.logoUrl || companyData?.logo || "");
+  const [coverImageUrl, setCoverImageUrl] = useState(companyData?.coverImageUrl || companyData?.coverImage || "");
+
   const [perks, setPerks] = useState(
     companyData?.perks || [
       "Làm việc Hybrid linh hoạt (2 ngày remote/tuần)",
@@ -42,6 +61,9 @@ export default function CompanyView({ companyData, onCompanyUpdated }) {
   const [newPerk, setNewPerk] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [errors, setErrors] = useState({});
+  const [showMediaModal, setShowMediaModal] = useState(false);
+  const [tempLogo, setTempLogo] = useState("");
+  const [tempCover, setTempCover] = useState("");
 
   useEffect(() => {
     if (companyData) {
@@ -55,9 +77,24 @@ export default function CompanyView({ companyData, onCompanyUpdated }) {
       if (companyData.phone) setPhone(companyData.phone);
       if (companyData.taxCode) setTaxCode(companyData.taxCode);
       if (companyData.about) setAbout(companyData.about);
-      if (companyData.perks) setPerks(companyData.perks);
+      if (companyData.perks && companyData.perks.length > 0) setPerks(companyData.perks);
+      if (companyData.logoUrl || companyData.logo) setLogoUrl(companyData.logoUrl || companyData.logo);
+      if (companyData.coverImageUrl || companyData.coverImage) setCoverImageUrl(companyData.coverImageUrl || companyData.coverImage);
     }
   }, [companyData]);
+
+  const handleOpenMediaModal = () => {
+    setTempLogo(logoUrl);
+    setTempCover(coverImageUrl);
+    setShowMediaModal(true);
+  };
+
+  const handleSaveMedia = () => {
+    setLogoUrl(tempLogo.trim());
+    setCoverImageUrl(tempCover.trim());
+    setShowMediaModal(false);
+    showToast("Đã cập nhật ảnh thương hiệu. Vui lòng nhấn 'Lưu thay đổi' để hoàn tất lưu trữ!");
+  };
 
   const handleAddPerk = (e) => {
     e.preventDefault();
@@ -134,6 +171,10 @@ export default function CompanyView({ companyData, onCompanyUpdated }) {
       phone: phone.trim(),
       taxCode: taxCode.trim(),
       about: about.trim(),
+      logoUrl: logoUrl.trim(),
+      logo: logoUrl.trim(),
+      coverImageUrl: coverImageUrl.trim(),
+      coverImage: coverImageUrl.trim(),
       perks,
       verified: companyData?.verified ?? true
     };
@@ -141,13 +182,15 @@ export default function CompanyView({ companyData, onCompanyUpdated }) {
     try {
       const result = await companyService.updateCompany(companyId, updated);
       if (onCompanyUpdated) onCompanyUpdated(result || updated);
-      showToast("Đã lưu thông tin hồ sơ doanh nghiệp thành công!");
+      showToast("Đã lưu thông tin hồ sơ doanh nghiệp thành công vào CSDL!");
     } catch (err) {
       showToast(err.message || "Không thể cập nhật hồ sơ doanh nghiệp.", "danger");
     } finally {
       setIsSaving(false);
     }
   };
+
+  const hasCustomLogo = logoUrl && (logoUrl.startsWith("http") || logoUrl.startsWith("/") || logoUrl.startsWith("data:"));
 
   return (
     <div data-aos="fade-up">
@@ -159,14 +202,14 @@ export default function CompanyView({ companyData, onCompanyUpdated }) {
         <Button
           variant="success"
           size="sm"
-          className="fw-bold d-inline-flex align-items-center gap-1"
+          className="fw-bold d-inline-flex align-items-center gap-1 shadow-sm px-3"
           disabled={isSaving}
           onClick={handleSave}
         >
           {isSaving ? (
             <>
               <Spinner animation="border" size="sm" />
-              <span>Đang lưu...</span>
+              <span>Đang lưu vào CSDL...</span>
             </>
           ) : (
             <>
@@ -185,33 +228,43 @@ export default function CompanyView({ companyData, onCompanyUpdated }) {
             <div
               className="company-banner d-flex align-items-end justify-content-end p-3 position-relative"
               style={{
-                minHeight: "130px",
-                background: "linear-gradient(135deg, #10b981 0%, #047857 100%)"
+                minHeight: "150px",
+                backgroundImage: coverImageUrl ? `url(${coverImageUrl})` : "linear-gradient(135deg, #10b981 0%, #047857 100%)",
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+                borderBottom: "1px solid var(--border)"
               }}
             >
               <Button
                 variant="light"
                 size="sm"
-                className="shadow-sm"
-                onClick={() => showToast("Đã cập nhật ảnh bìa doanh nghiệp demo")}
+                className="shadow-sm bg-white text-dark fw-semibold"
+                onClick={handleOpenMediaModal}
               >
-                <i className="bi bi-camera me-1"></i>Đổi ảnh bìa
+                <i className="bi bi-camera me-1"></i>Đổi ảnh bìa & Logo
               </Button>
               <div
-                className="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold shadow position-absolute start-0 bottom-0 ms-4 translate-middle-y"
+                className="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold shadow position-absolute start-0 bottom-0 ms-4 translate-middle-y overflow-hidden"
                 style={{
-                  width: "68px",
-                  height: "68px",
+                  width: "72px",
+                  height: "72px",
                   backgroundColor: "#0f172a",
                   fontSize: "1.5rem",
-                  border: "3px solid #fff"
+                  border: "3px solid #fff",
+                  cursor: "pointer"
                 }}
+                onClick={handleOpenMediaModal}
+                title="Nhấn để đổi Logo"
               >
-                {(name || "CP").slice(0, 2).toUpperCase()}
+                {hasCustomLogo ? (
+                  <img src={logoUrl} alt={name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                ) : (
+                  (name || "CP").slice(0, 2).toUpperCase()
+                )}
               </div>
             </div>
 
-            <div className="p-4" style={{ paddingTop: "36px" }}>
+            <div className="p-4" style={{ paddingTop: "38px" }}>
               <Form onSubmit={handleSave}>
                 <Row className="g-3">
                   <Col md={12}>
@@ -412,10 +465,14 @@ export default function CompanyView({ companyData, onCompanyUpdated }) {
             <h6 className="fw-bold mb-2 small text-muted">Hiển thị trực tiếp trên trang Việc làm</h6>
             <div className="d-flex align-items-center gap-3 p-3 rounded bg-surface border">
               <div
-                className="rounded-3 d-flex align-items-center justify-content-center text-white fw-bold shadow-sm"
+                className="rounded-3 d-flex align-items-center justify-content-center text-white fw-bold shadow-sm overflow-hidden flex-shrink-0"
                 style={{ width: "48px", height: "48px", backgroundColor: "var(--primary)" }}
               >
-                {(name || "CP").slice(0, 2).toUpperCase()}
+                {hasCustomLogo ? (
+                  <img src={logoUrl} alt={name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                ) : (
+                  (name || "CP").slice(0, 2).toUpperCase()
+                )}
               </div>
               <div className="overflow-hidden">
                 <div className="fw-bold text-truncate">{name}</div>
@@ -430,6 +487,68 @@ export default function CompanyView({ companyData, onCompanyUpdated }) {
           </Card>
         </Col>
       </Row>
+
+      {/* Modal chỉnh sửa Ảnh bìa & Logo */}
+      <Modal show={showMediaModal} onHide={() => setShowMediaModal(false)} centered size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title className="h6 fw-bold mb-0">
+            <i className="bi bi-palette me-2 text-success"></i>Tùy chỉnh Ảnh bìa & Logo Doanh nghiệp
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <div className="mb-4">
+            <Form.Label className="fw-semibold small">Logo Công ty (URL hình ảnh)</Form.Label>
+            <Form.Control
+              type="text"
+              placeholder="https://example.com/logo.png"
+              value={tempLogo}
+              onChange={(e) => setTempLogo(e.target.value)}
+            />
+            <small className="text-muted">Nhập đường dẫn trực tiếp tới file ảnh logo (PNG, JPG, SVG, WebP).</small>
+          </div>
+
+          <div className="mb-4">
+            <Form.Label className="fw-semibold small">Ảnh bìa Banner (URL hình ảnh)</Form.Label>
+            <Form.Control
+              type="text"
+              placeholder="https://example.com/cover.jpg"
+              value={tempCover}
+              onChange={(e) => setTempCover(e.target.value)}
+            />
+          </div>
+
+          <div className="mb-3">
+            <label className="fw-semibold small text-muted text-uppercase mb-2">Hoặc chọn nhanh ảnh mẫu chất lượng cao</label>
+            <Row className="g-2">
+              {BANNER_PRESETS.map((preset, idx) => (
+                <Col md={4} key={idx}>
+                  <div
+                    className={`border rounded p-2 text-center cursor-pointer ${tempCover === preset.url ? "border-success bg-success bg-opacity-10" : ""}`}
+                    style={{ cursor: "pointer" }}
+                    onClick={() => setTempCover(preset.url)}
+                  >
+                    <img
+                      src={preset.url}
+                      alt={preset.name}
+                      className="rounded mb-2 w-100"
+                      style={{ height: "70px", objectFit: "cover" }}
+                    />
+                    <div className="small fw-semibold text-truncate">{preset.name}</div>
+                  </div>
+                </Col>
+              ))}
+            </Row>
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="outline-secondary" size="sm" onClick={() => setShowMediaModal(false)}>
+            Hủy bỏ
+          </Button>
+          <Button variant="success" size="sm" onClick={handleSaveMedia}>
+            Áp dụng hình ảnh
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 }

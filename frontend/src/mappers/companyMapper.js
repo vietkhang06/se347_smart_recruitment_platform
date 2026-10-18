@@ -34,16 +34,20 @@ export function toCompanyViewModel(dto) {
     }
   }
 
+  const cover =
+    dto.coverImage ||
+    dto.coverImageUrl ||
+    dto.cover_image_url ||
+    "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1200&q=80";
+
   return {
     id: String(dto.id || "COMP-01"),
     name,
     shortName,
     logo,
-    coverImage:
-      dto.coverImage ||
-      dto.coverImageUrl ||
-      dto.cover_image_url ||
-      "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1200&q=80",
+    logoUrl: logo,
+    coverImage: cover,
+    coverImageUrl: cover,
     industry: dto.industry || "Công nghệ thông tin",
     size: dto.size || "150-500 nhân sự",
     location: dto.location || "TP. Hồ Chí Minh",
@@ -66,8 +70,8 @@ export function toCompanyUpdateRequest(vm) {
   return {
     name: vm.name,
     shortName: vm.shortName,
-    logoUrl: vm.logo,
-    coverImageUrl: vm.coverImage,
+    logoUrl: vm.logoUrl || vm.logo || null,
+    coverImageUrl: vm.coverImageUrl || vm.coverImage || null,
     industry: vm.industry,
     size: vm.size,
     location: vm.location,
@@ -76,7 +80,8 @@ export function toCompanyUpdateRequest(vm) {
     email: vm.email,
     phone: vm.phone,
     taxCode: vm.taxCode,
-    description: vm.about,
-    perks: vm.perks
+    about: vm.about || vm.description,
+    description: vm.about || vm.description,
+    perks: Array.isArray(vm.perks) ? vm.perks : []
   };
 }

@@ -27,6 +27,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 
 import java.sql.SQLException;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -46,6 +47,12 @@ class CompanyServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private com.matchajob.security.ResourceOwnershipService resourceOwnershipService;
+
+    @Mock
+    private org.springframework.jdbc.core.simple.JdbcClient jdbcClient;
 
     @InjectMocks
     private CompanyService companyService;
@@ -311,4 +318,73 @@ class CompanyServiceTest {
 
         verifyNoInteractions(companyMemberRepository);
     }
+
+    @Test
+    @DisplayName("14. getCompanyById queries company and attached perks")
+    @SuppressWarnings("unchecked")
+    void getCompanyById_successful() {
+        UUID companyId = UUID.randomUUID();
+        Company company = Company.builder()
+                .id(companyId)
+                .name("Test Company")
+                .industry("IT")
+                .build();
+
+        when(companyRepository.findById(companyId)).thenReturn(Optional.of(company));
+
+        org.springframework.jdbc.core.simple.JdbcClient.StatementSpec mockSpec = mock(org.springframework.jdbc.core.simple.JdbcClient.StatementSpec.class);
+        org.springframework.jdbc.core.simple.JdbcClient.MappedQuerySpec<String> mockQuerySpec = mock(org.springframework.jdbc.core.simple.JdbcClient.MappedQuerySpec.class);
+
+        when(jdbcClient.sql(anyString())).thenReturn(mockSpec);
+        when(mockSpec.param(companyId)).thenReturn(mockSpec);
+        when(mockSpec.query(String.class)).thenReturn(mockQuerySpec);
+        when(mockQuerySpec.list()).thenReturn(List.of("Flexible hours", "Remote work"));
+
+        CompanyResponse response = companyService.getCompanyById(companyId);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getId()).isEqualTo(companyId);
+        assertThat(response.getName()).isEqualTo("Test Company");
+        assertThat(response.getPerks()).containsExactly("Flexible hours", "Remote work");
+    }
+
+    @Test
+    @DisplayName("15. updateCompany updates fields and re-saves perks")
+    @SuppressWarnings("unchecked")
+    void updateCompany_successful() {
+        UUID companyId = UUID.randomUUID();
+        Company company = Company.builder()
+                .id(companyId)
+                .name("Old Name")
+                .taxCode("0123456789")
+                .build();
+
+        when(companyRepository.findById(companyId)).thenReturn(Optional.of(company));
+        when(companyRepository.saveAndFlush(any(Company.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        org.springframework.jdbc.core.simple.JdbcClient.StatementSpec mockSpec = mock(org.springframework.jdbc.core.simple.JdbcClient.StatementSpec.class);
+        org.springframework.jdbc.core.simple.JdbcClient.MappedQuerySpec<String> mockQuerySpec = mock(org.springframework.jdbc.core.simple.JdbcClient.MappedQuerySpec.class);
+
+        when(jdbcClient.sql(anyString())).thenReturn(mockSpec);
+        when(mockSpec.param(any())).thenReturn(mockSpec);
+        when(mockSpec.params(any(), any(), any(), any())).thenReturn(mockSpec);
+        when(mockSpec.update()).thenReturn(1);
+        when(mockSpec.query(String.class)).thenReturn(mockQuerySpec);
+        when(mockQuerySpec.list()).thenReturn(List.of("New perk"));
+
+        com.matchajob.user.dto.UpdateCompanyRequest updateReq = com.matchajob.user.dto.UpdateCompanyRequest.builder()
+                .name("New Name")
+                .industry("Fintech")
+                .perks(List.of("New perk"))
+                .build();
+
+        CompanyResponse response = companyService.updateCompany(userId, companyId, updateReq);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getName()).isEqualTo("New Name");
+        assertThat(response.getIndustry()).isEqualTo("Fintech");
+        assertThat(response.getPerks()).containsExactly("New perk");
+        verify(resourceOwnershipService).checkEmployerCompanyOwnership(userId, companyId);
+    }
 }
+

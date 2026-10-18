@@ -106,7 +106,16 @@ function EmployerWorkspace({ companyId }) {
   );
 
   const refreshStoreData = useCallback(async () => {
-    setCompany(mockStore.getCompanies().find(item => String(item.id) === String(companyId)) || mockStore.getCompanies()[0]);
+    try {
+      const liveCompany = await companyService.getCompany(companyId);
+      if (liveCompany && liveCompany.name) {
+        setCompany(liveCompany);
+      } else {
+        setCompany(mockStore.getCompanies().find(item => String(item.id) === String(companyId)) || mockStore.getCompanies()[0]);
+      }
+    } catch {
+      setCompany(mockStore.getCompanies().find(item => String(item.id) === String(companyId)) || mockStore.getCompanies()[0]);
+    }
     try {
       const liveJobs = await jobService.getEmployerJobs(companyId);
       if (Array.isArray(liveJobs)) {

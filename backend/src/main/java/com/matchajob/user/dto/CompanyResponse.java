@@ -54,6 +54,8 @@ public class CompanyResponse {
 
     private String about;
 
+    private java.util.List<String> perks;
+
     @JsonProperty("created_at")
     private Instant createdAt;
 
@@ -61,6 +63,10 @@ public class CompanyResponse {
     private Instant updatedAt;
 
     public static CompanyResponse fromEntity(Company company) {
+        return fromEntity(company, java.util.List.of());
+    }
+
+    public static CompanyResponse fromEntity(Company company, java.util.List<String> perks) {
         if (company == null) {
             return null;
         }
@@ -81,6 +87,7 @@ public class CompanyResponse {
                 .taxCode(company.getTaxCode())
                 .isVerified(company.getIsVerified())
                 .about(company.getAbout())
+                .perks(perks != null ? perks : java.util.List.of())
                 .createdAt(company.getCreatedAt())
                 .updatedAt(company.getUpdatedAt())
                 .build();
