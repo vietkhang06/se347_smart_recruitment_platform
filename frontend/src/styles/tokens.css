@@ -973,6 +973,17 @@ select option {
   pointer-events: none;
 }
 
+/* Tab đang active: LUÔN HIỆN ICON của tab đó */
+.header-nav-tab.active .tab-icon,
+.header-task-link.active .tab-icon {
+  opacity: 1;
+  max-width: 20px;
+  margin-right: 4px;
+  transform: scale(1.05);
+  color: var(--primary) !important;
+}
+
+/* Tab khi được hover vào: hiển thị icon */
 .header-nav-tab:hover .tab-icon,
 .header-task-link:hover .tab-icon {
   opacity: 1;
@@ -985,6 +996,7 @@ select option {
 .header-nav-tab.active:hover .tab-icon,
 .header-task-link.active:hover .tab-icon {
   color: var(--primary) !important;
+  transform: scale(1.08);
 }
 
 .header-nav-tab::after,

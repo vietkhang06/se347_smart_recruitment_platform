@@ -1147,11 +1147,13 @@ const isAdminSystemActive =
   ADMIN_SYSTEM_TABS.some((t) => t.key === currentHash);
 ```
 
-##### B. Cấu hình Icon Tab chỉ xuất hiện khi Hover: `tokens.css`
-* Trạng thái mặc định: Icon ẩn hoàn toàn (`opacity: 0; max-width: 0`), tab chỉ hiển thị chữ thanh mảnh, gọn gàng, giúp tiết kiệm tối đa chiều ngang.
-* Khi di chuột vào tab (`:hover`): Icon trượt mượt mà hiện ra (`opacity: 1; max-width: 20px; margin-right: 4px`) với gia tốc cubic-bezier dịu mắt.
+##### B. Cấu hình Trạng thái Icon: Luôn hiện ở Tab Đang Active & Chỉ hiện khi Hover ở các Tab còn lại: `tokens.css`
+* **Tab đang Active:** Luôn hiển thị đầy đủ icon đặc trưng kèm màu sắc nhận diện (`--primary`), giúp người dùng nhận biết ngay lập tức trang mình đang đứng mà không cần phải di chuột.
+* **Các Tab Chưa Active:** Mặc định ẩn hoàn toàn icon (`opacity: 0; max-width: 0`), tab chỉ hiển thị chữ thanh mảnh, giúp tiết kiệm tối đa không gian hàng ngang trên Header.
+* **Khi Di chuột (Hover):** Icon trượt mượt mà hiện ra (`opacity: 1; max-width: 20px; margin-right: 4px`) với chuyển động cubic-bezier mềm mại.
 
 ```css
+/* Trạng thái mặc định của tab thường: Ẩn icon để tiết kiệm chiều ngang */
 .header-nav-tab .tab-icon,
 .header-task-link .tab-icon {
   display: inline-flex;
@@ -1172,6 +1174,17 @@ const isAdminSystemActive =
   pointer-events: none;
 }
 
+/* Tab đang active*/
+.header-nav-tab.active .tab-icon,
+.header-task-link.active .tab-icon {
+  opacity: 1;
+  max-width: 20px;
+  margin-right: 4px;
+  transform: scale(1.05);
+  color: var(--primary) !important;
+}
+
+/* Tab khi được hover vào*/
 .header-nav-tab:hover .tab-icon,
 .header-task-link:hover .tab-icon {
   opacity: 1;
@@ -1184,6 +1197,7 @@ const isAdminSystemActive =
 .header-nav-tab.active:hover .tab-icon,
 .header-task-link.active:hover .tab-icon {
   color: var(--primary) !important;
+  transform: scale(1.08);
 }
 ```
 
