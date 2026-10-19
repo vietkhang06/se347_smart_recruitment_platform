@@ -1,30 +1,49 @@
 package com.matchajob.api.recruitment.service;
 
-import com.matchajob.api.recruitment.model.CategoryEntity;
+import com.matchajob.api.recruitment.dto.CategoryResponse;
+import com.matchajob.api.recruitment.model.Skill;
+import com.matchajob.api.recruitment.model.enums.JobLevel;
+import com.matchajob.api.recruitment.model.enums.WorkType;
 import com.matchajob.api.recruitment.repository.CategoryRepository;
+import com.matchajob.api.recruitment.repository.SkillRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+
+import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
 public class TaxonomyService {
-    private final CategoryRepository categoryRepository;
 
-    public List<CategoryEntity> getAllCategories() {
-        return categoryRepository.findAll();
+    private final CategoryRepository categoryRepository;
+    private final SkillRepository skillRepository;
+
+    public List<CategoryResponse> getAllCategories() {
+        return categoryRepository.findAll().stream()
+                .map(CategoryResponse::from)
+                .toList();
     }
 
     public List<String> getWorkTypes() {
-        return List.of("full_time", "part_time", "hybrid", "remote", "contract");
+        return Arrays.stream(WorkType.values())
+                .map(WorkType::getValue)
+                .toList();
     }
 
     public List<String> getLevels() {
-        return List.of("Intern", "Junior", "Mid", "Senior", "Lead", "Manager");
+        return Arrays.stream(JobLevel.values())
+                .map(JobLevel::getValue)
+                .toList();
     }
 
     public List<String> getSkills() {
-        return List.of("Java", "Spring Boot", "React", "PostgreSQL", "Docker", "Kubernetes", "Python");
+        List<String> skills = skillRepository.findAll().stream()
+                .map(Skill::getName)
+                .toList();
+        if (skills.isEmpty()) {
+            return List.of("Java", "Spring Boot", "React", "PostgreSQL", "Docker", "Kubernetes", "Python");
+        }
+        return skills;
     }
 }

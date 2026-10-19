@@ -1,227 +1,562 @@
-import Modal from "react-bootstrap/Modal";
-import Button from "react-bootstrap/Button";
-import Badge from "react-bootstrap/Badge";
-import Row from "react-bootstrap/Row";
-import Col from "react-bootstrap/Col";
-import Form from "react-bootstrap/Form";
-import { useState } from "react";
-import { useToast } from "../../../context/ToastContext";
+import { useEffect, useRef, useState } from "react";
+import {
+  Modal, Button, Badge, Row, Col, Form, Alert
+} from "react-bootstrap";
 import { STAGES_PIPELINE } from "../../../mock";
+import { mockStore } from "../../../services/mockStore";
+import { applicationService } from "../../../services";
+import { apiApplicationService } from "../../../services/api/apiApplicationService";
 
 export default function CandidateDetailModal({
-  candidate,
+  candidate: supplied,
   show,
   onHide,
   onInviteInterview,
   onStageChange,
   onRejectCandidate
 }) {
-  const { showToast } = useToast();
   const [rejecting, setRejecting] = useState(false);
-  const [rejectReason, setRejectReason] = useState("Hồ sơ chưa phù hợp với yêu cầu kinh nghiệm hiện tại của dự án.");
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [history, setHistory] = useState([]);
+  const [matchingResultValue, setMatchingResultValue] = useState(null);
+  const [matchingResultApplicationId, setMatchingResultApplicationId] = useState(null);
+  const [matchingLoading, setMatchingLoading] = useState(false);
+  const [matchingError, setMatchingError] = useState("");
+  const matchingRequestRef = useRef(0);
 
-  if (!candidate) return null;
+  const suppliedApplicationId = supplied?.applicationId
+    || (supplied?.candidateId && supplied?.id ? supplied.id : null);
+  const suppliedCandidateId = supplied?.candidateId || supplied?.id;
+  const candidate = supplied && {
+    ...(mockStore.getCandidates().find(
+      item => String(item.id) === String(suppliedCandidateId)
+    ) || {}),
+    ...supplied
+  };
+  const mockApplication = supplied && mockStore.getApplications().find(item => {
+    if (suppliedApplicationId && String(item.applicationId || item.id) === String(suppliedApplicationId)) {
+      return true;
+    }
+    const candidateId = supplied?.candidateId || supplied?.id;
+    const jobId = supplied?.jobId || supplied?.appliedJobId;
+    return candidateId && String(item.candidateId) === String(candidateId)
+      && (!jobId || String(item.jobId) === String(jobId));
+  });
+  const matchingApplicationId = suppliedApplicationId
+    || mockApplication?.applicationId
+    || mockApplication?.id
+    || candidate?.applicationId;
+  const matchingResult = matchingResultApplicationId === matchingApplicationId
+    ? matchingResultValue
+    : null;
 
-  const handleStageSelect = (e) => {
-    const nextStage = e.target.value;
-    if (onStageChange) {
-      onStageChange(candidate.id, nextStage);
-      showToast(`Đã chuyển ứng viên ${candidate.name} sang bước: ${nextStage}`);
+  useEffect(() => {
+    setRejecting(false);
+    setReason("");
+    setError("");
+    setHistory([]);
+    setMatchingResultValue(null);
+    setMatchingResultApplicationId(null);
+    setMatchingError("");
+    setMatchingLoading(false);
+    const requestId = ++matchingRequestRef.current;
+    if (!show) return () => { matchingRequestRef.current += 1; };
+
+    let active = true;
+    if (!matchingApplicationId) {
+      setMatchingError("Không xác định được Application ID cho hồ sơ này.");
+    } else {
+      setMatchingLoading(true);
+      apiApplicationService.getMatchingResult(matchingApplicationId)
+        .then(result => {
+          if (active && matchingRequestRef.current === requestId) {
+            setMatchingResultValue(result);
+            setMatchingResultApplicationId(matchingApplicationId);
+            if (result?.status === "ERROR") {
+              setMatchingError(result.message || "Không thể tải kết quả đối sánh CV–JD.");
+            }
+          }
+        })
+        .catch(err => {
+          if (active && matchingRequestRef.current === requestId) {
+            setMatchingError(err?.message || "Không thể tải kết quả đối sánh CV–JD.");
+          }
+        })
+        .finally(() => {
+          if (active && matchingRequestRef.current === requestId) setMatchingLoading(false);
+        });
+    }
+
+    if (matchingApplicationId) {
+      applicationService.getApplicationHistory(matchingApplicationId)
+        .then(items => {
+          if (active && matchingRequestRef.current === requestId) {
+            setHistory(Array.isArray(items) ? items : []);
+          }
+        })
+        .catch(() => {
+          if (active && matchingRequestRef.current === requestId) setHistory([]);
+        });
+    }
+
+    return () => {
+      active = false;
+      if (matchingRequestRef.current === requestId) matchingRequestRef.current += 1;
+    };
+  }, [show, matchingApplicationId]);
+
+  const loadMatchingResult = async (trigger = false) => {
+    if (!matchingApplicationId) {
+      setMatchingError("Không xác định được Application ID cho hồ sơ này.");
+      return;
+    }
+    const requestId = ++matchingRequestRef.current;
+    setMatchingLoading(true);
+    setMatchingError("");
+    try {
+      const result = trigger
+        ? await apiApplicationService.triggerMatchingEvaluation(matchingApplicationId)
+        : await apiApplicationService.getMatchingResult(matchingApplicationId);
+      if (matchingRequestRef.current !== requestId) return;
+      setMatchingResultValue(result);
+      setMatchingResultApplicationId(matchingApplicationId);
+      if (result?.status === "ERROR") {
+        setMatchingError(result.message || "Không thể tải kết quả đối sánh CV–JD.");
+      }
+    } catch (err) {
+      if (matchingRequestRef.current === requestId) {
+        setMatchingError(err?.message || "Không thể tải kết quả đối sánh CV–JD.");
+      }
+    } finally {
+      if (matchingRequestRef.current === requestId) setMatchingLoading(false);
     }
   };
 
-  const handleConfirmReject = () => {
-    if (onRejectCandidate) {
-      onRejectCandidate(candidate.id, rejectReason);
-      showToast(`Đã từ chối ứng viên ${candidate.name}`);
+  if (!candidate) {
+    return (
+      <Modal show={show} onHide={onHide}>
+        <Modal.Header closeButton>
+          Hồ sơ không còn khả dụng
+        </Modal.Header>
+        <Modal.Body>
+          Kiểm tra lại tài khoản và danh sách hồ sơ.
+        </Modal.Body>
+      </Modal>
+    );
+  }
+
+  const closed =
+    Boolean(candidate.withdrawnAt) ||
+    /đã rút|từ chối|không phù hợp/i.test(
+      candidate.stage || ""
+    );
+
+  const app = suppliedApplicationId ? supplied : (mockApplication || (supplied?.cvId ? supplied : null));
+
+  const displayName = candidate.name || candidate.candidateName || "Ứng viên";
+  const displayRole = candidate.appliedJobTitle || candidate.role || candidate.candidateRole || "Chưa cập nhật";
+  const matchingStatus = matchingResult?.status || (matchingError ? "ERROR" : "NOT_STARTED");
+  const matchingStatusLabel = ({
+    COMPLETED: "Hoàn tất",
+    PENDING: "Đang chờ xử lý",
+    PROCESSING: "Đang xử lý",
+    FAILED: "Xử lý thất bại",
+    NOT_STARTED: "Chưa có kết quả",
+    ERROR: "Không tải được kết quả"
+  })[matchingStatus] || matchingStatus;
+  const matchingCriteria = Object.entries(matchingResult?.criteriaScores || {});
+  if (!matchingCriteria.length && matchingResult?.status === "COMPLETED") {
+    if (matchingResult.skillsScore != null) matchingCriteria.push(["skills", matchingResult.skillsScore]);
+    if (matchingResult.experienceScore != null) matchingCriteria.push(["experience", matchingResult.experienceScore]);
+  }
+  const scoreText = value => value == null ? "—" : `${value}/100`;
+
+  async function changeStage(value) {
+    if (saving || closed) return;
+    if (/từ chối|không phù hợp/i.test(value)) { setRejecting(true); return; }
+    setSaving(true);
+    setError("");
+    try {
+      if (!matchingApplicationId) throw new Error("Không xác định được Application ID cho hồ sơ này.");
+      await onStageChange(matchingApplicationId, value, candidate.candidateId || candidate.id);
+      // Reload history
+      const updatedHistory = await applicationService.getApplicationHistory(matchingApplicationId);
+      if (Array.isArray(updatedHistory)) setHistory(updatedHistory);
+    } catch (err) {
+      setError(err?.message || "Không thể chuyển giai đoạn.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function reject(event) {
+    event.preventDefault();
+    if (saving || closed) return;
+    if (!reason.trim()) { setError("Nhập lý do từ chối."); return; }
+    setSaving(true);
+    setError("");
+    try {
+      if (!matchingApplicationId) throw new Error("Không xác định được Application ID cho hồ sơ này.");
+      await onRejectCandidate(matchingApplicationId, reason.trim(), candidate.candidateId || candidate.id);
       setRejecting(false);
-      onHide();
+      const updatedHistory = await applicationService.getApplicationHistory(matchingApplicationId);
+      if (Array.isArray(updatedHistory)) setHistory(updatedHistory);
+    } catch (err) {
+      setError(err?.message || "Không thể từ chối hồ sơ.");
+    } finally {
+      setSaving(false);
     }
-  };
+  }
 
   return (
-    <Modal show={show} onHide={onHide} size="lg" centered scrollable>
-      <Modal.Header closeButton>
+    <Modal
+      show={show}
+      onHide={saving || busy ? () => {} : onHide}
+      size="lg"
+      centered
+      scrollable
+    >
+      <Modal.Header closeButton={!saving && !busy}>
         <div className="d-flex align-items-center gap-3">
           <div
-            className="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white shadow-sm flex-shrink-0"
-            style={{ width: "52px", height: "52px", backgroundColor: "var(--primary)", fontSize: "1.2rem" }}
+            className="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white flex-shrink-0 shadow-sm"
+            style={{ width: 52, height: 52, backgroundColor: "var(--primary)" }}
           >
-            {candidate.initials}
+            {candidate.initials || candidate.candidateInitials || displayName.slice(0, 2).toUpperCase()}
           </div>
           <div>
-            <div className="d-flex align-items-center gap-2">
-              <Modal.Title className="fw-bold fs-5 mb-0">{candidate.name}</Modal.Title>
-              {candidate.userId && <code className="small">{candidate.userId}</code>}
-            </div>
-            <span className="text-muted small">
-              {candidate.role} · {candidate.experience} kinh nghiệm
-            </span>
+            <Modal.Title className="fs-5">
+              {displayName}
+            </Modal.Title>
+            <small className="text-muted">
+              {displayRole} · {candidate.experience || candidate.candidateHeadline || "Chưa cập nhật kinh nghiệm"}
+            </small>
           </div>
         </div>
       </Modal.Header>
 
       <Modal.Body className="p-4">
-        {/* Top Status & AI Match Strip */}
-        <div className="d-flex flex-wrap justify-content-between align-items-center p-3 rounded mb-3 bg-surface-2 border gap-2">
-          <div>
-            <div className="small text-muted mb-1">Mức độ tương thích AI (Job Matching):</div>
-            <span className="fs-5 fw-bold text-success">
-              <i className="bi bi-stars me-1"></i>{candidate.match || 90}% Phù hợp với JD
-            </span>
-          </div>
+        {error && <Alert variant="danger">{error}</Alert>}
 
+        {closed && (
+          <Alert variant="secondary">
+            {candidate.stage}. {candidate.withdrawReason || candidate.rejectReason}
+          </Alert>
+        )}
+
+        <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 border rounded p-3 mb-3 bg-surface-2">
           <div className="d-flex align-items-center gap-2">
-            <span className="small text-muted fw-semibold">Giai đoạn:</span>
+            <span className="text-muted small">Đối chiếu CV–JD:</span>
+            <Badge bg={matchingStatus === "COMPLETED" ? "success" : matchingStatus === "FAILED" || matchingStatus === "ERROR" ? "danger" : "secondary"}>
+              {matchingStatusLabel}
+            </Badge>
+          </div>
+          <div className="d-flex align-items-center gap-2">
+            {(matchingStatus !== "COMPLETED" || matchingResult?.source === "FIXTURE") && (
+              <Button size="sm" variant="success" disabled={matchingLoading || !matchingApplicationId} onClick={() => loadMatchingResult(true)}>
+                {matchingLoading ? "Đang xử lý…" : "Chạy đối sánh"}
+              </Button>
+            )}
+            <Button size="sm" variant="outline-secondary" disabled={matchingLoading || !matchingApplicationId} onClick={() => loadMatchingResult(false)}>
+              {matchingLoading ? "Đang tải…" : "Tải lại"}
+            </Button>
+          </div>
+          <div className="d-flex align-items-center gap-2">
+            <span className="text-muted small">Giai đoạn:</span>
             <Form.Select
-              size="sm"
-              style={{ width: 140 }}
+              style={{ width: "auto" }}
+              aria-label="Giai đoạn hồ sơ"
+              disabled={closed || saving || busy || !matchingApplicationId}
               value={candidate.stage || "Mới"}
-              onChange={handleStageSelect}
+              onChange={event => changeStage(event.target.value)}
             >
-              {STAGES_PIPELINE.map((stg) => (
-                <option key={stg} value={stg}>{stg}</option>
+              {STAGES_PIPELINE.map(stage => (
+                <option key={stage} value={stage}>{stage}</option>
               ))}
-              <option value="Đã từ chối">Đã từ chối</option>
+              <option value="Đã tuyển dụng">Đã tuyển dụng</option>
+              <option value="Từ chối">Từ chối</option>
             </Form.Select>
           </div>
         </div>
 
-        {/* Applied Position Info */}
-        {candidate.appliedJobTitle && (
-          <div className="p-2 px-3 rounded bg-success bg-opacity-10 text-success border border-success border-opacity-25 small mb-3 d-flex justify-content-between align-items-center">
-            <span>
-              <i className="bi bi-briefcase me-1"></i>Vị trí ứng tuyển: <strong>{candidate.appliedJobTitle}</strong>
-            </span>
-            <span className="text-muted">Ngày nộp: {candidate.appliedDate || "14/09/2026"}</span>
+        <section className="border rounded p-3 mb-4" aria-labelledby="matching-detail-title">
+          <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <div>
+              <h6 id="matching-detail-title" className="fw-bold mb-1">Chi tiết đối sánh CV–JD</h6>
+              <small className="text-muted">Kết quả theo Application và CV snapshot đã nộp</small>
+            </div>
+            <span className="small text-muted">ID hồ sơ: {matchingApplicationId || "Chưa xác định"}</span>
           </div>
-        )}
 
-        {/* Bio summary */}
-        {candidate.bio && (
-          <div className="p-3 rounded bg-surface border mb-3 small">
-            <strong className="text-body d-block mb-1">Giới thiệu bản thân:</strong>
-            <p className="text-muted mb-0">{candidate.bio}</p>
-          </div>
-        )}
+          {matchingResult?.source === "FIXTURE" && (
+            <Alert variant="info" className="small mb-3">
+              Fixture minh họa: các điểm và kỹ năng bên dưới không phải kết quả AI của ứng viên hiện tại.
+            </Alert>
+          )}
+          {matchingError && <Alert variant="danger" className="small">{matchingError}</Alert>}
+          {matchingLoading && <div className="text-muted small mb-3" role="status">Đang tải kết quả matching…</div>}
 
-        {/* 4 Info Blocks */}
-        <Row className="g-3 mb-4">
-          <Col sm={6}>
-            <div className="small text-muted">Địa điểm sinh sống:</div>
-            <div className="fw-semibold">
-              <i className="bi bi-geo-alt text-danger me-1"></i>{candidate.location || "TP. Hồ Chí Minh"}
-            </div>
-          </Col>
-          <Col sm={6}>
-            <div className="small text-muted">Trình độ học vấn:</div>
-            <div className="fw-semibold">
-              <i className="bi bi-mortarboard text-primary me-1"></i>
-              {candidate.education || "Cử nhân ĐH Bách Khoa TP.HCM"}
-            </div>
-          </Col>
-          <Col sm={6}>
-            <div className="small text-muted">Email liên hệ:</div>
-            <div className="fw-semibold">
-              <i className="bi bi-envelope text-muted me-1"></i>
-              {candidate.email || `${candidate.name.toLowerCase().replace(/\s+/g, '')}@gmail.com`}
-            </div>
-          </Col>
-          <Col sm={6}>
-            <div className="small text-muted">Số điện thoại:</div>
-            <div className="fw-semibold">
-              <i className="bi bi-telephone text-muted me-1"></i>
-              {candidate.phone || "0909 123 456"}
-            </div>
-          </Col>
-        </Row>
+          {matchingResult?.status === "COMPLETED" ? (
+            <>
+              <Row className="g-2 mb-3">
+                {[
+                  ["Điểm tổng", matchingResult.overallScore],
+                  ["Kỹ năng", matchingResult.skillsScore],
+                  ["Kinh nghiệm", matchingResult.experienceScore]
+                ].map(([label, value]) => (
+                  <Col xs={12} sm={4} key={label}>
+                    <div className="rounded p-3 h-100 bg-surface-2">
+                      <small className="text-muted d-block">{label}</small>
+                      <strong className="fs-5">{scoreText(value)}</strong>
+                    </div>
+                  </Col>
+                ))}
+              </Row>
 
-        {/* Skills */}
-        <h6 className="fw-bold text-success mb-2">Kỹ năng chuyên môn</h6>
-        <div className="d-flex flex-wrap gap-2 mb-4">
-          {candidate.skills?.map((s) => (
-            <Badge key={s} bg="secondary" className="bg-opacity-10 text-body p-2 fs-6">
-              {s}
-            </Badge>
-          ))}
-        </div>
-
-        {/* Work Experience */}
-        <h6 className="fw-bold text-success mb-2">Lịch sử làm việc & Dự án thực chiến</h6>
-        <div className="d-flex flex-column gap-2 mb-3">
-          {candidate.workHistory && candidate.workHistory.length > 0 ? (
-            candidate.workHistory.map((w, idx) => (
-              <div className="p-3 rounded border bg-surface small" key={idx}>
-                <div className="fw-bold mb-1 text-primary">{w.period}: {w.role}</div>
-                <p className="text-muted mb-0">{w.desc}</p>
+              <div className="mb-3">
+                <strong className="small d-block mb-2">Điểm theo tiêu chí</strong>
+                {matchingCriteria.length ? matchingCriteria.map(([criterion, value]) => {
+                  const numericValue = Number(value);
+                  const validScore = Number.isFinite(numericValue) && numericValue >= 0 && numericValue <= 100;
+                  return (
+                    <div className="mb-2" key={criterion}>
+                      <div className="d-flex justify-content-between small mb-1">
+                        <span>{criterion}</span><span>{scoreText(validScore ? numericValue : null)}</span>
+                      </div>
+                      <div className="progress" role="progressbar" aria-label={`Điểm ${criterion}`} aria-valuenow={validScore ? numericValue : 0} aria-valuemin="0" aria-valuemax="100" style={{ height: 7 }}>
+                        <div className="progress-bar bg-success" style={{ width: `${validScore ? numericValue : 0}%` }} />
+                      </div>
+                    </div>
+                  );
+                }) : <small className="text-muted">Không có điểm tiêu chí trong kết quả.</small>}
               </div>
-            ))
-          ) : (
-            <div className="p-3 rounded border bg-surface small">
-              <div className="fw-bold mb-1">2023 - Nay: Senior Role tại Tech Corp</div>
-              <p className="text-muted mb-0">Chịu trách nhiệm thiết kế kiến trúc, tối ưu hóa giao diện và phát hành tính năng định kỳ.</p>
-            </div>
+
+              <div className="mb-3">
+                <strong className="small d-block mb-2">Kỹ năng khớp ({matchingResult.matchedSkills?.length || 0})</strong>
+                <div className="d-flex flex-wrap gap-2">
+                  {(matchingResult.matchedSkills || []).length ? matchingResult.matchedSkills.map(skill => (
+                    <Badge key={`matched-${skill}`} bg="success">{skill}</Badge>
+                  )) : <small className="text-muted">Chưa xác định được kỹ năng khớp.</small>}
+                </div>
+              </div>
+
+              <div className="mb-3">
+                <strong className="small d-block mb-2">Kỹ năng còn thiếu ({matchingResult.missingSkills?.length || 0})</strong>
+                <div className="d-flex flex-wrap gap-2">
+                  {(matchingResult.missingSkills || []).length ? matchingResult.missingSkills.map(skill => (
+                    <Badge key={`missing-${skill}`} bg="warning" text="dark">{skill}</Badge>
+                  )) : <small className="text-muted">Chưa có kỹ năng thiếu được xác định trong breakdown.</small>}
+                </div>
+              </div>
+
+              <details className="mb-3">
+                <summary className="small fw-semibold">Chi tiết breakdown</summary>
+                <pre className="small mt-2 mb-0 p-2 rounded bg-surface-2" style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
+                  {JSON.stringify(matchingResult.breakdown || {}, null, 2)}
+                </pre>
+              </details>
+
+              <div>
+                <strong className="small d-block mb-1">Giải thích kết quả</strong>
+                <p className="small mb-0" style={{ whiteSpace: "pre-wrap" }}>
+                  {matchingResult.explanation || "AI Worker chưa cung cấp phần giải thích cho kết quả này."}
+                </p>
+              </div>
+              {matchingResult.evaluatedAt && <small className="text-muted d-block mt-2">Đánh giá lúc: {new Date(matchingResult.evaluatedAt).toLocaleString("vi-VN")}</small>}
+            </>
+          ) : !matchingLoading && (
+            <p className="small text-muted mb-0">{matchingResult?.message || "Chưa có kết quả matching đã lưu cho hồ sơ này."}</p>
+          )}
+        </section>
+
+        <div className="alert alert-success small d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <div>
+            <strong>{candidate.appliedJobTitle || candidate.jobTitle}</strong>
+            {" · "}Ngày nộp: {candidate.appliedDate || "Gần đây"}
+          </div>
+          {candidate.cvSnapshotUrl && (
+            <a
+              href={candidate.cvSnapshotUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="btn btn-sm btn-outline-success bg-white text-decoration-none"
+            >
+              <i className="bi bi-file-earmark-pdf me-1"></i>Xem CV nộp kèm
+            </a>
           )}
         </div>
 
-        {/* Reject Confirmation Box */}
+        {candidate.bio && (
+          <p style={{ whiteSpace: "pre-wrap" }} className="mb-3">
+            {candidate.bio}
+          </p>
+        )}
+
+        <Row className="g-3 mb-4">
+          {[
+            ["Email", candidate.email || candidate.candidateEmail],
+            ["Điện thoại", candidate.phone || candidate.candidatePhone],
+            ["Địa điểm", candidate.location],
+            ["Học vấn", candidate.education]
+          ].map(([label, value]) => (
+            <Col sm={6} key={label}>
+              <small className="text-muted">{label}</small>
+              <div style={{ overflowWrap: "anywhere" }}>
+                {value || "Chưa cập nhật"}
+              </div>
+            </Col>
+          ))}
+        </Row>
+
+        <h6>Kỹ năng chuyên môn</h6>
+        <div className="d-flex flex-wrap gap-1 mb-4">
+          {Array.isArray(candidate.skills) && candidate.skills.length ? (
+            candidate.skills.map((skill, index) => (
+              <span key={index} className="candidate-skill-badge">
+                {skill}
+              </span>
+            ))
+          ) : (
+            <small className="text-muted">Chưa cập nhật</small>
+          )}
+        </div>
+
+        {Array.isArray(candidate.workHistory) && candidate.workHistory.length > 0 && (
+          <>
+            <h6>Kinh nghiệm làm việc</h6>
+            {candidate.workHistory.map((work, index) => (
+              <div className="border rounded p-3 mb-2 bg-surface" key={index}>
+                <strong>{work.period} · {work.role}</strong>
+                <p className="small mb-0 text-muted">{work.desc}</p>
+              </div>
+            ))}
+          </>
+        )}
+
+        {(candidate.coverLetter || app?.coverLetter) && (
+          <div className="mb-4">
+            <h6>Thư giới thiệu ứng viên (Cover Letter)</h6>
+            <div
+              className="small p-3 rounded border bg-surface-2"
+              style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}
+            >
+              {candidate.coverLetter || app.coverLetter}
+            </div>
+          </div>
+        )}
+
+        {history.length > 0 && (
+          <div className="mb-4">
+            <h6 className="fw-bold mb-2 small text-uppercase text-muted">
+              <i className="bi bi-clock-history me-1"></i>Lịch sử trạng thái ứng tuyển
+            </h6>
+            <div className="border rounded p-2 bg-surface small">
+              {history.map((h, idx) => (
+                <div key={h.id || idx} className="d-flex justify-content-between py-1 border-bottom last-border-0">
+                  <span>
+                    <strong className="text-secondary">{h.fromStage || "Mới"}</strong> &rarr; <strong className="text-success">{h.toStage}</strong>
+                    {h.reason && <span className="text-muted ms-2">({h.reason})</span>}
+                  </span>
+                  <span className="text-muted">{h.createdAt ? new Date(h.createdAt).toLocaleDateString("vi-VN") : ""}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {rejecting && (
-          <div className="p-3 rounded border border-danger bg-danger bg-opacity-10 mt-3 animate-fade-in">
-            <h6 className="fw-bold text-danger mb-2">Xác nhận từ chối hồ sơ ứng viên</h6>
-            <Form.Group className="mb-2">
-              <Form.Label className="small fw-semibold">Lý do từ chối (gửi thông báo lịch sự tới ứng viên):</Form.Label>
-              <Form.Control
-                as="textarea"
-                rows={2}
-                value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
-              />
-            </Form.Group>
-            <div className="d-flex gap-2 justify-content-end">
-              <Button variant="secondary" size="sm" onClick={() => setRejecting(false)}>
-                Hủy bỏ
+          <Form
+            onSubmit={reject}
+            className="border border-danger rounded p-3 mt-3 bg-danger bg-opacity-10"
+          >
+            <Form.Label className="fw-bold text-danger">
+              Lý do từ chối gửi cho ứng viên
+            </Form.Label>
+            <Form.Control
+              as="textarea"
+              rows={3}
+              required
+              maxLength={1000}
+              disabled={saving}
+              value={reason}
+              placeholder="Nhập lý do từ chối phù hợp để gửi thông báo cho ứng viên..."
+              onChange={event => setReason(event.target.value)}
+            />
+            <div className="d-flex justify-content-end gap-2 mt-3">
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={saving}
+                onClick={() => setRejecting(false)}
+              >
+                Quay lại
               </Button>
-              <Button variant="danger" size="sm" onClick={handleConfirmReject}>
+              <Button
+                size="sm"
+                disabled={saving}
+                type="submit"
+                variant="danger"
+              >
                 Xác nhận từ chối
               </Button>
             </div>
-          </div>
+          </Form>
         )}
       </Modal.Body>
 
-      <Modal.Footer className="d-flex justify-content-between flex-wrap gap-2">
+      <Modal.Footer className="justify-content-between gap-2">
         <Button
-          variant="outline-secondary"
-          size="sm"
-          onClick={() => showToast("Đã tải xuống CV ứng viên (.PDF)")}
+          variant="outline-success"
+          disabled={busy || saving || Boolean(candidate.withdrawnAt) || (!candidate.cvSnapshotUrl && !app?.cvId)}
+          onClick={async () => {
+            if (candidate.cvSnapshotUrl) {
+              window.open(candidate.cvSnapshotUrl, "_blank");
+              return;
+            }
+            setBusy(true);
+            setError("");
+            try {
+              await mockStore.downloadSubmittedCV(candidate.candidateId || candidate.id);
+            } catch (err) {
+              setError(err.message);
+            } finally {
+              setBusy(false);
+            }
+          }}
         >
-          <i className="bi bi-download me-1"></i>Tải CV (.PDF)
+          {busy
+            ? "Đang tải…"
+            : candidate.cvSnapshotUrl
+            ? "Xem tệp CV"
+            : app?.cvName
+            ? `Tải CV: ${app.cvName}`
+            : "Đơn chưa có tệp CV"}
         </Button>
 
-        <div className="d-flex gap-2">
-          {!rejecting && candidate.stage !== "Đã từ chối" && (
-            <Button
-              variant="outline-danger"
-              size="sm"
-              onClick={() => setRejecting(true)}
-            >
-              <i className="bi bi-x-circle me-1"></i>Từ chối
-            </Button>
-          )}
+        <div className="d-flex flex-wrap gap-2">
+          <Button
+            variant="outline-danger"
+            disabled={closed || saving || busy}
+            onClick={() => setRejecting(true)}
+          >
+            Từ chối
+          </Button>
 
           <Button
             variant="success"
-            size="sm"
+            disabled={closed || saving || busy}
             onClick={() => {
               onHide();
-              if (onInviteInterview) onInviteInterview(candidate);
-              else showToast(`Đã mở lịch phỏng vấn cho ${candidate.name}`);
+              onInviteInterview?.(candidate);
             }}
           >
-            <i className="bi bi-calendar-plus me-1"></i>Mời phỏng vấn
+            <i className="bi bi-calendar-event me-1"></i>Mời phỏng vấn
           </Button>
 
-          <Button variant="secondary" size="sm" onClick={onHide}>
+          <Button variant="secondary" disabled={saving || busy} onClick={onHide}>
             Đóng
           </Button>
         </div>

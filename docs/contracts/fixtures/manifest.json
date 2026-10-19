@@ -1,0 +1,196 @@
+{
+  "version": "0.1",
+  "status": "draft-pending-owner-review",
+  "note": "Synthetic contract review fixtures, not seeds or runtime evidence. Owner packets were prepared from workbook/source; no owner approval has been recorded.",
+  "fixtures": [
+    {
+      "file": "auth-register-request.json",
+      "kind": "target-contract",
+      "module": "auth",
+      "route": "POST /api/v1/auth/register",
+      "implementation": "not-found-in-source-audit",
+      "validation": "manual-shape-check",
+      "note": "Auth endpoint is proposed; no Auth Controller was found in the inspected Backend source."
+    },
+    {
+      "file": "auth-login-response.json",
+      "kind": "target-contract",
+      "module": "auth",
+      "route": "POST /api/v1/auth/login",
+      "implementation": "not-found-in-source-audit",
+      "validation": "manual-shape-check",
+      "note": "Access token placeholder is intentionally not a usable token."
+    },
+    {
+      "file": "job-search-response.json",
+      "kind": "source-aligned-example",
+      "module": "job",
+      "route": "GET /api/v1/jobs",
+      "implementation": "present-but-current-mapping-prefix-conflicts-with-context-path",
+      "validation": "static-shape-test",
+      "note": "Response shape matches JobSummaryResponse and PageResponse DTO fields. The route's effective external path must be smoke-tested after base-path correction."
+    },
+    {
+      "file": "cv-upload-accepted-response.json",
+      "kind": "target-contract",
+      "module": "cv",
+      "route": "POST /api/v1/candidates/me/cvs",
+      "implementation": "proposed-route-not-present-as-such",
+      "validation": "manual-shape-check",
+      "note": "camelCase public target DTO; current controller uses /v1/candidates/{candidateId}/cv and returns snake_case keys."
+    },
+    {
+      "file": "cv-upload-response-current.json",
+      "kind": "current-source-shape",
+      "module": "cv",
+      "route": "POST /api/v1/candidates/{candidateId}/cv?sync=false",
+      "implementation": "present",
+      "validation": "static-shape-test",
+      "note": "Keys/types inferred from CvController response map. The message says queued; a background job consumer was not found in source audit, so queue execution is not proven."
+    },
+    {
+      "file": "application-create-request.json",
+      "kind": "target-contract",
+      "module": "application",
+      "route": "POST /api/v1/applications",
+      "implementation": "not-found-in-source-audit",
+      "validation": "manual-shape-check",
+      "note": "Request shape is proposed; no Application create controller was found in inspected Backend source."
+    },
+    {
+      "file": "application-create-response.json",
+      "kind": "target-contract",
+      "module": "application",
+      "route": "POST /api/v1/applications",
+      "implementation": "not-found-in-source-audit",
+      "validation": "manual-shape-check",
+      "note": "Response shape is proposed and must be reconciled with application schema/DTO by owner."
+    },
+    {
+      "file": "matching-request.json",
+      "kind": "target-contract",
+      "module": "matching",
+      "route": "POST /api/v1/applications/{applicationId}/match",
+      "implementation": "implemented-with-server-side-source-lookup",
+      "validation": "backend-service-test-needed-and-openapi-generated",
+      "note": "Request body is empty by design; Backend derives Job and immutable CV version from the persisted Application and application_cv_snapshots."
+    },
+    {
+      "file": "matching-response.json",
+      "kind": "target-contract",
+      "module": "matching",
+      "route": "GET /api/v1/applications/{applicationId}/match",
+      "implementation": "public-response-dto-added",
+      "validation": "matching-result-contract-test",
+      "note": "Public DTO uses camelCase, normalized skill lists, criteria scores and status. It is distinct from the MatchResult persistence entity."
+    },
+    {
+      "file": "matching-response-current.json",
+      "kind": "current-source-shape",
+      "module": "matching",
+      "route": "GET /api/v1/applications/{applicationId}/match",
+      "implementation": "present",
+      "validation": "static-shape-test",
+      "note": "Legacy entity shape retained only to document the persistence representation; API controller now maps it to MatchingResultResponse."
+    },
+    {
+      "file": "ai-match-score-request.json",
+      "kind": "source-aligned-example",
+      "module": "ai-worker",
+      "route": "POST /api/v1/match/score",
+      "implementation": "present",
+      "validation": "pydantic-model-test",
+      "note": "Validates against MatchScoreRequest in ai-worker/app/schemas/ai.py."
+    },
+    {
+      "file": "ai-match-score-response.json",
+      "kind": "source-aligned-example",
+      "module": "ai-worker",
+      "route": "POST /api/v1/match/score",
+      "implementation": "present",
+      "validation": "pydantic-model-test",
+      "note": "Score ranges and required fields validate against MatchScoreResponse. Values are illustrative, not quality evidence."
+    },
+    {
+      "file": "job-create-request.json",
+      "kind": "source-aligned-example",
+      "module": "job",
+      "route": "POST /api/v1/employer/jobs",
+      "implementation": "route-present-dto-present-base-path-conflict-and-authz-not-verified",
+      "validation": "manual-shape-check",
+      "note": "Fields follow current JobCreateRequest. companyId/createdBy are illustrative; after JWT, createdBy should be derived server-side and company ownership verified."
+    },
+    {
+      "file": "auth-me-response.json",
+      "kind": "target-contract",
+      "module": "auth",
+      "route": "GET /api/v1/auth/me",
+      "implementation": "not-found-in-source-audit",
+      "validation": "manual-shape-check",
+      "note": "Proposed public current-user shape. Confirm fields/claims/profile mapping with Auth owner."
+    },
+    {
+      "file": "ai-cv-extract-response.json",
+      "kind": "source-aligned-example",
+      "module": "ai-worker",
+      "route": "POST /api/v1/cv/extract",
+      "implementation": "route-and-pydantic-schema-present",
+      "validation": "manual-shape-check",
+      "note": "Illustrative shape matching CVExtractResponse; not captured from live parser/provider."
+    },
+    {
+      "file": "problem-details-400.json",
+      "kind": "target-contract",
+      "module": "shared-errors",
+      "route": "Representative 400 response",
+      "implementation": "AI Worker ProblemDetail present; Backend parity needs verification",
+      "validation": "manual-shape-check",
+      "note": "Proposed RFC 7807-style body. Date/timestamp field is intentionally omitted because current ProblemDetail schema has no timestamp field."
+    },
+    {
+      "file": "auth-login-request.json",
+      "kind": "target-contract",
+      "module": "auth",
+      "route": "POST /api/v1/auth/login",
+      "implementation": "not-found-in-source-audit",
+      "validation": "manual-shape-check",
+      "note": "Proposed login body. Password rules/response and token contract must be approved by Auth owner."
+    },
+    {
+      "file": "auth-register-response.json",
+      "kind": "target-contract",
+      "module": "auth",
+      "route": "POST /api/v1/auth/register",
+      "implementation": "not-found-in-source-audit",
+      "validation": "manual-shape-check",
+      "note": "Proposed registration response without issuing a session token; owner must confirm whether register auto-login is part of MVP."
+    },
+    {
+      "file": "job-create-response.json",
+      "kind": "source-aligned-example",
+      "module": "job",
+      "route": "POST /api/v1/employer/jobs",
+      "implementation": "controller-and-JobDetailResponse-present-base-path/authz-not-verified",
+      "validation": "manual-shape-check",
+      "note": "Response keys follow JobDetailResponse DTO. Values are synthetic; owner must confirm lifecycle and createdBy should come from authenticated principal."
+    },
+    {
+      "file": "matching-result-completed.json",
+      "kind": "target-contract-fixture",
+      "module": "matching",
+      "route": "GET /api/v1/applications/{applicationId}/match",
+      "implementation": "MatchingResultResponse DTO added",
+      "validation": "cross-layer-contract-test",
+      "note": "Synthetic completed result. Mirrored by frontend/src/fixtures/matching-result.fixture.json; fixture is not a live evaluation."
+    },
+    {
+      "file": "matching-result-pending.json",
+      "kind": "target-contract-fixture",
+      "module": "matching",
+      "route": "GET /api/v1/applications/{applicationId}/match",
+      "implementation": "Processing state mapping added",
+      "validation": "cross-layer-contract-test",
+      "note": "Synthetic pending result; score values are null until status becomes COMPLETED."
+    }
+  ]
+}

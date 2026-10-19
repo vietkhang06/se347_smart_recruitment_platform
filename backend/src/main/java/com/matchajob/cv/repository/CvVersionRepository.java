@@ -11,5 +11,6 @@ import java.util.UUID;
 @Repository
 public interface CvVersionRepository extends JpaRepository<CvVersion, UUID> {
     List<CvVersion> findByCandidateIdOrderByCreatedAtDesc(UUID candidateId);
+    Optional<CvVersion> findByIdAndCandidateId(UUID id, UUID candidateId);
     Optional<CvVersion> findBySha256Hash(String sha256Hash);
 }

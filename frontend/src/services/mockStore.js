@@ -1,666 +1,1161 @@
-import {
-  MOCK_COMPANIES,
-  MOCK_USERS,
-  MOCK_JOBS,
-  MOCK_CANDIDATES,
-  MOCK_APPLICATIONS,
-  MOCK_INTERVIEWS,
-  MOCK_ADMIN_REVIEWS,
-  MOCK_ADMIN_REPORTS,
-  MOCK_ADMIN_CATEGORIES,
-  MOCK_SYSTEM_SETTINGS,
-  MOCK_SYSTEM_SERVICES,
-  MOCK_ADMIN_NOTIFICATIONS,
-  MOCK_AUDIT_LOGS,
-  mapStageToCandidateStep
-} from "../mock";
+import { changeAdminUserStatus, normalizeEmail } from "./adminUsers";
+import { mockStore as base } from "./mockStoreBase";
 
-const STORAGE_KEYS = {
-  COMPANIES: "matchajob_store_companies",
-  USERS: "matchajob_store_users",
-  JOBS: "matchajob_store_jobs",
-  CANDIDATES: "matchajob_store_candidates",
-  APPLICATIONS: "matchajob_store_applications",
-  INTERVIEWS: "matchajob_store_interviews",
-  REVIEWS: "matchajob_store_reviews",
-  REPORTS: "matchajob_store_reports",
-  CATEGORIES: "matchajob_store_categories",
-  SETTINGS: "matchajob_store_settings",
-  NOTIFICATIONS: "matchajob_store_notifications",
-  LOGS: "matchajob_store_logs",
-  EMPLOYER_PROFILE: "matchajob_store_employer_profile",
-  CANDIDATE_PROFILE: "matchajob-candidate-profile",
-  PLANS: "matchajob_store_plans",
-  JOB_DRAFT: "matchajob_store_job_composer_draft"
+const K = {
+  apps: "matchajob_store_applications",
+  candidates: "matchajob_store_candidates",
+  interviews: "matchajob_store_interviews",
+  notices: "matchajob_candidate_notifications_v1",
+  logs: "matchajob_store_logs"
 };
 
-// Safe JSON loader
-function load(key, defaultData) {
+const same = (a, b) =>
+  a != null && b != null && String(a) === String(b);
+
+const norm = value =>
+  String(value || "").trim().toLowerCase();
+
+const terminal = value =>
+  /đã rút|từ chối|không phù hợp/i.test(value || "");
+
+export const interviewClosed = item =>
+  /hủy|hoàn tất|hoàn thành/i.test(item?.status || "");
+
+const now = () => new Date().toISOString();
+
+function read(key, fallback) {
+  const raw = localStorage.getItem(key);
+
+  if (!raw) return fallback;
+
   try {
-    const raw = localStorage.getItem(key);
-    if (!raw) {
-      localStorage.setItem(key, JSON.stringify(defaultData));
-      return defaultData;
-    }
     return JSON.parse(raw);
-  } catch (err) {
-    console.warn(`[mockStore] Failed to load ${key}, falling back to default`, err);
-    return defaultData;
+  } catch {
+    throw new Error(
+      "Dữ liệu lưu bị lỗi. Không xóa bộ nhớ; hãy báo lại để kiểm tra."
+    );
   }
 }
 
-// Safe JSON saver
-function save(key, data) {
+function session(role) {
+  const user = read("matchajob-demo-user", null);
+
+  if (!user?.email || (user.role !== role && !(role === "employer" && user.role === "Nhà tuyển dụng"))) {
+    throw new Error(
+      "Phiên đăng nhập đã đổi. Hãy đăng nhập đúng vai trò."
+    );
+  }
+
+  let account = base.getUsers().find(u =>
+    [u.email, u.personalEmail].some(
+      email => email && norm(email) === norm(user.email)
+    )
+  );
+
+  if (!account && user) {
+    account = {
+      id: user.id || "USR-2001",
+      email: user.email,
+      name: user.name || "Nhà tuyển dụng",
+      role: role === "employer" ? "Nhà tuyển dụng" : (role === "admin" ? "Quản trị viên" : "Ứng viên"),
+      companyId: user.companyId || "COMP-01",
+      companyName: "FPT Digital Talent",
+      status: "Đã xác minh",
+      isVerified: true
+    };
+  }
+
+  if (
+    account &&
+    /khóa|đình chỉ/i.test(account.status || "")
+  ) {
+    throw new Error("Tài khoản đã bị khóa.");
+  }
+
+  return { user, account };
+}
+
+function companyId() {
   try {
-    localStorage.setItem(key, JSON.stringify(data));
-    window.dispatchEvent(new CustomEvent("matchajob:store-changed", { detail: { key, data } }));
+    const { user, account } = session("employer");
+    const resolvedCompanyId = account?.companyId || user?.companyId || "COMP-01";
+
+    const companies = base.getCompanies();
+    if (companies.length > 0 && !companies.some(item => same(item.id, resolvedCompanyId))) {
+      return companies[0]?.id || "COMP-01";
+    }
+    return resolvedCompanyId;
   } catch (err) {
-    console.error(`[mockStore] Failed to save ${key}`, err);
+    const user = read("matchajob-demo-user", null);
+    if (user?.role === "employer" || user?.role === "Nhà tuyển dụng") {
+      return user?.companyId || "COMP-01";
+    }
+    throw err;
   }
 }
+
+function companyOf(item) {
+  return (
+    item.companyId ||
+    base.getJobs().find(job =>
+      same(job.id, item.jobId || item.appliedJobId)
+    )?.companyId
+  );
+}
+
+function candidateFor(id) {
+  const candidate = base.getCandidates().find(
+    item => same(item.id, id)
+  );
+
+  if (!candidate) {
+    throw new Error("Không tìm thấy hồ sơ ứng viên.");
+  }
+
+  return candidate;
+}
+
+function requireHR(candidate) {
+  if (!same(companyOf(candidate), companyId())) {
+    throw new Error(
+      "Bạn chỉ được xử lý hồ sơ của doanh nghiệp mình."
+    );
+  }
+}
+
+function editable(candidate) {
+  if (
+    candidate.withdrawnAt ||
+    terminal(candidate.stage)
+  ) {
+    throw new Error(
+      "Hồ sơ đã rút hoặc bị từ chối, không thể tiếp tục xử lý."
+    );
+  }
+}
+
+const matches = (app, item) =>
+  same(app.candidateId, item.candidateId) &&
+  same(app.jobId, item.jobId);
+
+const applicationFor = item =>
+  base.getApplications().find(app => matches(app, item));
+
+const emailOf = app =>
+  norm(
+    app.candidateEmail ||
+    base.getCandidates().find(candidate =>
+      same(candidate.id, app.candidateId)
+    )?.email
+  );
+
+function owned(app) {
+  if (
+    !app ||
+    emailOf(app) !== norm(session("candidate").user.email)
+  ) {
+    throw new Error(
+      "Không tìm thấy đơn thuộc tài khoản của bạn."
+    );
+  }
+}
+
+function notice(app, text) {
+  return {
+    id: crypto.randomUUID(),
+    email: emailOf(app),
+    applicationId: app.id,
+    text,
+    createdAt: now(),
+    read: false
+  };
+}
+
+function history(item, text) {
+  return [
+    ...(item.history || []),
+    { at: now(), text }
+  ];
+}
+
+function commit(
+  changes,
+  notices = [],
+  action = "RECRUITMENT_UPDATE"
+) {
+  if (notices.length) {
+    changes[K.notices] = [
+      ...notices.filter(item => item.email),
+      ...read(K.notices, [])
+    ];
+  }
+
+  if (
+    Object.keys(changes).some(key => key !== K.notices)
+  ) {
+    changes[K.logs] = [
+      {
+        time: new Date().toLocaleString("vi-VN"),
+        actor: read("matchajob-demo-user", {})?.email || "",
+        action,
+        target: notices[0]?.text || action,
+        ip: "",
+        status: "Thành công"
+      },
+      ...base.getAuditLogs()
+    ];
+  }
+
+  const before = Object.keys(changes).map(key => [
+    key,
+    localStorage.getItem(key)
+  ]);
+
+  try {
+    Object.entries(changes).forEach(([key, value]) => {
+      localStorage.setItem(key, JSON.stringify(value));
+    });
+  } catch {
+    before.forEach(([key, value]) => {
+      try {
+        if (value === null) {
+          localStorage.removeItem(key);
+        } else {
+          localStorage.setItem(key, value);
+        }
+      } catch {
+        // Hiển thị lỗi lưu dữ liệu bên dưới.
+      }
+    });
+
+    throw new Error(
+      "Không lưu được thay đổi. Kiểm tra dung lượng trình duyệt."
+    );
+  }
+
+  window.dispatchEvent(
+    new Event("matchajob:store-changed")
+  );
+}
+
+export function interviewTime(item) {
+  const date = /^(\d{4})-(\d{2})-(\d{2})$/.exec(
+    item?.date || ""
+  );
+
+  const time = /^(\d{2}):(\d{2})$/.exec(
+    item?.time || ""
+  );
+
+  if (!date || !time) return NaN;
+
+  const [, year, month, day] = date.map(Number);
+
+  const check = new Date(
+    Date.UTC(year, month - 1, day)
+  );
+
+  if (
+    check.getUTCFullYear() !== year ||
+    check.getUTCMonth() !== month - 1 ||
+    check.getUTCDate() !== day ||
+    Number(time[1]) > 23 ||
+    Number(time[2]) > 59
+  ) {
+    return NaN;
+  }
+
+  return Date.parse(
+    `${item.date}T${item.time}:00+07:00`
+  );
+}
+
+export function safeMeetingLink(value) {
+  try {
+    const url = new URL(value);
+
+    return ["http:", "https:"].includes(url.protocol)
+      ? url.href
+      : "";
+  } catch {
+    return "";
+  }
+}
+
+function validateSchedule(item) {
+  const time = interviewTime(item);
+
+  if (!Number.isFinite(time) || time <= Date.now()) {
+    throw new Error(
+      "Chọn ngày, giờ hợp lệ trong tương lai (giờ Việt Nam)."
+    );
+  }
+
+  if (
+    item.meetingLink &&
+    !safeMeetingLink(item.meetingLink)
+  ) {
+    throw new Error(
+      "Link họp phải là địa chỉ http:// hoặc https:// hợp lệ."
+    );
+  }
+
+  if (
+    /Meet|Teams|trực tuyến/i.test(item.type || "") &&
+    !item.meetingLink
+  ) {
+    throw new Error(
+      "Lịch trực tuyến cần có link phòng họp."
+    );
+  }
+
+  if (
+    /trực tiếp|điện thoại/i.test(item.type || "") &&
+    !String(item.note || "").trim()
+  ) {
+    throw new Error(
+      "Nhập địa điểm gặp mặt hoặc hướng dẫn gọi điện trong ghi chú."
+    );
+  }
+}
+
+function checkCollision(next) {
+  const candidate = candidateFor(next.candidateId);
+
+  const conflict = base.getInterviews().some(item => {
+    const other = base.getCandidates().find(
+      value => same(value.id, item.candidateId)
+    );
+
+    const samePerson =
+      same(item.candidateId, candidate.id) ||
+      (
+        candidate.email &&
+        other?.email &&
+        norm(candidate.email) === norm(other.email)
+      );
+
+    return (
+      !same(item.id, next.id) &&
+      !interviewClosed(item) &&
+      samePerson &&
+      interviewTime(item) === interviewTime(next)
+    );
+  });
+
+  if (conflict) {
+    throw new Error(
+      "Ứng viên đã có lịch bắt đầu vào thời điểm này. Hãy chọn giờ khác."
+    );
+  }
+}
+
+function getInterview(id) {
+  const item = base.getInterviews().find(
+    interview => same(interview.id, id)
+  );
+
+  if (!item) {
+    throw new Error(
+      "Lịch phỏng vấn không còn tồn tại."
+    );
+  }
+
+  requireHR({
+    ...item,
+    companyId: companyOf(item)
+  });
+
+  return item;
+}
+
+function updateStage(id, stage, reason = "") {
+  const candidate = candidateFor(id);
+
+  requireHR(candidate);
+  editable(candidate);
+
+  const allowed = [
+    "Mới",
+    "Sàng lọc",
+    "Bài kiểm tra",
+    "Phỏng vấn",
+    "Đề nghị",
+    "Đã từ chối",
+    "Không phù hợp"
+  ];
+
+  if (!allowed.includes(stage)) {
+    throw new Error("Giai đoạn không hợp lệ.");
+  }
+
+  const reject = terminal(stage);
+  reason = String(reason).trim();
+
+  if (reject && !reason) {
+    throw new Error("Nhập lý do từ chối hồ sơ.");
+  }
+
+  if (reason.length > 1000) {
+    throw new Error("Lý do tối đa 1000 ký tự.");
+  }
+
+  if (candidate.stage === stage && !reject) return;
+
+  const apps = base.getApplications();
+
+  const affected = app =>
+    matches(app, {
+      candidateId: candidate.id,
+      jobId: candidate.appliedJobId
+    }) &&
+    !app.withdrawnAt;
+
+  const text = reject
+    ? `Không phù hợp. Lý do: ${reason}`
+    : `Trạng thái hồ sơ: ${stage}`;
+
+  const steps = {
+    "Mới": 1,
+    "Sàng lọc": 2,
+    "Bài kiểm tra": 2,
+    "Phỏng vấn": 3,
+    "Đề nghị": 4
+  };
+
+  const changes = {
+    [K.candidates]: base.getCandidates().map(item =>
+      same(item.id, id)
+        ? {
+            ...item,
+            stage: reject ? "Đã từ chối" : stage,
+            rejectReason: reject ? reason : ""
+          }
+        : item
+    ),
+
+    [K.apps]: apps.map(app =>
+      affected(app)
+        ? {
+            ...app,
+            stage: reject ? "Không phù hợp" : stage,
+            step: steps[stage] || app.step,
+            rejectReason: reject ? reason : "",
+            history: history(app, text)
+          }
+        : app
+    )
+  };
+
+  if (reject) {
+    changes[K.interviews] = base.getInterviews().map(
+      interview =>
+        same(interview.candidateId, id) &&
+        same(
+          interview.jobId,
+          candidate.appliedJobId
+        ) &&
+        !interviewClosed(interview)
+          ? {
+              ...interview,
+              status: "Đã hủy",
+              cancelReason: reason
+            }
+          : interview
+    );
+  }
+
+  commit(
+    changes,
+    apps.filter(affected).map(app =>
+      notice(app, `${app.title}: ${text}`)
+    )
+  );
+}
+
+// Hàm cũ vẫn thao tác trên toàn bộ kho dữ liệu gốc.
+// Không ghi đè kho bằng danh sách đã lọc theo HR.
+const inherited = Object.fromEntries(
+  Object.entries(base).map(([key, value]) => [
+    key,
+    typeof value === "function"
+      ? value.bind(base)
+      : value
+  ])
+);
 
 export const mockStore = {
-  // ==========================================
-  // 1. DOANH NGHIỆP (COMPANIES)
-  // ==========================================
-  getCompanies() {
-    return load(STORAGE_KEYS.COMPANIES, MOCK_COMPANIES);
-  },
+  ...inherited,
 
-  getCompany(id = "COMP-01") {
-    const list = this.getCompanies();
-    return list.find((c) => c.id === id) || list[0];
-  },
+  getHRCompanyId: companyId,
 
-  saveCompany(updatedCompany) {
-    const list = this.getCompanies();
-    const next = list.map((c) => (c.id === updatedCompany.id ? { ...c, ...updatedCompany } : c));
-    save(STORAGE_KEYS.COMPANIES, next);
-    return updatedCompany;
-  },
+  setUserStatus: setAdminStatus,
+  deleteUser: deleteAdminUser,
 
-  // ==========================================
-  // 2. TIN TUYỂN DỤNG (JOBS)
-  // ==========================================
-  getJobs() {
-    return load(STORAGE_KEYS.JOBS, MOCK_JOBS);
-  },
-
-  getJobById(id) {
-    const jobs = this.getJobs();
-    return jobs.find((j) => String(j.id) === String(id));
-  },
-
-  getEmployerJobs(companyId = "COMP-01") {
-    const jobs = this.getJobs();
-    return jobs.filter((j) => j.companyId === companyId);
-  },
-
-  saveJob(jobData) {
-    const jobs = this.getJobs();
-    const settings = this.getSystemSettings();
-    const autoApprove = settings.find((s) => s.key === "auto_approve_verified")?.checked ?? true;
-
-    // Check if company is verified
-    const company = this.getCompany(jobData.companyId || "COMP-01");
-    const status = (autoApprove && company?.verified) ? "Đang tuyển" : "Chờ duyệt";
-
-    const newJob = {
-      ...jobData,
-      id: jobData.id || `JOB-${Math.floor(2050 + Math.random() * 8000)}`,
-      companyId: company.id,
-      company: company.name,
-      logo: company.logo,
-      applicants: jobData.applicants || 0,
-      views: jobData.views || 1,
-      status,
-      posted: jobData.posted || "Vừa xong"
-    };
-
-    const nextJobs = [newJob, ...jobs.filter((j) => j.id !== newJob.id)];
-    save(STORAGE_KEYS.JOBS, nextJobs);
-
-    // If pending review, send to Admin Moderation
-    if (status === "Chờ duyệt") {
-      this.addReview({
-        id: `REV-${Math.floor(890 + Math.random() * 100)}`,
-        jobId: newJob.id,
-        title: newJob.title,
-        company: company.name,
-        companyId: company.id,
-        type: "job",
-        risk: "Thấp",
-        submitted: "Vừa xong",
-        status: "Chờ duyệt",
-        details: `Tin mới tạo từ ${company.name}, cần kiểm duyệt nội dung.`
-      });
+  getEmployerJobs(id) {
+    if (
+      read("matchajob-demo-user", null)?.role !==
+      "employer"
+    ) {
+      return base.getEmployerJobs(id);
     }
 
-    // Log action
-    this.addAuditLog("lananh@fpt.com", "CREATE_JOB", newJob.id, "10.24.6.18");
-
-    return newJob;
-  },
-
-  updateJob(id, updates) {
-    const jobs = this.getJobs();
-    const next = jobs.map((j) => (j.id === id ? { ...j, ...updates } : j));
-    save(STORAGE_KEYS.JOBS, next);
-  },
-
-  deleteJob(id) {
-    const jobs = this.getJobs();
-    const target = jobs.find((j) => j.id === id);
-    const next = jobs.filter((j) => j.id !== id);
-    save(STORAGE_KEYS.JOBS, next);
-    if (target) {
-      this.addAuditLog("lananh@fpt.com", "DELETE_JOB", id, "10.24.6.18");
+    try {
+      return base.getEmployerJobs(companyId());
+    } catch {
+      return [];
     }
   },
 
-  toggleJobStatus(id) {
-    const jobs = this.getJobs();
-    let updatedStatus = "";
-    const next = jobs.map((j) => {
-      if (j.id === id) {
-        updatedStatus = j.status === "Đang tuyển" ? "Tạm dừng" : "Đang tuyển";
-        return { ...j, status: updatedStatus };
-      }
-      return j;
+  saveJob(data) {
+    const id = companyId();
+
+    return base.saveJob({
+      ...data,
+      companyId: id
     });
-    save(STORAGE_KEYS.JOBS, next);
-    this.addAuditLog("lananh@fpt.com", `TOGGLE_JOB_STATUS_${updatedStatus}`, id, "10.24.6.18");
-    return updatedStatus;
   },
 
-  // ==========================================
-  // 3. ỨNG VIÊN & TIẾN TRÌNH KANBAN (CANDIDATES & PIPELINE)
-  // ==========================================
   getCandidates() {
-    return load(STORAGE_KEYS.CANDIDATES, MOCK_CANDIDATES);
+    if (
+      read("matchajob-demo-user", null)?.role !==
+      "employer"
+    ) {
+      return base.getCandidates();
+    }
+
+    try {
+      const id = companyId();
+
+      return base.getCandidates().filter(candidate =>
+        same(companyOf(candidate), id)
+      );
+    } catch {
+      return [];
+    }
   },
 
   getCandidateById(id) {
-    const list = this.getCandidates();
-    return list.find((c) => c.id === Number(id));
+    return this.getCandidates().find(
+      candidate => same(candidate.id, id)
+    );
   },
 
-  updateCandidateStage(candidateId, newStage, note = "") {
-    const candidates = this.getCandidates();
-    const updatedCandidates = candidates.map((c) => {
-      if (c.id === Number(candidateId)) {
-        return { ...c, stage: newStage };
-      }
-      return c;
-    });
-    save(STORAGE_KEYS.CANDIDATES, updatedCandidates);
-
-    // Also sync with Applications
-    const apps = this.getApplications();
-    const targetStep = mapStageToCandidateStep(newStage);
-    const updatedApps = apps.map((app) => {
-      if (app.candidateId === Number(candidateId)) {
-        return {
-          ...app,
-          stage: newStage,
-          step: targetStep,
-          statusBadge: newStage === "Đề nghị" ? "is-success" : newStage === "Phỏng vấn" ? "is-success" : "is-warning"
-        };
-      }
-      return app;
-    });
-    save(STORAGE_KEYS.APPLICATIONS, updatedApps);
-
-    this.addAuditLog("lananh@fpt.com", "MOVE_CANDIDATE_STAGE", `CAND-${candidateId} -> ${newStage}`, "10.24.6.18");
-  },
-
-  rejectCandidate(candidateId, reason = "") {
-    const candidates = this.getCandidates();
-    const updatedCandidates = candidates.map((c) => {
-      if (c.id === Number(candidateId)) {
-        return { ...c, stage: "Đã từ chối", rejectReason: reason };
-      }
-      return c;
-    });
-    save(STORAGE_KEYS.CANDIDATES, updatedCandidates);
-
-    const apps = this.getApplications();
-    const updatedApps = apps.map((app) => {
-      if (app.candidateId === Number(candidateId)) {
-        return { ...app, stage: "Không phù hợp", statusBadge: "is-danger" };
-      }
-      return app;
-    });
-    save(STORAGE_KEYS.APPLICATIONS, updatedApps);
-
-    this.addAuditLog("lananh@fpt.com", "REJECT_CANDIDATE", `CAND-${candidateId}`, "10.24.6.18");
-  },
-
-  // ==========================================
-  // 4. ĐƠN ỨNG TUYỂN (APPLICATIONS)
-  // ==========================================
-  getApplications() {
-    return load(STORAGE_KEYS.APPLICATIONS, MOCK_APPLICATIONS);
-  },
-
-  applyForJob({ jobId, candidateName, candidateEmail, candidatePhone, coverLetter }) {
-    const jobs = this.getJobs();
-    const job = jobs.find((j) => String(j.id) === String(jobId)) || jobs[0];
-
-    const apps = this.getApplications();
-    const newApp = {
-      id: Date.now(),
-      candidateId: 1, // Default logged-in demo candidate
-      candidateName: candidateName || "Nguyễn An Khang",
-      jobId: job.id,
-      title: job.title,
-      companyId: job.companyId,
-      company: job.company,
-      stage: "Mới",
-      step: 1,
-      statusBadge: "is-neutral",
-      date: "Vừa xong",
-      coverLetter: coverLetter || ""
-    };
-
-    save(STORAGE_KEYS.APPLICATIONS, [newApp, ...apps]);
-
-    // Increase job applicants count
-    this.updateJob(job.id, { applicants: (job.applicants || 0) + 1 });
-
-    // Check if candidate already exists in employer pool, else add
-    const candidates = this.getCandidates();
-    const existing = candidates.find((c) => c.name === newApp.candidateName && c.appliedJobId === job.id);
-    if (!existing) {
-      const newCand = {
-        id: Date.now(),
-        userId: "USR-1028",
-        name: newApp.candidateName,
-        initials: newApp.candidateName.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase(),
-        role: job.title,
-        email: candidateEmail || "ankhang.design@example.com",
-        phone: candidatePhone || "0909 123 456",
-        experience: "5 năm",
-        location: job.location,
-        match: 94,
-        skills: job.specTags || ["Figma", "UI/UX", "Problem Solving"],
-        appliedJobId: job.id,
-        appliedJobTitle: job.title,
-        companyId: job.companyId,
-        companyName: job.company,
-        stage: "Mới",
-        appliedDate: "Hôm nay",
-        statusBadge: "is-neutral"
-      };
-      save(STORAGE_KEYS.CANDIDATES, [newCand, ...candidates]);
-    }
-
-    return newApp;
-  },
-
-  // ==========================================
-  // 5. LỊCH PHỎNG VẤN (INTERVIEWS)
-  // ==========================================
   getInterviews() {
-    return load(STORAGE_KEYS.INTERVIEWS, MOCK_INTERVIEWS);
+    if (
+      read("matchajob-demo-user", null)?.role !==
+      "employer"
+    ) {
+      return base.getInterviews();
+    }
+
+    try {
+      const id = companyId();
+
+      return base.getInterviews().filter(interview =>
+        same(companyOf(interview), id)
+      );
+    } catch {
+      return [];
+    }
   },
 
-  createInterview(interviewData) {
-    const interviews = this.getInterviews();
-    const newInterview = {
-      ...interviewData,
-      id: interviewData.id || `INT-${Math.floor(310 + Math.random() * 90)}`,
-      status: interviewData.status || "Đã lên lịch"
+  updateCandidateStage: updateStage,
+
+  rejectCandidate(id, reason) {
+    updateStage(id, "Đã từ chối", reason);
+  },
+
+  canWithdraw(app) {
+    return Boolean(
+      app &&
+      !app.withdrawnAt &&
+      !terminal(app.stage) &&
+      app.stage !== "Đề nghị"
+    );
+  },
+
+  withdrawApplication(id, reason = "") {
+    const apps = base.getApplications();
+    const app = apps.find(item => same(item.id, id));
+
+    owned(app);
+
+    if (!this.canWithdraw(app)) {
+      throw new Error(
+        "Đơn không còn ở giai đoạn cho phép rút."
+      );
+    }
+
+    reason = String(reason).trim();
+
+    if (reason.length > 1000) {
+      throw new Error("Ghi chú tối đa 1000 ký tự.");
+    }
+
+    const patch = {
+      stage: "Đã rút",
+      withdrawnAt: now(),
+      withdrawReason: reason
     };
 
-    save(STORAGE_KEYS.INTERVIEWS, [newInterview, ...interviews]);
+    commit(
+      {
+        [K.apps]: apps.map(item =>
+          same(item.id, id)
+            ? {
+                ...item,
+                ...patch,
+                history: history(
+                  item,
+                  "Ứng viên rút đơn"
+                )
+              }
+            : item
+        ),
 
-    // If candidate exists, auto update stage to "Phỏng vấn"
-    if (newInterview.candidateId) {
-      this.updateCandidateStage(newInterview.candidateId, "Phỏng vấn");
+        [K.candidates]: base.getCandidates().map(
+          candidate =>
+            same(candidate.id, app.candidateId) &&
+            same(
+              candidate.appliedJobId,
+              app.jobId
+            )
+              ? { ...candidate, ...patch }
+              : candidate
+        ),
+
+        [K.interviews]: base.getInterviews().map(
+          interview =>
+            matches(app, interview) &&
+            !interviewClosed(interview)
+              ? {
+                  ...interview,
+                  status: "Đã hủy",
+                  cancelReason: "Ứng viên đã rút đơn"
+                }
+              : interview
+        )
+      },
+      [
+        notice(
+          app,
+          `Bạn đã rút đơn ${app.title}. Lịch chưa hoàn tất của đơn này đã được hủy.`
+        )
+      ]
+    );
+  },
+
+  getCandidateNotifications() {
+    const email = norm(
+      session("candidate").user.email
+    );
+
+    return read(K.notices, []).filter(
+      item => norm(item.email) === email
+    );
+  },
+
+  markCandidateNotificationsRead() {
+    const email = norm(
+      session("candidate").user.email
+    );
+
+    commit({
+      [K.notices]: read(K.notices, []).map(item =>
+        norm(item.email) === email
+          ? { ...item, read: true }
+          : item
+      )
+    });
+  },
+
+  createInterview(data) {
+    const candidate = candidateFor(data.candidateId);
+
+    requireHR(candidate);
+    editable(candidate);
+
+    const item = {
+      id: `INT-${crypto.randomUUID()}`,
+      candidateId: candidate.id,
+      candidate: candidate.name || candidate.candidateName || "Ứng viên",
+      jobId: candidate.appliedJobId,
+      companyId: companyOf(candidate),
+      role:
+        candidate.appliedJobTitle ||
+        candidate.role || candidate.candidateRole,
+      date: data.date,
+      time: data.time,
+      type: data.type,
+      people: String(data.people || "").trim(),
+      note: String(data.note || "").trim(),
+      meetingLink: String(
+        data.meetingLink || ""
+      ).trim(),
+      status: "Chờ xác nhận",
+      scheduleVersion: 1,
+      candidateResponse: null
+    };
+
+    validateSchedule(item);
+    checkCollision(item);
+
+    const app = applicationFor(item);
+
+    commit(
+      {
+        [K.interviews]: [
+          item,
+          ...base.getInterviews()
+        ],
+
+        [K.candidates]: base.getCandidates().map(
+          value =>
+            same(value.id, candidate.id)
+              ? { ...value, stage: "Phỏng vấn" }
+              : value
+        ),
+
+        [K.apps]: base.getApplications().map(value =>
+          app && same(value.id, app.id)
+            ? {
+                ...value,
+                stage: "Phỏng vấn",
+                step: 3,
+                history: history(
+                  value,
+                  "HR tạo lịch phỏng vấn"
+                )
+              }
+            : value
+        )
+      },
+      app
+        ? [
+            notice(
+              app,
+              `${app.title}: lịch mới ${item.date} ${item.time} (giờ Việt Nam). Vui lòng xác nhận.`
+            )
+          ]
+        : []
+    );
+
+    return item;
+  },
+
+  updateInterview(id, updates, expectedVersion) {
+    const current = getInterview(id);
+
+    if (interviewClosed(current)) {
+      throw new Error(
+        "Lịch đã hủy hoặc hoàn tất, không thể chỉnh sửa."
+      );
+    }
+
+    editable(candidateFor(current.candidateId));
+
+    if (
+      expectedVersion != null &&
+      Number(expectedVersion) !==
+        Number(current.scheduleVersion || 1)
+    ) {
+      throw new Error(
+        "Lịch vừa thay đổi. Hãy đóng và mở lại để kiểm tra."
+      );
+    }
+
+    if (
+      updates.status &&
+      updates.status !== "Hoàn tất"
+    ) {
+      throw new Error(
+        "Chỉ ứng viên được xác nhận tham gia. Hủy lịch bằng nút Hủy lịch."
+      );
+    }
+
+    const allowed = [
+      "date",
+      "time",
+      "type",
+      "people",
+      "meetingLink",
+      "note"
+    ];
+
+    const patch = Object.fromEntries(
+      allowed
+        .filter(key => key in updates)
+        .map(key => [
+          key,
+          String(updates[key] || "").trim()
+        ])
+    );
+
+    const changed = allowed.some(
+      key =>
+        key in patch &&
+        patch[key] !== String(current[key] || "")
+    );
+
+    if (!changed && !updates.status) return current;
+
+    if (updates.status && changed) {
+      throw new Error(
+        "Lưu lịch mới trước khi cập nhật kết quả."
+      );
+    }
+
+    let next = { ...current, ...patch };
+
+    if (updates.status === "Hoàn tất") {
+      if (
+        !Number.isFinite(interviewTime(current)) ||
+        interviewTime(current) > Date.now()
+      ) {
+        throw new Error(
+          "Chỉ đánh dấu hoàn tất sau giờ bắt đầu của lịch hợp lệ."
+        );
+      }
+
+      next.status = "Hoàn tất";
     } else {
-      const candidates = this.getCandidates();
-      const found = candidates.find((c) => c.name === newInterview.candidate);
-      if (found) {
-        this.updateCandidateStage(found.id, "Phỏng vấn");
-      }
+      validateSchedule(next);
+      checkCollision(next);
+
+      next = {
+        ...next,
+        status: "Chờ xác nhận",
+        scheduleVersion:
+          Number(current.scheduleVersion || 1) + 1,
+        candidateResponse: null,
+        responseHistory: [
+          ...(current.responseHistory || []),
+          ...(current.candidateResponse
+            ? [current.candidateResponse]
+            : [])
+        ]
+      };
     }
 
-    this.addAuditLog("lananh@fpt.com", "SCHEDULE_INTERVIEW", `${newInterview.id} with ${newInterview.candidate}`, "10.24.6.18");
-    return newInterview;
-  },
+    const app = applicationFor(next);
 
-  updateInterview(id, updates) {
-    const interviews = this.getInterviews();
-    const next = interviews.map((iv) => (iv.id === id ? { ...iv, ...updates } : iv));
-    save(STORAGE_KEYS.INTERVIEWS, next);
-  },
+    commit(
+      {
+        [K.interviews]: base.getInterviews().map(
+          item => same(item.id, id) ? next : item
+        )
+      },
+      app
+        ? [
+            notice(
+              app,
+              changed
+                ? `${app.title}: HR cập nhật lịch ${next.date} ${next.time}. Vui lòng xác nhận lại.`
+                : `${app.title}: buổi phỏng vấn đã hoàn tất.`
+            )
+          ]
+        : []
+    );
 
-  cancelInterview(id) {
-    const interviews = this.getInterviews();
-    const target = interviews.find((iv) => iv.id === id);
-    const next = interviews.filter((iv) => iv.id !== id);
-    save(STORAGE_KEYS.INTERVIEWS, next);
-    if (target) {
-      this.addAuditLog("lananh@fpt.com", "CANCEL_INTERVIEW", id, "10.24.6.18");
-    }
-  },
-
-  // ==========================================
-  // 6. TÀI KHOẢN NGƯỜI DÙNG (USERS)
-  // ==========================================
-  getUsers() {
-    return load(STORAGE_KEYS.USERS, MOCK_USERS);
-  },
-
-  getUserById(id) {
-    const users = this.getUsers();
-    return users.find((u) => u.id === id);
-  },
-
-  createUser(userData) {
-    const users = this.getUsers();
-    const newUser = {
-      ...userData,
-      id: userData.id || `USR-${Math.floor(1030 + Math.random() * 100)}`,
-      joined: "Hôm nay",
-      status: userData.status || "Hoạt động",
-      isVerified: true
-    };
-    save(STORAGE_KEYS.USERS, [newUser, ...users]);
-    this.addAuditLog("admin@matchajob.vn", "CREATE_USER", newUser.id, "10.24.6.18");
-    return newUser;
-  },
-
-  updateUser(id, updates) {
-    const users = this.getUsers();
-    const next = users.map((u) => (u.id === id ? { ...u, ...updates } : u));
-    save(STORAGE_KEYS.USERS, next);
-    this.addAuditLog("admin@matchajob.vn", "UPDATE_USER", id, "10.24.6.18");
-  },
-
-  toggleUserStatus(id) {
-    const users = this.getUsers();
-    let newStatus = "";
-    const next = users.map((u) => {
-      if (u.id === id) {
-        const isActive = u.status === "Hoạt động" || u.status === "Đã xác minh";
-        newStatus = isActive ? "Tạm khóa" : "Hoạt động";
-        return { ...u, status: newStatus };
-      }
-      return u;
-    });
-    save(STORAGE_KEYS.USERS, next);
-    this.addAuditLog("admin@matchajob.vn", newStatus === "Tạm khóa" ? "SUSPEND_USER" : "ACTIVATE_USER", id, "10.24.6.18");
-    return newStatus;
-  },
-
-  // ==========================================
-  // 7. KIỂM DUYỆT (ADMIN MODERATION)
-  // ==========================================
-  getReviews() {
-    return load(STORAGE_KEYS.REVIEWS, MOCK_ADMIN_REVIEWS);
-  },
-
-  addReview(review) {
-    const reviews = this.getReviews();
-    save(STORAGE_KEYS.REVIEWS, [review, ...reviews]);
-  },
-
-  approveReview(id, note = "") {
-    const reviews = this.getReviews();
-    let target = null;
-    const next = reviews.map((r) => {
-      if (r.id === id) {
-        target = r;
-        return { ...r, status: "Đã duyệt", note, reviewedAt: "Vừa xong" };
-      }
-      return r;
-    });
-    save(STORAGE_KEYS.REVIEWS, next);
-
-    if (target) {
-      if (target.type === "job" && target.jobId) {
-        this.updateJob(target.jobId, { status: "Đang tuyển" });
-        this.addAuditLog("admin@matchajob.vn", "APPROVE_JOB", target.jobId, "10.24.6.18");
-      } else if (target.type === "company" && target.companyId) {
-        this.saveCompany({ id: target.companyId, verified: true });
-        this.addAuditLog("admin@matchajob.vn", "VERIFY_COMPANY", target.companyId, "10.24.6.18");
-      }
-    }
-  },
-
-  rejectReview(id, note = "Nội dung vi phạm tiêu chuẩn cộng đồng") {
-    const reviews = this.getReviews();
-    let target = null;
-    const next = reviews.map((r) => {
-      if (r.id === id) {
-        target = r;
-        return { ...r, status: "Đã từ chối", note, reviewedAt: "Vừa xong" };
-      }
-      return r;
-    });
-    save(STORAGE_KEYS.REVIEWS, next);
-
-    if (target) {
-      if (target.type === "job" && target.jobId) {
-        this.updateJob(target.jobId, { status: "Đã đóng", rejectReason: note });
-        this.addAuditLog("admin@matchajob.vn", "REJECT_JOB", target.jobId, "10.24.6.18");
-      } else if (target.type === "company" && target.companyId) {
-        this.addAuditLog("admin@matchajob.vn", "REJECT_VERIFY_COMPANY", target.companyId, "10.24.6.18");
-      }
-    }
-  },
-
-  // ==========================================
-  // 8. BÁO CÁO VI PHẠM (ADMIN REPORTS)
-  // ==========================================
-  getReports() {
-    return load(STORAGE_KEYS.REPORTS, MOCK_ADMIN_REPORTS);
-  },
-
-  resolveReport(id, resolution, action = "", note = "") {
-    const reports = this.getReports();
-    const target = reports.find((r) => r.id === id);
-    const next = reports.map((r) => {
-      if (r.id === id) {
-        return { ...r, status: "Đã xử lý", resolution, action, note, resolvedAt: "Vừa xong" };
-      }
-      return r;
-    });
-    save(STORAGE_KEYS.REPORTS, next);
-
-    // Apply penalty action if chosen
-    if (action === "close_job" && target?.jobId) {
-      this.updateJob(target.jobId, { status: "Đã đóng", note: `Đã đóng do báo cáo ${id}` });
-    } else if (action === "suspend_company" && target?.companyId) {
-      const users = this.getUsers();
-      const compUser = users.find((u) => u.companyId === target.companyId);
-      if (compUser) this.toggleUserStatus(compUser.id);
-    }
-
-    this.addAuditLog("admin@matchajob.vn", "RESOLVE_REPORT", `${id} (${action || resolution})`, "10.24.6.18");
-  },
-
-  // ==========================================
-  // 9. DANH MỤC NGÀNH NGHỀ (ADMIN CATEGORIES)
-  // ==========================================
-  getCategories() {
-    return load(STORAGE_KEYS.CATEGORIES, MOCK_ADMIN_CATEGORIES);
-  },
-
-  saveCategory(cat) {
-    const list = this.getCategories();
-    const exists = list.some((c) => c.id === cat.id);
-    const next = exists
-      ? list.map((c) => (c.id === cat.id ? { ...c, ...cat } : c))
-      : [...list, { ...cat, id: cat.id || `CAT-${Date.now().toString(36).toUpperCase()}`, jobs: cat.jobs || 0, skills: cat.skills || 0, status: cat.status || "Hiển thị" }];
-    save(STORAGE_KEYS.CATEGORIES, next);
-    this.addAuditLog("admin@matchajob.vn", exists ? "UPDATE_CATEGORY" : "CREATE_CATEGORY", cat.name, "10.24.6.18");
-  },
-
-  deleteCategory(id) {
-    const list = this.getCategories();
-    const target = list.find((c) => c.id === id);
-    const next = list.filter((c) => c.id !== id);
-    save(STORAGE_KEYS.CATEGORIES, next);
-    if (target) {
-      this.addAuditLog("admin@matchajob.vn", "DELETE_CATEGORY", target.name, "10.24.6.18");
-    }
-  },
-
-  toggleCategoryStatus(id) {
-    const list = this.getCategories();
-    let newStatus = "";
-    const next = list.map((c) => {
-      if (c.id === id) {
-        newStatus = c.status === "Hiển thị" ? "Nháp" : "Hiển thị";
-        return { ...c, status: newStatus };
-      }
-      return c;
-    });
-    save(STORAGE_KEYS.CATEGORIES, next);
-    return newStatus;
-  },
-
-  // ==========================================
-  // 10. CẤU HÌNH HỆ THỐNG (SYSTEM SETTINGS)
-  // ==========================================
-  getSystemSettings() {
-    return load(STORAGE_KEYS.SETTINGS, MOCK_SYSTEM_SETTINGS);
-  },
-
-  toggleSystemSetting(id) {
-    const list = this.getSystemSettings();
-    const next = list.map((s) => (s.id === id ? { ...s, checked: !s.checked } : s));
-    save(STORAGE_KEYS.SETTINGS, next);
-    const setting = next.find((s) => s.id === id);
-    this.addAuditLog("admin@matchajob.vn", "TOGGLE_SYSTEM_SETTING", `${setting?.key} -> ${setting?.checked}`, "10.24.6.18");
     return next;
   },
 
-  getSystemServices() {
-    return MOCK_SYSTEM_SERVICES;
+  cancelInterview(
+    id,
+    reason = "Nhà tuyển dụng hủy lịch"
+  ) {
+    const item = getInterview(id);
+
+    if (interviewClosed(item)) {
+      throw new Error("Lịch đã hủy hoặc hoàn tất.");
+    }
+
+    const app = applicationFor(item);
+
+    commit(
+      {
+        [K.interviews]: base.getInterviews().map(
+          interview =>
+            same(interview.id, id)
+              ? {
+                  ...interview,
+                  status: "Đã hủy",
+                  cancelReason:
+                    String(reason).trim() ||
+                    "Nhà tuyển dụng hủy lịch"
+                }
+              : interview
+        )
+      },
+      app
+        ? [
+            notice(
+              app,
+              `${app.title}: HR hủy lịch ${item.date} ${item.time}. ${reason}`
+            )
+          ]
+        : []
+    );
   },
 
-  // ==========================================
-  // 11. THÔNG BÁO & AUDIT LOGS
-  // ==========================================
-  getNotifications() {
-    return load(STORAGE_KEYS.NOTIFICATIONS, MOCK_ADMIN_NOTIFICATIONS);
-  },
+  respondInterview(
+    id,
+    type,
+    note = "",
+    expectedVersion
+  ) {
+    const list = base.getInterviews();
+    const item = list.find(
+      interview => same(interview.id, id)
+    );
 
-  markNotificationRead(id) {
-    const list = this.getNotifications();
-    const next = list.map((n) => (n.id === id ? { ...n, unread: false } : n));
-    save(STORAGE_KEYS.NOTIFICATIONS, next);
-  },
+    if (!item) {
+      throw new Error("Lịch không còn tồn tại.");
+    }
 
-  markAllNotificationsRead() {
-    const list = this.getNotifications();
-    const next = list.map((n) => ({ ...n, unread: false }));
-    save(STORAGE_KEYS.NOTIFICATIONS, next);
-  },
+    const app = applicationFor(item);
+    owned(app);
 
-  deleteNotification(id) {
-    const list = this.getNotifications();
-    const next = list.filter((n) => n.id !== id);
-    save(STORAGE_KEYS.NOTIFICATIONS, next);
-  },
+    if (
+      terminal(app.stage) ||
+      app.withdrawnAt ||
+      interviewClosed(item) ||
+      !Number.isFinite(interviewTime(item)) ||
+      interviewTime(item) <= Date.now()
+    ) {
+      throw new Error(
+        "Không thể phản hồi lịch đã qua, đã hủy hoặc đơn đã kết thúc."
+      );
+    }
 
-  getAuditLogs() {
-    return load(STORAGE_KEYS.LOGS, MOCK_AUDIT_LOGS);
-  },
+    if (
+      Number(expectedVersion) !==
+      Number(item.scheduleVersion || 1)
+    ) {
+      throw new Error(
+        "HR vừa đổi lịch. Hãy đóng và mở lại để xem lịch mới."
+      );
+    }
 
-  addAuditLog(actor, action, target, ip = "10.24.6.18", status = "Thành công") {
-    const logs = this.getAuditLogs();
-    const now = new Date();
-    const pad = (n) => String(n).padStart(2, "0");
-    const time = `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
-    const newEntry = { time, actor, action, target, ip, status };
-    save(STORAGE_KEYS.LOGS, [newEntry, ...logs]);
-  },
+    if (!["confirmed", "reschedule"].includes(type)) {
+      throw new Error("Phản hồi không hợp lệ.");
+    }
 
-  // ==========================================
-  // 12. GÓI DỊCH VỤ (BILLING PLANS)
-  // ==========================================
-  getPlans() {
-    return load(STORAGE_KEYS.PLANS, [
-      { id: "p1", name: "Starter", price: "0đ", period: "/tháng", features: ["2 tin đang hoạt động", "30 hồ sơ/tháng", "1 thành viên"], current: false, quota: 2 },
-      { id: "p2", name: "Growth", price: "1.490.000đ", period: "/tháng", features: ["15 tin đang hoạt động", "500 hồ sơ/tháng", "5 thành viên", "Báo cáo nâng cao"], current: true, quota: 15 },
-      { id: "p3", name: "Scale", price: "4.990.000đ", period: "/tháng", features: ["Không giới hạn tin", "Kho ứng viên mở rộng", "Phân quyền nâng cao", "Hỗ trợ ưu tiên 24/7"], current: false, quota: 999 }
-    ]);
-  },
+    note = String(note).trim();
 
-  activatePlan(planId) {
-    const plans = this.getPlans();
-    const next = plans.map((p) => ({ ...p, current: p.id === planId }));
-    save(STORAGE_KEYS.PLANS, next);
-    const chosen = next.find((p) => p.id === planId);
-    this.addAuditLog("lananh@fpt.com", "UPGRADE_PLAN", chosen?.name || planId, "10.24.6.18");
-    return chosen;
-  },
+    if (
+      (type === "reschedule" && !note) ||
+      note.length > 1000
+    ) {
+      throw new Error(
+        "Đề nghị đổi lịch cần lý do; ghi chú tối đa 1000 ký tự."
+      );
+    }
 
-  // ==========================================
-  // 13. HỒ SƠ CHUYÊN VIÊN HR (EMPLOYER HR PROFILE)
-  // ==========================================
-  getEmployerProfile() {
-    return load(STORAGE_KEYS.EMPLOYER_PROFILE, {
-      name: "Nguyễn Lan Anh",
-      roleTitle: "Talent Acquisition Lead",
-      email: "lananh@fpt.com",
-      phone: "090 123 4567",
-      department: "Phòng Tuyển dụng & Thu hút nhân tài",
-      company: "FPT Digital Talent",
-      workLocation: "Tòa nhà FPT Tân Thuận, KCX Tân Thuận, Quận 7, TP.HCM",
-      avatar: "LA",
-      workingHours: "Thứ Hai – Thứ Sáu (08:30 – 17:30)"
+    if (
+      item.candidateResponse?.type === type &&
+      item.candidateResponse?.note === note
+    ) {
+      return;
+    }
+
+    const response = {
+      type,
+      note,
+      at: now(),
+      version: Number(item.scheduleVersion || 1)
+    };
+
+    commit({
+      [K.interviews]: list.map(interview =>
+        same(interview.id, id)
+          ? {
+              ...interview,
+              status:
+                type === "confirmed"
+                  ? "Đã xác nhận"
+                  : "Đề nghị đổi lịch",
+              candidateResponse: response,
+              responseHistory: [
+                ...(interview.responseHistory || []),
+                ...(interview.candidateResponse
+                  ? [interview.candidateResponse]
+                  : [])
+              ]
+            }
+          : interview
+      )
     });
   },
 
-  saveEmployerProfile(profile) {
-    save(STORAGE_KEYS.EMPLOYER_PROFILE, profile);
-    return profile;
-  },
+  async downloadSubmittedCV(id) {
+    const candidate = candidateFor(id);
 
-  // ==========================================
-  // 14. BẢN NHÁP TIN TUYỂN DỤNG (JOB COMPOSER DRAFT)
-  // ==========================================
-  getJobDraft() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEYS.JOB_DRAFT);
-      return raw ? JSON.parse(raw) : null;
-    } catch (err) {
-      console.warn("[mockStore] Failed to read job draft", err);
-      return null;
+    requireHR(candidate);
+
+    const email = norm(
+      session("employer").user.email
+    );
+
+    const app = applicationFor({
+      candidateId: candidate.id,
+      jobId: candidate.appliedJobId
+    });
+
+    if (!app?.cvId || app.withdrawnAt) {
+      throw new Error(
+        "Đơn đã rút hoặc chưa có tệp CV."
+      );
     }
-  },
 
-  saveJobDraft(draftData) {
-    try {
-      // Bỏ thông tin HR khỏi bản nháp để luôn tự động cập nhật từ hồ sơ HR mới nhất
-      const { contact, hrProfile, ...dataWithoutHr } = draftData;
-      localStorage.setItem(STORAGE_KEYS.JOB_DRAFT, JSON.stringify(dataWithoutHr));
-      window.dispatchEvent(new CustomEvent("matchajob:store-changed", { detail: { key: STORAGE_KEYS.JOB_DRAFT, data: dataWithoutHr } }));
-      return dataWithoutHr;
-    } catch (err) {
-      console.error("[mockStore] Failed to save job draft", err);
-      return null;
+    const record = await new Promise(
+      (resolve, reject) => {
+        const request = indexedDB.open(
+          "matchajob-candidate-cv",
+          1
+        );
+
+        request.onupgradeneeded = () => {
+          if (
+            !request.result.objectStoreNames.contains(
+              "files"
+            )
+          ) {
+            request.result.createObjectStore("files", {
+              keyPath: "id"
+            });
+          }
+        };
+
+        request.onerror = request.onblocked = () => {
+          reject(new Error("Không mở được kho CV."));
+        };
+
+        request.onsuccess = () => {
+          const db = request.result;
+
+          const transaction = db.transaction(
+            "files",
+            "readonly"
+          );
+
+          const get = transaction
+            .objectStore("files")
+            .get(app.cvId);
+
+          transaction.oncomplete = () => {
+            db.close();
+            resolve(get.result);
+          };
+
+          transaction.onerror =
+            transaction.onabort = () => {
+              db.close();
+              reject(new Error("Không đọc được CV."));
+            };
+        };
+      }
+    );
+
+    requireHR(candidateFor(id));
+
+    if (
+      norm(session("employer").user.email) !== email ||
+      applicationFor({
+        candidateId: candidate.id,
+        jobId: candidate.appliedJobId
+      })?.withdrawnAt
+    ) {
+      throw new Error(
+        "Phiên đăng nhập hoặc hồ sơ vừa thay đổi."
+      );
     }
-  },
 
-  clearJobDraft() {
-    try {
-      localStorage.removeItem(STORAGE_KEYS.JOB_DRAFT);
-      window.dispatchEvent(new CustomEvent("matchajob:store-changed", { detail: { key: STORAGE_KEYS.JOB_DRAFT, data: null } }));
-    } catch (err) {
-      console.error("[mockStore] Failed to clear job draft", err);
+    if (
+      !record?.file ||
+      norm(record.owner) !== emailOf(app)
+    ) {
+      throw new Error(
+        "Không tìm thấy đúng tệp CV trong trình duyệt này."
+      );
     }
-  },
 
-  // Reset store to fresh mock
-  resetAll() {
-    Object.values(STORAGE_KEYS).forEach((k) => localStorage.removeItem(k));
-    window.location.reload();
+    const url = URL.createObjectURL(record.file);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download =
+      app.cvName || record.file.name || "CV";
+
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    setTimeout(
+      () => URL.revokeObjectURL(url),
+      60000
+    );
   }
 };
+
+function requireAdmin() {
+  const { user } = session("admin");
+  if (user?.role !== 'admin') throw new Error('Hãy đăng nhập bằng tài khoản quản trị.');
+  return user;
+}
+export async function copyAdminText(value) {
+  if (!navigator.clipboard?.writeText) throw new Error('Trình duyệt chưa cho phép sao chép.');
+  await navigator.clipboard.writeText(String(value ?? ''));
+}
+export function setAdminStatus(id, target) {
+  requireAdmin();
+  const user = mockStore.getUsers().find(u => same(u.id, id));
+  if (!user) throw new Error('Tài khoản không còn tồn tại.');
+  if (user.status === target || (target === 'Hoạt động' && user.status === 'Đã xác minh')) return user;
+  if (!['Hoạt động', 'Tạm khóa'].includes(target)) throw new Error('Trạng thái không hợp lệ.');
+  return changeAdminUserStatus(user.id, user.status);
+}
+export function deleteAdminUser(id) {
+  const actor = requireAdmin();
+  const users = base.getUsers();
+  const user = users.find(item => same(item.id, id));
+  if (!user) throw new Error("Tài khoản không còn tồn tại.");
+  const emails = [user.email, user.personalEmail].filter(Boolean).map(normalizeEmail);
+  if (emails.includes(normalizeEmail(actor.email))) throw new Error("Không thể xóa tài khoản đang đăng nhập.");
+  if (["Quản trị viên", "admin"].includes(user.role) || user.roleCode === "admin") {
+    throw new Error("Hãy tạm khóa tài khoản quản trị thay vì xóa để bảo toàn lịch sử.");
+  }
+  const linked = user.companyId || base.getCandidates().some(c => same(c.userId, id) || emails.includes(normalizeEmail(c.email || c.candidateEmail))) || base.getApplications().some(a => same(a.userId, id) || emails.includes(normalizeEmail(a.candidateEmail)));
+  if (linked) throw new Error("Tài khoản đã liên kết doanh nghiệp hoặc hồ sơ ứng tuyển. Hãy tạm khóa thay vì xóa.");
+  commit({ matchajob_store_users: users.filter(item => !same(item.id, id)) }, [], `DELETE_USER: ${id}`);
+}
+
+export function resolveAdminReport(id, action, note) {
+  requireAdmin();
+  const reports = base.getReports();
+  const report = reports.find(item => same(item.id, id));
+  if (!report || report.status === "Đã xử lý") throw new Error("Báo cáo đã xử lý hoặc không còn tồn tại.");
+  note = String(note || "").trim();
+  if (!note || note.length > 2000) throw new Error("Ghi chú cần từ 1 đến 2000 ký tự.");
+  const labels = { record: "Đã ghi nhận kết quả đối soát", dismiss: "Đã bác bỏ báo cáo", close_job: "Đã đóng tin tuyển dụng liên quan" };
+  if (!Object.hasOwn(labels, action)) throw new Error("Hành động không hợp lệ.");
+  const saved = { ...report, status: "Đã xử lý", resolution: labels[action], action, note, resolvedAt: new Date().toLocaleString("vi-VN") };
+  const changes = { matchajob_store_reports: reports.map(item => same(item.id, id) ? saved : item) };
+  if (action === "close_job") {
+    const jobs = base.getJobs();
+    if (!report.jobId || !jobs.some(job => same(job.id, report.jobId))) throw new Error("Không tìm thấy tin tuyển dụng liên quan.");
+    changes.matchajob_store_jobs = jobs.map(job => same(job.id, report.jobId) ? { ...job, status: "Đã đóng", note: `Đã đóng do báo cáo ${id}` } : job);
+  }
+  commit(changes, [], `RESOLVE_REPORT: ${id} (${action})`);
+  return saved;
+}
+
+// Each row reports its own outcome; successful rows are not falsely rolled back in the UI.
+export function runAdminBatch(ids, action) {
+  const failed = []; let succeeded = 0;
+  for (const id of ids) {
+    try { action(id); succeeded++; } catch (error) { failed.push({ id, message: error?.message || "Không thể thực hiện thao tác." }); }
+  }
+  return { succeeded, failed };
+}

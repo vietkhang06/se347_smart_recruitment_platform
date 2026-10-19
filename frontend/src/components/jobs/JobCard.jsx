@@ -66,9 +66,11 @@ export default function JobCard({ job, aosDelay = 0 }) {
         <span className="small text-muted">
           <i className="bi bi-clock me-1"></i>{job.posted}
         </span>
-        <span className="badge bg-success bg-opacity-10 text-success fw-bold px-2 py-1">
-          <i className="bi bi-stars me-1"></i>{job.match}% Phù hợp
-        </span>
+        {Number.isFinite(Number(job.match)) && job.match !== "" && (
+          <span className="badge bg-success bg-opacity-10 text-success fw-bold px-2 py-1">
+            <i className="bi bi-stars me-1"></i>{job.match}% Phù hợp
+          </span>
+        )}
       </div>
     </Card>
   );

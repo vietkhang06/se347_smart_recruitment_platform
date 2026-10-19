@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Container from "react-bootstrap/Container";
 import Row from "react-bootstrap/Row";
@@ -7,13 +7,28 @@ import Button from "react-bootstrap/Button";
 import Form from "react-bootstrap/Form";
 import InputGroup from "react-bootstrap/InputGroup";
 import Card from "react-bootstrap/Card";
-import { MATCHAJOB_DATA } from "../../services/data";
 import JobCard from "../../components/jobs/JobCard";
+import { jobService } from "../../services/jobService";
 
 export default function HomePage() {
   const [keyword, setKeyword] = useState("");
   const [location, setLocation] = useState("");
+  const [jobs, setJobs] = useState(() => jobService.getJobsSnapshot());
+  const [stats, setStats] = useState(() => (jobService.getDemoStats()));
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const refresh = () => {
+      setJobs(jobService.getJobsSnapshot());
+      setStats(jobService.getDemoStats());
+    };
+    window.addEventListener("matchajob:store-changed", refresh);
+    window.addEventListener("storage", refresh);
+    return () => {
+      window.removeEventListener("matchajob:store-changed", refresh);
+      window.removeEventListener("storage", refresh);
+    };
+  }, []);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -23,7 +38,8 @@ export default function HomePage() {
     navigate(`/jobs?${params.toString()}`);
   };
 
-  const featuredJobs = MATCHAJOB_DATA.jobs.slice(0, 4);
+  const publicJobs = jobs.filter((job) => jobService.isAcceptingApplications(job));
+  const featuredJobs = publicJobs.slice(0, 4);
 
   return (
     <div>
@@ -75,7 +91,7 @@ export default function HomePage() {
                         onChange={(e) => setLocation(e.target.value)}
                       >
                         <option value="">Tất cả địa điểm</option>
-                        <option value="TP.HCM">TP. Hồ Chí Minh</option>
+                        <option value="TP. Hồ Chí Minh">TP. Hồ Chí Minh</option>
                         <option value="Hà Nội">Hà Nội</option>
                         <option value="Đà Nẵng">Đà Nẵng</option>
                       </Form.Select>
@@ -106,20 +122,20 @@ export default function HomePage() {
         <Container>
           <Row className="text-center g-3">
             <Col sm={6} md={3} data-aos="fade-up" data-aos-delay="100">
-              <div className="fw-bold fs-3 text-success">1,200+</div>
-              <div className="text-muted small">Cơ hội việc làm đang tuyển</div>
+              <div className="fw-bold fs-3 text-success">{publicJobs.length.toLocaleString("vi-VN")}</div>
+              <div className="text-muted small">Tin đang nhận hồ sơ</div>
             </Col>
             <Col sm={6} md={3} data-aos="fade-up" data-aos-delay="200">
-              <div className="fw-bold fs-3 text-primary">320+</div>
-              <div className="text-muted small">Doanh nghiệp hàng đầu</div>
+              <div className="fw-bold fs-3 text-primary">{new Set(publicJobs.map((job) => job.companyId || job.company)).size.toLocaleString("vi-VN")}</div>
+              <div className="text-muted small">Doanh nghiệp đang tuyển</div>
             </Col>
             <Col sm={6} md={3} data-aos="fade-up" data-aos-delay="300">
-              <div className="fw-bold fs-3 text-purple">18,000+</div>
-              <div className="text-muted small">Ứng viên tài năng</div>
+              <div className="fw-bold fs-3 text-purple">{stats.candidates.toLocaleString("vi-VN")}</div>
+              <div className="text-muted small">Hồ sơ ứng viên</div>
             </Col>
             <Col sm={6} md={3} data-aos="fade-up" data-aos-delay="400">
-              <div className="fw-bold fs-3 text-orange">94%</div>
-              <div className="text-muted small">Tỷ lệ phản hồi nhanh chóng</div>
+              <div className="fw-bold fs-3 text-orange">{stats.applications.toLocaleString("vi-VN")}</div>
+              <div className="text-muted small">Hồ sơ đã nộp</div>
             </Col>
           </Row>
         </Container>
@@ -136,17 +152,17 @@ export default function HomePage() {
               </p>
             </div>
             <Button as={Link} to="/jobs" variant="outline-success" data-aos="fade-left">
-              Xem tất cả ({MATCHAJOB_DATA.jobs.length}) <i className="bi bi-arrow-right ms-1"></i>
+              Xem tất cả ({publicJobs.length}) <i className="bi bi-arrow-right ms-1"></i>
             </Button>
           </div>
 
-          <Row className="g-4">
+          {featuredJobs.length ? <Row className="g-4">
             {featuredJobs.map((job, index) => (
               <Col md={6} key={job.id}>
                 <JobCard job={job} aosDelay={index * 100} />
               </Col>
             ))}
-          </Row>
+          </Row> : <Card className="matcha-card border-0 shadow-sm p-4 text-center text-muted">Hiện chưa có tin đang tuyển.</Card>}
         </Container>
       </section>
 
