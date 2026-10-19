@@ -1,203 +1,158 @@
-# MatchaJob — React Frontend Application (`frontend/`)
+# MAT военных & MatchaJob — React Frontend Application (`Frontend_React`)
 
-> **Phiên bản nền tảng**: React.js 19 SPA (Vite v8)  
-> **Bộ công nghệ**: React 19, Bootstrap 5, Chart.js (`react-chartjs-2`), AOS (Animate On Scroll), React Router DOM v7, Native Fetch Client  
-> **Kiến trúc dữ liệu**: **Ports & Adapters (Hexagonal Architecture)** với 5 View Models chuẩn hóa, Bộ chuyển đổi Mapper hai chiều, Fixtures độc lập và Service Adapter hỗ trợ chuyển đổi linh hoạt giữa Mock offline và Spring Boot REST API.
+> **Phiên bản chuyển đổi công nghệ**: React.js SPA (Vite)  
+> **Bộ công nghệ**: React.js 19, Bootstrap 5, Chart.js (`react-chartjs-2`), AOS (Animate On Scroll), React Router DOM v7  
+> **Trạng thái**: Đã khởi tạo hoàn tất cấu trúc SPA, tích hợp sẵn Design Tokens Matcha, các Contexts toàn cục, 4 biểu đồ Chart.js, hiệu ứng AOS và hệ thống định tuyến cho toàn bộ 13 màn hình.
 
 ---
 
-## 1. HƯỚNG DẪN KHỞI CHẠY (QUICK START)
+## 1. HƯỚNG DẪN KHỞI CHẠY (QUICK START DÀNH CHO TEAMMATES)
 
 ### Yêu cầu môi trường
-* **Node.js**: Phiên bản 18+ (khuyên dùng Node 20+ hoặc 22+)
-* **NPM**: Phiên bản 9+
+- **Node.js**: Phiên bản 18+ (khuyến nghị 20+ hoặc 24+)
+- **NPM**: Phiên bản 9+
 
-### Khởi chạy môi trường phát triển (Development)
+### Các bước cài đặt và chạy
 ```bash
-# 1. Di chuyển vào thư mục frontend
-cd frontend
+# 1. Di chuyển vào thư mục React
+cd Frontend_React
 
-# 2. Cài đặt các thư viện phụ thuộc (nếu chưa cài)
+# 2. Cài đặt các gói phụ thuộc (nếu chưa cài)
 npm install
 
-# 3. Khởi chạy máy chủ phát triển Vite
+# 3. Khởi chạy máy chủ phát triển (Dev Server)
 npm run dev
 
-# 4. Mở trình duyệt tại: http://localhost:5173/
+# 4. Truy cập trình duyệt tại địa chỉ:
+# http://localhost:5173/
 ```
 
-### Các lệnh kiểm tra & đóng gói
+### Các lệnh hữu ích khác
 ```bash
-npm run lint       # Kiểm tra quy chuẩn mã nguồn với Oxlint (0 errors)
-npm run build      # Biên dịch kiểm tra lỗi cú pháp và đóng gói bản phát hành dist/
-npm run preview    # Xem trước bản đóng gói production trên cổng cục bộ
-```
-
-### Chuyển đổi nguồn dữ liệu Mock / API
-Hệ thống hỗ trợ chuyển đổi chế độ dữ liệu tức thời tại tệp [`.env`](../.env) ở thư mục gốc:
-```ini
-# Chạy Offline độc lập 100% bằng Fixtures (không cần Backend):
-VITE_DATA_SOURCE=mock
-
-# Chạy kết nối với Backend Spring Boot thật (Cổng 8081):
-VITE_DATA_SOURCE=api
-VITE_API_BASE_URL=http://localhost:8081/api
+npm run build      # Biên dịch mã nguồn kiểm tra lỗi cú pháp và đóng gói bản phát hành
+npm run preview    # Xem thử bản đóng gói production trên máy cục bộ
 ```
 
 ---
 
-## 2. KIẾN TRÚC THƯ MỤC & PHÂN TẦNG DỮ LIỆU (`src/`)
+## 2. KIẾN TRÚC & PHÂN CÔNG TÀI NGUYÊN (`src/`)
 
 ```text
-frontend/src/
-├── fixtures/                           # 📦 DỮ LIỆU MẪU ĐỘC LẬP (FIXTURES)
-│   ├── companies.fixture.js            # Hồ sơ doanh nghiệp mẫu
-│   ├── jobs.fixture.js                 # Danh sách việc làm mẫu đầy đủ các trạng thái
-│   ├── applications.fixture.js         # Ứng viên mẫu phủ khắp 5 giai đoạn tuyển dụng
-│   ├── rankings.fixture.js             # Bảng xếp hạng AI ranking mẫu
-│   ├── admin.fixture.js                # Danh mục, kiểm duyệt, user, báo cáo, logs mẫu
-│   └── statistics.fixture.js           # Chỉ số KPI và biểu đồ Chart.js mẫu
-│
-├── models/                             # 📋 5 VIEW MODELS CHUẨN HÓA
-│   ├── CompanyViewModel.js             # Model hồ sơ doanh nghiệp & tiện ích phúc lợi
-│   ├── JobViewModel.js                 # Model việc làm, format lương, status badge
-│   ├── ApplicationViewModel.js         # Model ứng viên & 7 giai đoạn tuyển dụng
-│   ├── RankingViewModel.js             # Model thứ hạng AI, điểm match, lý do đánh giá
-│   └── StatisticsViewModel.js          # Model thẻ KPI và biểu đồ cho HR & Admin
-│
-├── mappers/                            # 🔄 BỘ CHUYỂN ĐỔI HAI CHIỀU (DTO <-> VIEWMODEL)
-│   ├── companyMapper.js                # Chuyển đổi Company entity/DTO <-> CompanyViewModel
-│   ├── jobMapper.js                    # Chuyển đổi Job DTOs <-> JobViewModel (Format lương, ngày, status)
-│   ├── applicationMapper.js            # Chuyển đổi 7 giai đoạn ApplicationStage <-> ViewModel
-│   ├── rankingMapper.js                # Chuyển đổi AI Ranking DTOs <-> RankingViewModel
-│   └── statisticsMapper.js             # Tính toán số liệu tổng hợp (Client-side aggregation fallback)
-│
-├── services/                           # 🔌 SERVICE ADAPTER ARCHITECTURE
-│   ├── httpClient.js                   # Client HTTP native fetch, tự động đính kèm X-Candidate-Id/X-User-Id
-│   ├── contracts/                      # Khai báo Interface JSDoc cho các service
-│   ├── mock/                           # Triển khai Mock Adapter qua Fixtures & LocalStorage
-│   │   ├── mockJobService.js           # CRUD việc làm, danh mục, kỹ năng, lưu nháp
-│   │   ├── mockApplicationService.js   # Phễu tuyển dụng, chuyển stage, ranking AI
-│   │   ├── mockCompanyService.js       # Hồ sơ doanh nghiệp
-│   │   ├── mockAdminService.js         # Kiểm duyệt tin, quản lý user, báo cáo vi phạm
-│   │   └── mockStatisticsService.js    # Tính toán thẻ chỉ số và biểu đồ
-│   ├── api/                            # Triển khai API Adapter gọi Spring Boot Backend
-│   │   ├── apiJobService.js            # Gọi /v1/employer/jobs, /v1/categories, /v1/skills
-│   │   ├── apiApplicationService.js    # Gọi /v1/jobs/{id}/ranking, /v1/applications/{id}/stage...
-│   │   ├── apiCompanyService.js        # Mapper và fallback an toàn cho hồ sơ công ty
-│   │   ├── apiAdminService.js          # Gọi Category API và fallback cho Admin
-│   │   └── apiStatisticsService.js     # Tổng hợp KPI và biểu đồ từ API thực
-│   ├── serviceFactory.js               # Factory tự động inject Mock/API theo VITE_DATA_SOURCE
-│   ├── index.js                        # Điểm nạp tập trung duy nhất cho toàn bộ Component
-│   ├── mockStore.js                    # Bộ nhớ LocalStorage tương thích ngược (Backward-compatible)
-│   └── mockData.js                     # Dữ liệu tĩnh bổ trợ
-│
-├── components/                         # GIAO DIỆN DÙNG CHUNG
-│   ├── common/
-│   │   ├── Header.jsx                  # Navbar đa vai trò, Dark/Light Mode, Logout
-│   │   ├── Footer.jsx                  # Chân trang MatchaJob
-│   │   └── HRContactCard.jsx           # Thẻ liên hệ HR đồng bộ thời gian thực từ Profile
-│   ├── charts/                         # 4 Biểu đồ Chart.js (Trend, Funnel, Source, Growth)
-│   └── jobs/                           # Thẻ JobCard, Search Bar
-│
-└── pages/                              # CÁC MÀN HÌNH CHỨC NĂNG (13 MÀN HÌNH CHÍNH)
-    ├── public/                         # Home, Jobs, JobDetail, Companies, Guides
-    ├── auth/                           # RoleSelect, Login, Register, ForgotPassword
-    ├── candidate/                      # Profile (scan CV), SavedJobs, Applications
-    ├── employer/                       # CỔNG NHÀ TUYỂN DỤNG (9 Views + 5 Modals)
-    │   ├── EmployerPortal.jsx          # Điều phối chính kết nối Service Adapter
-    │   ├── components/                 # Modals: JobComposer, CandidateDetail, Interview, Plan
-    │   └── views/                      # Overview, Jobs, Candidates, Pipeline, Interviews,
-    │                                   # Analytics, Company, Billing, Profile
-    └── admin/                          # CỔNG QUẢN TRỊ VIÊN (9 Views + 5 Modals)
-        ├── AdminPortal.jsx             # Điều phối chính kết nối Admin Service Adapter
-        ├── components/                 # Modals: Category, Moderation, ReportDetail, UserDetail
-        └── views/                      # AdminOverview, Moderation, Users, Categories,
-                                        # Reports, System, Logs, Notifications, AdminProfile
+Frontend_React/
+├── public/
+│   └── assets/                     # Ảnh visual vai trò (auth-*.jpg), logo.svg
+├── src/
+│   ├── main.jsx                    # Entry point: nạp Bootstrap 5, Icons, AOS CSS & Contexts
+│   ├── App.jsx                     # Bộ định tuyến React Router v6 cho toàn bộ các màn hình
+│   │
+│   ├── styles/
+│   │   └── tokens.css              # Design tokens chuẩn MatchaJob: bảng màu xanh matcha, dark/light mode
+│   │
+│   ├── context/                    # QUẢN LÝ TRẠNG THÁI TOÀN CỤC (GLOBAL STATE)
+│   │   ├── ThemeContext.jsx        # Quản lý Light/Dark Mode (đồng bộ cả body.dark & data-bs-theme Bootstrap)
+│   │   ├── AuthContext.jsx         # Quản lý thông tin đăng nhập, vai trò (candidate/employer/admin)
+│   │   ├── FavoritesContext.jsx    # Quản lý danh sách ID việc làm yêu thích (tim đỏ)
+│   │   └── ToastContext.jsx        # Hệ thống thông báo Toast React-Bootstrap góc phải
+│   │
+│   ├── hooks/
+│   │   └── useAOS.js               # Tự động làm mới AOS animation mỗi khi chuyển Route
+│   │
+│   ├── services/                   # DỮ LIỆU & STORAGE
+│   │   ├── data.js                 # Danh sách việc làm công khai, công ty, cẩm nang (ES6)
+│   │   ├── mockData.js             # Dữ liệu chuyên sâu cho Nhà tuyển dụng và Quản trị viên (ES6)
+│   │   └── storage.js              # Helper thao tác localStorage an toàn có fallback
+│   │
+│   ├── components/
+│   │   ├── common/
+│   │   │   ├── Header.jsx          # Thanh điều hướng Navbar Bootstrap chuẩn responsive + dark mode
+│   │   │   └── Footer.jsx          # Chân trang thống nhất
+│   │   ├── jobs/
+│   │   │   └── JobCard.jsx         # Thẻ việc làm (thả tim, hiển thị match %, hiệu ứng AOS)
+│   │   └── charts/                 # HỆ THỐNG BIỂU ĐỒ CHART.JS CHO HR & ADMIN
+│   │       ├── RecruitmentTrendChart.jsx   # Biểu đồ cột/đường hiệu suất tuyển dụng 7 ngày
+│   │       ├── RecruitmentFunnelChart.jsx  # Biểu đồ thanh ngang phễu tuyển dụng 5 giai đoạn
+│   │       ├── SourceDistributionChart.jsx # Biểu đồ tròn Doughnut kênh nguồn ứng viên
+│   │       └── PlatformGrowthChart.jsx     # Biểu đồ vùng Area Chart tăng trưởng nền tảng Admin
+│   │
+│   └── pages/                      # CÁC TRANG CHỨC NĂNG THEO MODULE
+│       ├── public/                 # Module 2: Khám phá công khai
+│       │   ├── HomePage.jsx        # Trang chủ: Hero, Search, Stats Strip, Featured Jobs, AOS
+│       │   ├── JobsPage.jsx        # Trang tìm việc: Bộ lọc từ khóa/địa điểm/hình thức realtime
+│       │   ├── JobDetailPage.jsx   # Chi tiết công việc & Modal nộp hồ sơ ứng tuyển
+│       │   ├── CompaniesPage.jsx   # Danh bạ doanh nghiệp công nghệ tiêu biểu
+│       │   └── GuidesPage.jsx      # Cẩm nang nghề nghiệp
+│       │
+│       ├── auth/                   # Module 3: Xác thực & Định danh
+│       │   ├── RoleSelectPage.jsx  # Chọn 3 vai trò (Ứng viên, Nhà tuyển dụng, Admin)
+│       │   ├── LoginPage.jsx       # Đăng nhập split-screen đổi hình nền visual theo vai trò
+│       │   ├── RegisterPage.jsx    # Đăng ký tài khoản (trường động công ty cho HR)
+│       │   └── ForgotPasswordPage.jsx # Quên mật khẩu 3 bước kèm OTP auto-focus
+│       │
+│       ├── candidate/              # Module 4: Không gian ứng viên
+│       │   ├── ProfilePage.jsx     # Hồ sơ cá nhân + Công cụ chấm điểm CV bằng AI trực quan
+│       │   ├── SavedJobsPage.jsx   # Danh sách các việc làm đã bấm yêu thích
+│       │   └── ApplicationsPage.jsx# Bảng theo dõi tiến trình ứng tuyển với timeline 4 nấc
+│       │
+│       ├── employer/               # Module 5: Cổng Nhà tuyển dụng (HR)
+│       │   ├── EmployerPortal.jsx  # Container điều phối Tab và State dùng chung
+│       │   ├── components/         # Modals: CandidateDetail, Interview, JobComposer, Plan
+│       │   └── views/              # 9 Sub-views: Overview, Analytics, Jobs, Pipeline, Candidates,
+│       │                           # Interviews, Company, Billing, Profile
+│       │
+│       └── admin/                  # Module 6: Cổng Quản trị viên (Admin)
+│           ├── AdminPortal.jsx     # Container điều phối Tab và State kiểm duyệt
+│           ├── components/         # Modals: Category, Moderation, ReportDetail, UserDetail
+│           └── views/              # 9 Sub-views: AdminOverview, Moderation, Users, Categories,
+│                                   # Reports, System, Logs, Notifications, AdminProfile
 ```
 
 ---
 
-## 3. CHỐT 5 VIEW MODEL CỐT LÕI & QUY TẮC MAPPING
+## 3. CHECKLIST BÀN GIAO & PHÂN CHIA CÔNG VIỆC CHO TEAMMATES
 
-Mọi Component trong giao diện **chỉ tương tác với View Model chuẩn hóa**, không phụ thuộc vào định dạng thô của cơ sở dữ liệu:
+Các teammate tiếp nhận dự án có thể nhận việc theo các đầu mục được đánh dấu bên dưới:
 
-1. **`CompanyViewModel`**:
-   * Chuẩn hóa: `id`, `name`, `shortName`, `logo`, `coverImage`, `industry`, `size`, `location`, `address`, `website`, `email`, `phone`, `taxCode`, `established`, `verified`, `about`, `perks` (mảng string).
-   * Tự động tạo 2 chữ cái viết tắt (`MJ`, `FP`) nếu ảnh logo vắng mặt.
-2. **`JobViewModel`**:
-   * Chuẩn hóa lương: Tự động chuyển đổi `salaryMode` (`range`, `single`, `negotiable`) thành chuỗi thân thiện (ví dụ: `35 – 50 Triệu VNĐ` hoặc `Thỏa thuận`).
-   * Chuẩn hóa trạng thái: `active` <-> "Đang tuyển" (Badge xanh), `pending` <-> "Chờ duyệt" (Badge vàng), `paused` <-> "Tạm dừng", `closed` <-> "Đã đóng", `draft` <-> "Bản nháp".
-   * Chuẩn hóa hình thức làm việc: `full_time` <-> "Toàn thời gian", `hybrid` <-> "Hybrid", `remote` <-> "Từ xa".
-   * Chuẩn hóa cấp bậc: `senior` <-> "Senior", `middle` <-> "Middle", `junior` <-> "Junior"...
-3. **`ApplicationViewModel`**:
-   * Chuẩn hóa 7 giai đoạn tuyển dụng theo state machine của Backend:
-     * `new` <-> "Mới"
-     * `screening` <-> "Sàng lọc"
-     * `testing` <-> "Bài kiểm tra"
-     * `interview` <-> "Phỏng vấn"
-     * `offer` <-> "Đề nghị"
-     * `hired` <-> "Đã tuyển dụng"
-     * `rejected` <-> "Từ chối"
-4. **`RankingViewModel`**:
-   * Xếp hạng ứng viên AI: `ranking`, `overallScore`, `skillsScore`, `experienceScore`, `rationale`.
-   * Phân nhóm mức độ phù hợp: `>=85%` (Rất phù hợp - Xanh lá), `70–84%` (Phù hợp - Xanh dương), `50–69%` (Cân nhắc - Vàng), `<50%` (Ít phù hợp - Xám).
-5. **`StatisticsViewModel`**:
-   * Chuẩn hóa 4 thẻ chỉ số KPI (`summaryCards`), phễu tuyển dụng 5 giai đoạn (`recruitmentFunnel`), xu hướng 7 ngày (`trend7Days`), và biểu đồ tăng trưởng nền tảng Admin (`growthChart`).
+### ✅ Các hạng mục ĐÃ HOÀN THÀNH (Baseline Completed)
+- [x] Khởi tạo dự án React (Vite) tốc độ cao, tích hợp Bootstrap 5, Icons, Chart.js, AOS và React Router DOM.
+- [x] Chuyển đổi toàn bộ dữ liệu tĩnh sang ES6 modules (`data.js`, `mockData.js`, `storage.js`).
+- [x] Cấu hình 4 React Contexts toàn cục: `ThemeContext` (Dark/Light), `AuthContext`, `FavoritesContext`, `ToastContext`.
+- [x] Chuyển đổi toàn bộ 13 màn hình từ HTML tĩnh sang React Components hoàn chỉnh.
+- [x] Xây dựng 4 biểu đồ tương tác cao bằng **Chart.js** (`RecruitmentTrendChart`, `RecruitmentFunnelChart`, `SourceDistributionChart`, `PlatformGrowthChart`) tương thích tự động với Dark/Light Mode.
+- [x] Tích hợp hiệu ứng cuộn trang sống động bằng **AOS** trên Landing Page, Danh bạ công ty, Cẩm nang nghề nghiệp.
+- [x] **Module hóa toàn diện 18 Sub-views & Modals** cho Employer Portal và Admin Portal: cấu trúc code sạch, phân tách rõ ràng trách nhiệm từng view.
+- [x] **Nâng cấp Cửa sổ soạn thảo tin đăng (JobComposerModal)**:
+  - Tự động định dạng tiền tệ `xxx,yyy,zzz`.
+  - Bộ chọn lịch tuỳ chỉnh giao diện riêng (Dark/Light mode) khoá chọn ngày < 7 ngày tới.
+  - Tương tác gợi ý Thẻ Tag 2 chiều có hiệu ứng động mượt mà (chọn thì ẩn, xóa thì hoàn trả).
+  - Khả năng kéo giãn linh hoạt cửa sổ popup (CSS resize), các ô co giãn theo tỉ lệ.
+  - Xác thực (validation) bắt buộc điền toàn bộ dữ liệu trước khi đăng tin (trừ các combobox mặc định).
+- [x] Kiểm thử toàn bộ trên trình duyệt thực tế và đóng gói thành công (`npm run build`).
 
 ---
 
-## 4. TỔNG HỢP KHOẢNG TRỐNG TÍCH HỢP BACKEND (BACKEND GAPS)
+### 📌 Các hạng mục TIẾP THEO để Teammates đảm nhiệm (To-Do for Teammates)
 
-Frontend đã sẵn sàng toàn diện với bộ Mapper và Adapter. Dưới đây là danh sách các API Backend chưa hỗ trợ để nhóm Backend tiếp tục phát triển:
-
-| STT | Phân hệ / Màn hình | Hành động cần API | Endpoint mong muốn | Trạng thái Backend hiện tại | Giải pháp Adapter tạm thời của Frontend |
-| :---: | :--- | :--- | :--- | :--- | :--- |
-| **1** | **Employer CandidatesView** | Xem toàn bộ ứng viên của công ty | `GET /v1/employer/applications?companyId={uuid}` | ❌ Chưa có API gom công ty (chỉ có ranking từng job) | Duyệt qua các Job đang chạy để hợp nhất ranking hoặc dùng Mock Fixture. |
-| **2** | **Employer Overview & Analytics** | 4 thẻ KPI & Biểu đồ hiệu suất 7 ngày | `GET /v1/employer/statistics/overview`<br>`GET /v1/employer/statistics/charts` | ❌ Chưa có Controller thống kê | Tính toán tổng hợp (aggregate) client-side từ danh sách Job & Application. |
-| **3** | **Employer CompanyView** | Xem & Cập nhật thông tin công ty | `GET /v1/companies/{id}`<br>`PUT /v1/companies/{id}` | ❌ Bảng DB đã có, chưa viết `CompanyController` | Lưu trữ tạm qua LocalStorage của Mock Adapter. |
-| **4** | **Employer InterviewsView** | Đặt lịch, đổi lịch phỏng vấn | `GET`, `POST`, `PATCH /v1/employer/interviews` | ❌ Bảng DB đã có, chưa viết `InterviewController` | Quản lý qua Mock Fixture. |
-| **5** | **Employer BillingView** | Tra cứu gói cước & hạn ngạch tin | `GET /v1/employer/billing` | ❌ Bảng DB đã có, chưa có Controller | Hiển thị gói cước qua Mock Fixture. |
-| **6** | **Admin Overview** | Chỉ số người dùng, tin đăng, biểu đồ | `GET /v1/admin/statistics/overview` | ❌ Chưa có Controller | Tổng hợp số liệu qua Mock Adapter. |
-| **7** | **Admin ModerationView** | Duyệt / Từ chối tin tuyển dụng | `GET /v1/admin/moderation/jobs`<br>`PATCH /v1/admin/moderation/jobs/{id}/approve` | ❌ Chưa có API riêng cho Admin duyệt tin | Adapter mô phỏng kiểm duyệt tin. |
-| **8** | **Admin UsersView** | Quản lý tài khoản, khóa/mở user | `GET /v1/admin/users`<br>`PATCH /v1/admin/users/{id}/status` | ❌ Chưa có Controller | Quản lý tài khoản qua Mock Fixture. |
-| **9** | **Admin ReportsView** | Xử lý khiếu nại báo cáo vi phạm | `GET /v1/admin/reports`<br>`PATCH /v1/admin/reports/{id}/resolve` | ❌ Bảng DB đã có, chưa có Controller | Xử lý báo cáo qua Mock Fixture. |
-| **10** | **Admin CategoriesView** | Thêm, sửa, xóa danh mục nghề nghiệp | `POST`, `PUT`, `DELETE /v1/categories` | ⚠️ Backend **chỉ mới có duy nhất GET** | GET gọi Backend thật; các thao tác tạo/sửa/xóa fallback sang Mock. |
+| Hạng mục / Module | Mô tả chi tiết công việc | File liên quan | Teammate phụ trách (Gợi ý) |
+| :--- | :--- | :--- | :---: |
+| **1. Kết nối Backend API** | Thay thế việc đọc/ghi từ `localStorage` sang gọi HTTP REST API thông qua `axios` hoặc `fetch` tới `http://localhost:3000/api`. | `src/services/api.js`, `src/services/storage.js` | Backend/API Integrator |
+| **2. Nâng cấp Bảng Kanban kéo thả** | Tích hợp thư viện `@hello-pangea/dnd` hoặc HTML5 Drag & Drop để kéo thả ứng viên giữa 5 cột giai đoạn trong tab Phễu tuyển dụng Kanban. | `src/pages/employer/views/PipelineView.jsx` | Frontend Developer |
+| **3. Upload tệp CV thực tế** | Thêm component kéo-thả tệp PDF (Drag-and-Drop file uploader) trong trang `ProfilePage.jsx` và Modal nộp hồ sơ ở `JobDetailPage.jsx`. | `ProfilePage.jsx`, `JobDetailPage.jsx` | UI/UX Developer |
+| **4. Viết Unit Test & Component Test** | Viết test case sử dụng Vitest hoặc React Testing Library cho các Contexts (`AuthContext`, `FavoritesContext`) và các Form kiểm tra tính hợp lệ. | `src/__tests__/` | QA / Tester |
+| **5. Tối ưu Code Splitting** | Bọc các Route nặng (Employer và Admin) bằng `React.lazy()` và `Suspense` để tối ưu bundle size khi tải trang lần đầu. | `src/App.jsx` | Performance Specialist |
 
 ---
 
-## 5. CÁCH SỬ DỤNG SERVICE ADAPTER TRONG COMPONENT
+## 4. QUY TẮC PHÁT TRIỂN & QUY ƯỚC MÃ NGUỒN (CONVENTIONS)
 
-Khi phát triển thêm hoặc chỉnh sửa bất kỳ Component nào, **luôn import từ `@/services`**:
-
-```javascript
-import {
-  jobService,
-  applicationService,
-  companyService,
-  adminService,
-  statisticsService
-} from "@/services";
-
-// 1. Lấy danh sách việc làm (tự động theo mock hoặc API):
-const jobs = await jobService.getEmployerJobs(companyId, { status: "active", keyword: "React" });
-
-// 2. Chuyển giai đoạn ứng viên Kanban (Optimistic Update):
-await applicationService.updateApplicationStage(candidateId, "interview", "Đã qua bài test");
-
-// 3. Lấy bảng xếp hạng AI ranking:
-const ranking = await applicationService.getJobRanking(jobId);
-
-// 4. Lấy thống kê KPI và biểu đồ:
-const stats = await statisticsService.getEmployerStatistics(companyId);
-```
-
----
-
-## 6. QUY TẮC PHÁT TRIỂN & QUY ƯỚC MÃ NGUỒN
-
-1. **Tokens & Theme**: Luôn dùng biến CSS `var(--primary)`, `var(--surface)`, `var(--text)`, `var(--border)` từ `tokens.css`. Tuyệt đối không hardcode `#fff` hoặc `#000` để đảm bảo Dark/Light Mode đồng bộ.
-2. **Định dạng tiền tệ & Ngày tháng**: Luôn dùng helper `formatSalaryDisplay()` và `formatDate()` từ `jobMapper.js`.
-3. **Phản hồi tức thì (Optimistic UI)**: Khi cập nhật trạng thái hoặc kéo thả Kanban, cập nhật State giao diện ngay lập tức trước khi chờ API hoàn tất, và rollback kèm Toast báo lỗi nếu API thất bại.
-4. **Kiểm tra trước khi Commit**: Luôn chạy `npm run lint` và `npm run build` để đảm bảo 0 lỗi biên dịch.
-5. **Quy chuẩn Bảng & Huy hiệu (Tables & Badges Standard)**: Toàn bộ bảng dữ liệu ở cả hai phân hệ **Nhà tuyển dụng (Employer)** và **Quản trị viên (Admin)** áp dụng chuẩn thiết kế đồng nhất `.matcha-table align-middle mb-0` với tiêu đề cột in hoa 11.5px (`font-weight: 600`), nội dung ô 13px, hệ thống huy hiệu trạng thái `.status-badge` (`status-badge-success`, `status-badge-warning`, `status-badge-danger`, `status-badge-info`, `status-badge-purple`, `status-badge-secondary`) và nút hành động viền mảnh bo tròn (`rounded-pill`). Chuẩn hóa danh xưng quản trị sang tiếng Việt **"Quản trị hệ thống"** / **"Quản trị viên"**, loại bỏ hoàn toàn các từ ngữ "Super Admin" trên giao diện.
+1. **Sử dụng Bootstrap 5 Utility kết hợp Tokens**:
+   - Sử dụng các lớp tiện ích của Bootstrap 5 (`d-flex`, `justify-content-between`, `p-3`, `rounded-3`, `gap-2`).
+   - Sử dụng các biến màu CSS từ `tokens.css`: `var(--primary)`, `var(--surface)`, `var(--text)`, `var(--border)`. Tránh hardcode màu sắc `#fff` hoặc `#000` để đảm bảo Dark Mode luôn hiển thị chuẩn.
+2. **Khai báo và Tương tác Context**:
+   - Lấy trạng thái theme: `const { theme, toggleTheme } = useTheme();`
+   - Hiển thị Toast thông báo: `const { showToast } = useToast(); showToast("Thông điệp...");`
+   - Quản lý yêu thích: `const { isFavorite, toggleFavorite } = useFavorites();`
+   - Quản lý tài khoản: `const { user, role, login, logout } = useAuth();`
+3. **Hiệu ứng AOS Animation**:
+   - Thêm thuộc tính `data-aos="fade-up"` (hoặc `fade-down`, `zoom-in`, `fade-right`, `fade-left`) và `data-aos-delay="100"` trên các thẻ JSX. Hook `useAOS()` trong `App.jsx` đã tự động xử lý việc làm mới hiệu ứng khi chuyển Route.
+4. **Biểu đồ Chart.js**:
+   - Khi tạo thêm biểu đồ mới, nhớ đăng ký các thành phần cần thiết qua `ChartJS.register(...)`. Luôn đọc `isDark` từ `useTheme()` để phối màu chữ và đường lưới tương thích.

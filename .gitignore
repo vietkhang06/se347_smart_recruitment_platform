@@ -14,6 +14,7 @@ frontend/.env.*.local
 
 # Dependencies & Build artifacts
 node_modules/
+package-lock.json
 target/
 backend/target/
 dist/
@@ -56,12 +57,6 @@ $RECYCLE.BIN/
 # docs/ - exclude documentation files per project config
 docs/**
 !docs/.gitkeep
-!docs/MATCHING_RESULT_API_AND_CV_JD_UI.md
-!docs/MATCHING_RESULT_IMPLEMENTATION_NOTES.md
-!docs/contracts/
-!docs/contracts/**
-!docs/weekly/
-!docs/weekly/**
 FE_WORKFLOW.md
 FE_UI_FLOW.md
 README_FE.md
@@ -75,26 +70,3 @@ personal/
 notes/
 scratch/
 
-# SE347 - API Contract
-!docs/API_INVENTORY.md
-!docs/MVP_SCOPE.md
-!docs/API_CONTRACT.md
-!docs/INTEGRATION_CONTRACT.md
-!docs/CONTRACT_BACKLOG.md
-!docs/CONTRACT_REVIEW_AND_FREEZE.md
-!docs/CONTRACT_TEST_PLAN.md
-!docs/CONTRACT_WORK_PACKAGE.md
-!docs/DECISION_LOG.md
-!docs/OWNER_CONTRACT_MATRIX.md
-
-# Allow contract fixtures and owner review packets
-!docs/contracts/
-!docs/contracts/fixtures/
-!docs/contracts/fixtures/**
-!docs/contracts/owner-packets/
-!docs/contracts/owner-packets/**
-
-# Auth & ERD v2 Documentation
-!docs/ERD_v2.md
-!docs/Auth_API_Contract_v2.md
-!docs/Implementation_Checklist_Batch_3.md

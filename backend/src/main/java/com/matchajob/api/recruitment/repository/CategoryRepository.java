@@ -1,13 +1,9 @@
 package com.matchajob.api.recruitment.repository;
 
-import com.matchajob.api.recruitment.model.Category;
+import com.matchajob.api.recruitment.model.CategoryEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
 
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-
-public interface CategoryRepository extends JpaRepository<Category, UUID> {
-    List<Category> findByDeletedAtIsNullOrderBySortOrderAscNameAsc();
-    Optional<Category> findByNameIgnoreCase(String name);
+@Repository
+public interface CategoryRepository extends JpaRepository<CategoryEntity, Long> {
 }

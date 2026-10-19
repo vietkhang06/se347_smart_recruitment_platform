@@ -60,7 +60,6 @@ $pgStatus = "NOT RUNNING"
 
 try {
     $null = docker info 2>&1
-    if ($LASTEXITCODE -ne 0) { throw "Docker daemon unavailable" }
     $dockerStatus = "READY"
     
     $containerState = docker inspect --format='{{json .State.Health.Status}}' matchajob-postgres-pgvector 2>$null
@@ -84,7 +83,7 @@ if ((Test-HttpUrl "http://127.0.0.1:5173") -eq "READY") {
 
 # 3. Check Backend (8081)
 $backendStatus = "NOT RUNNING"
-if ((Test-HttpUrl "http://127.0.0.1:8081/api/actuator/health/readiness") -eq "READY") {
+if ((Test-HttpUrl "http://127.0.0.1:8081/api/actuator/health") -eq "READY") {
     $backendStatus = "READY"
 } elseif (Test-PortOccupied 8081) {
     $backendStatus = "PORT OCCUPIED / STARTING"
@@ -92,7 +91,7 @@ if ((Test-HttpUrl "http://127.0.0.1:8081/api/actuator/health/readiness") -eq "RE
 
 # 4. Check AI Worker (8001)
 $aiStatus = "NOT RUNNING"
-if ((Test-HttpUrl "http://127.0.0.1:8001/health/ready") -eq "READY") {
+if ((Test-HttpUrl "http://127.0.0.1:8001/health") -eq "READY") {
     $aiStatus = "READY"
 } elseif (Test-PortOccupied 8001) {
     $aiStatus = "PORT OCCUPIED / STARTING"
@@ -117,7 +116,3 @@ Write-Host "   Frontend    : http://localhost:5173" -ForegroundColor White
 Write-Host "   Backend API : http://localhost:8081/api" -ForegroundColor White
 Write-Host "   Database    : 127.0.0.1:5433 (matchajob_user)" -ForegroundColor White
 Write-Host "==========================================`n" -ForegroundColor Cyan
-
-if ($dockerStatus -eq "READY") {
-    docker compose ps
-}

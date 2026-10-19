@@ -1,100 +1,37 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState
-} from "react";
-import { useAuth } from "./AuthContext";
+import { createContext, useContext, useState, useEffect } from "react";
+import { storage } from "../services/storage";
 import { useToast } from "./ToastContext";
 
 const FavoritesContext = createContext();
 
-function read(key) {
-  try {
-    const list = JSON.parse(
-      localStorage.getItem(key) || "[]"
-    );
-
-    return Array.isArray(list)
-      ? [...new Set(list.map(String))]
-      : [];
-  } catch {
-    return [];
-  }
-}
-
-function AccountFavorites({ children, account }) {
-  const key = `matchajob-favorites:${account}`;
+export function FavoritesProvider({ children }) {
+  const [favorites, setFavorites] = useState(() => storage.getFavorites());
   const { showToast } = useToast();
 
-  const [favorites, setFavorites] = useState(
-    () => read(key)
-  );
-
   useEffect(() => {
-    const sync = event => {
-      if (!event.key || event.key === key) {
-        setFavorites(read(key));
+    storage.setFavorites(favorites);
+  }, [favorites]);
+
+  const toggleFavorite = (jobId) => {
+    setFavorites(prev => {
+      const exists = prev.includes(jobId);
+      if (exists) {
+        showToast("Đã xóa khỏi danh sách yêu thích");
+        return prev.filter(id => id !== jobId);
+      } else {
+        showToast("Đã lưu vào danh sách việc làm yêu thích");
+        return [...prev, jobId];
       }
-    };
-
-    window.addEventListener("storage", sync);
-
-    return () =>
-      window.removeEventListener("storage", sync);
-  }, [key]);
-
-  const toggleFavorite = jobId => {
-    const id = String(jobId);
-    const current = read(key);
-    const exists = current.includes(id);
-
-    const next = exists
-      ? current.filter(value => value !== id)
-      : [...current, id];
-
-    try {
-      localStorage.setItem(key, JSON.stringify(next));
-      setFavorites(next);
-
-      showToast(
-        exists
-          ? "Đã bỏ lưu việc làm."
-          : "Đã lưu việc làm."
-      );
-    } catch {
-      showToast(
-        "Không lưu được. Kiểm tra bộ nhớ trình duyệt."
-      );
-    }
+    });
   };
 
+  const isFavorite = (jobId) => favorites.includes(jobId);
+
   return (
-    <FavoritesContext.Provider
-      value={{
-        favorites,
-        toggleFavorite,
-        isFavorite: id => favorites.includes(String(id))
-      }}
-    >
+    <FavoritesContext.Provider value={{ favorites, toggleFavorite, isFavorite }}>
       {children}
     </FavoritesContext.Provider>
   );
 }
 
-export function FavoritesProvider({ children }) {
-  const { user } = useAuth();
-
-  const account = user?.email
-    ? `${user.role}:${user.email.trim().toLowerCase()}`
-    : "guest";
-
-  return (
-    <AccountFavorites key={account} account={account}>
-      {children}
-    </AccountFavorites>
-  );
-}
-
-export const useFavorites = () =>
-  useContext(FavoritesContext);
+export const useFavorites = () => useContext(FavoritesContext);

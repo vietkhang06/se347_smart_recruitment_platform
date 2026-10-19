@@ -8,6 +8,21 @@ import org.springframework.context.annotation.FilterType;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
 @SpringBootApplication
+@ComponentScan(
+    basePackages = "com.matchajob",
+    excludeFilters = {
+        @ComponentScan.Filter(
+            type = FilterType.REGEX,
+            pattern = "com\\.matchajob\\.api\\..*"
+        ),
+        @ComponentScan.Filter(
+            type = FilterType.ASSIGNABLE_TYPE,
+            classes = {
+                com.matchajob.backend.BackendApplication.class
+            }
+        )
+    }
+)
 @EntityScan(basePackages = {
     "com.matchajob.client",
     "com.matchajob.common",
@@ -15,18 +30,12 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
     "com.matchajob.health",
     "com.matchajob.cv",
     "com.matchajob.processing",
-    "com.matchajob.matching",
-    "com.matchajob.application",
-    "com.matchajob.user",
-    "com.matchajob.api.recruitment.model"
+    "com.matchajob.matching"
 })
 @EnableJpaRepositories(basePackages = {
     "com.matchajob.cv",
     "com.matchajob.processing",
-    "com.matchajob.matching",
-    "com.matchajob.application",
-    "com.matchajob.user",
-    "com.matchajob.api.recruitment.repository"
+    "com.matchajob.matching"
 })
 public class MatchaJobApplication {
 

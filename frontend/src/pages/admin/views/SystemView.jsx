@@ -76,24 +76,26 @@ export default function SystemView() {
             </div>
 
             <div className="table-responsive">
-              <Table hover className="matcha-table align-middle mb-0">
-                <thead>
+              <Table hover className="align-middle mb-0">
+                <thead className="table-light">
                   <tr>
-                    <th className="text-start text-nowrap">Dịch vụ</th>
-                    <th className="text-center text-nowrap">Độ trễ</th>
-                    <th className="text-center text-nowrap">Trạng thái</th>
+                    <th>Dịch vụ</th>
+                    <th>Độ trễ</th>
+                    <th>Trạng thái</th>
                   </tr>
                 </thead>
                 <tbody>
                   {services.map((srv, idx) => (
                     <tr key={idx}>
-                      <td className="text-start small fw-semibold text-body">{srv.name}</td>
-                      <td className="text-center font-monospace text-muted small">
-                        {srv.latency}
+                      <td className="small fw-semibold">{srv.name}</td>
+                      <td>
+                        <span className="badge bg-secondary bg-opacity-10 text-body small">
+                          {srv.latency}
+                        </span>
                       </td>
-                      <td className="text-center">
-                        <span className="status-badge status-badge-success">
-                          <i className="bi bi-check-circle me-1"></i>{srv.status}
+                      <td>
+                        <span className="text-success small fw-bold">
+                          <i className="bi bi-check-circle-fill me-1"></i>{srv.status}
                         </span>
                       </td>
                     </tr>

@@ -17,9 +17,6 @@ public interface ProcessingJobRepository extends JpaRepository<ProcessingJob, UU
 
     Optional<ProcessingJob> findByIdempotencyKey(String idempotencyKey);
 
-    Optional<ProcessingJob> findFirstByJobTypeAndEntityTypeAndEntityIdOrderByCreatedAtDesc(
-            String jobType, String entityType, UUID entityId);
-
     @Query(value = """
         SELECT * FROM processing_jobs 
         WHERE (status = 'PENDING' OR (status = 'FAILED' AND attempt_count < max_attempts)) 

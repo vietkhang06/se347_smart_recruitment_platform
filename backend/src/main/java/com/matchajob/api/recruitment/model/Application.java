@@ -1,52 +1,28 @@
 package com.matchajob.api.recruitment.model;
 
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.Data;
+import java.time.LocalDateTime;
 
-import java.time.Instant;
-import java.util.UUID;
-
-@Getter
-@Setter
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-// Note: applications table is officially mapped by com.matchajob.application.model.ApplicationEntity.
-// This class is retained as a non-entity domain object to prevent duplicate entity mapping conflicts.
+@Data
+@Entity
+@Table(name = "applications")
 public class Application {
-
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
-    private UUID id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-    @Column(name = "candidate_id", nullable = false)
-    private UUID candidateId;
+    private Long candidateId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "job_id", nullable = false)
+    @JoinColumn(name = "job_id")
     private Job job;
 
-    @Column(name = "cover_letter", columnDefinition = "TEXT")
-    private String coverLetter;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "stage_id")
+    private JobStage currentStage;
 
-    @Column(name = "cv_snapshot_url", length = 500)
-    private String cvSnapshotUrl;
+    private Integer matchScore;
 
-    @Column(nullable = false, length = 30)
-    @Builder.Default
-    private String stage = "new";
-
-    @Column(name = "reject_reason", columnDefinition = "TEXT")
-    private String rejectReason;
-
-    @Column(name = "match_score")
-    private Short matchScore;
-
-    @Column(name = "applied_at", nullable = false, updatable = false)
-    @Builder.Default
-    private Instant appliedAt = Instant.now();
-
-    @Column(name = "updated_at", nullable = false)
-    @Builder.Default
-    private Instant updatedAt = Instant.now();
+    private LocalDateTime appliedAt = LocalDateTime.now();
 }

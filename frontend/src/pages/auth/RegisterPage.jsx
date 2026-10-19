@@ -21,21 +21,15 @@ export default function RegisterPage() {
   const [company, setCompany] = useState("");
   const [terms, setTerms] = useState(false);
 
-    const handleSubmit = (event) => {
-    event.preventDefault();
-
+  const handleSubmit = (e) => {
+    e.preventDefault();
     if (!terms) {
-      showToast(
-        "Vui lòng đồng ý với Điều khoản dịch vụ",
-        "warning"
-      );
+      showToast("Vui lòng đồng ý với Điều khoản dịch vụ", "warning");
       return;
     }
-
-    showToast(
-      "Bản demo chưa hỗ trợ đăng ký và lưu mật khẩu. Hãy dùng tài khoản mẫu hoặc tài khoản do Admin tạo.",
-      "warning"
-    );
+    login(email, role, name);
+    showToast("Đăng ký tài khoản thành công!");
+    navigate(role === "employer" ? "/employer" : "/");
   };
 
   return (
