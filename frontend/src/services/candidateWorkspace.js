@@ -25,7 +25,7 @@ function read(key, fallback) {
 export function getProfile() {
   const email = candidateEmail();
   const blank = {
-    name: "",
+    name: storage.getUser()?.name || "",
     role: "",
     email,
     phone: "",

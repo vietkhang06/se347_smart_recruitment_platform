@@ -1,3 +1,5 @@
+import { IS_API } from "../../services/dataMode";
+import ApiProfileEditor from "../../components/candidate/ApiProfileEditor";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -13,6 +15,7 @@ import {
   getProfile,
   saveProfile
 } from "../../services/profileService";
+import CandidateAvatar from "../../components/candidate/CandidateAvatar";
 import CandidateCV from "../../components/candidate/CandidateCV";
 
 function ProfileEditor() {
@@ -90,7 +93,7 @@ function ProfileEditor() {
                 background: "var(--primary)"
               }}
             >
-              {(profile.name || "Ứng viên")
+              {profile.avatar ? <img src={profile.avatar} alt="Ảnh đại diện" className="rounded-circle" width="72" height="72" style={{ objectFit: "cover" }} /> : (profile.name || "Ứng viên")
                 .trim()
                 .split(/\s+/)
                 .map(word => word[0])
@@ -141,6 +144,7 @@ function ProfileEditor() {
             </h2>
 
             <form id="candidate-profile-form" onSubmit={save}>
+              <CandidateAvatar value={profile.avatar} onChange={avatar => setProfile(current => ({ ...current, avatar }))} />
               <Row className="g-3">
                 {[
                   ["name", "Họ và tên"],
@@ -282,5 +286,5 @@ export default function ProfilePage() {
     );
   }
 
-  return <ProfileEditor key={user.email} />;
+  return IS_API ? <ApiProfileEditor key={user.id} user={user} /> : <ProfileEditor key={user.email} />;
 }

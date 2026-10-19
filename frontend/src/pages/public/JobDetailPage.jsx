@@ -1,3 +1,4 @@
+import { IS_API } from "../../services/dataMode";
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import Container from "react-bootstrap/Container";
@@ -14,40 +15,57 @@ import { ownApplications } from "../../services/applicationService";
 import HRContactCard from "../../components/common/HRContactCard";
 import CandidateApplyForm from "../../components/candidate/CandidateApplyForm";
 
+function readableText(value) {
+  return String(value || "")
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<li[^>]*>/gi, "• ")
+    .replace(/<\/(?:li|p|div|h[1-6])>|<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/g, " ").replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .trim();
+}
+
 export default function JobDetailPage() {
   const { id } = useParams();
   const { isFavorite, toggleFavorite } = useFavorites();
   const { showToast } = useToast();
 
-  const [jobs, setJobs] = useState(() => jobService.getJobsSnapshot());
+  const [job, setJob] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [retry, setRetry] = useState(0);
   const [, setApplications] = useState(() => ownApplications());
   const [showModal, setShowModal] = useState(false);
 
-  const job = jobs.find((item) => String(item.id) === String(id));
   const hrProfile = jobService.getEmployerContact();
   const fav = job ? isFavorite(job.id) : false;
 
   const alreadyApplied = Boolean(
-    job &&
+    !IS_API && job &&
       ownApplications().some(
         (application) => String(application.jobId) === String(job.id)
       )
   );
 
   useEffect(() => {
-    const refresh = () => {
-      setJobs(jobService.getJobsSnapshot());
-      setApplications(ownApplications());
-    };
-
+    const controller = new AbortController();
+    setLoading(true); setError(""); setJob(null); setShowModal(false);
+    jobService.getPublicJobById(id, { signal: controller.signal })
+      .then(data => { if (!controller.signal.aborted) setJob(data); })
+      .catch(err => { if (!controller.signal.aborted) setError(err.message); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [id, retry]);
+  useEffect(() => {
+    if (IS_API) return;
+    const refresh = () => { setRetry(v => v + 1); setApplications(ownApplications()); };
     window.addEventListener("matchajob:store-changed", refresh);
-    window.addEventListener("storage", refresh);
-
-    return () => {
-      window.removeEventListener("matchajob:store-changed", refresh);
-      window.removeEventListener("storage", refresh);
-    };
+    return () => window.removeEventListener("matchajob:store-changed", refresh);
   }, []);
+  if (loading) return <Container className="py-5" role="status">Đang tải chi tiết việc làm…</Container>;
+  if (error) return <Container className="py-5"><div role="alert" className="alert alert-danger">{error}</div><Button onClick={() => setRetry(v => v + 1)}>Thử lại</Button></Container>;
 
   if (!jobService.isAcceptingApplications(job)) {
     return (
@@ -151,7 +169,7 @@ export default function JobDetailPage() {
               </span>
 
               <span className="job-highlight-badge">
-                Kinh nghiệm: {job.exp || "1+ năm"}
+                Kinh nghiệm: {job.exp || "Chưa cập nhật"}
               </span>
 
               {Number.isFinite(Number(job.match)) && job.match !== "" && (
@@ -234,11 +252,8 @@ export default function JobDetailPage() {
               <h5 className="fw-bold mb-3">Mô tả công việc</h5>
 
               {job.description ? (
-                <div
-                  className="text-muted leading-relaxed"
-                  dangerouslySetInnerHTML={{ __html: job.description }}
-                />
-              ) : (
+                <div className="text-muted leading-relaxed" style={{ whiteSpace: "pre-wrap" }}>{readableText(job.description)}</div>
+              ) : IS_API ? <p className="text-muted">Chưa cung cấp mô tả.</p> : (
                 <p className="text-muted leading-relaxed">
                   {job.desc} Chúng tôi đang tìm kiếm những chuyên gia có
                   niềm đam mê mạnh mẽ với việc xây dựng sản phẩm xuất sắc,
@@ -250,11 +265,8 @@ export default function JobDetailPage() {
               <h5 className="fw-bold mt-4 mb-3">Yêu cầu ứng viên</h5>
 
               {job.requirements ? (
-                <div
-                  className="text-muted leading-relaxed"
-                  dangerouslySetInnerHTML={{ __html: job.requirements }}
-                />
-              ) : (
+                <div className="text-muted leading-relaxed" style={{ whiteSpace: "pre-wrap" }}>{readableText(job.requirements)}</div>
+              ) : IS_API ? <p className="text-muted">Chưa cung cấp thông tin.</p> : (
                 <ul className="text-muted d-flex flex-column gap-2">
                   <li>
                     Kinh nghiệm làm việc từ {job.exp} trong lĩnh vực
@@ -274,11 +286,8 @@ export default function JobDetailPage() {
               <h5 className="fw-bold mt-4 mb-3">Quyền lợi & Đãi ngộ</h5>
 
               {job.benefits ? (
-                <div
-                  className="text-muted leading-relaxed"
-                  dangerouslySetInnerHTML={{ __html: job.benefits }}
-                />
-              ) : (
+                <div className="text-muted leading-relaxed" style={{ whiteSpace: "pre-wrap" }}>{readableText(job.benefits)}</div>
+              ) : IS_API ? <p className="text-muted">Chưa cung cấp thông tin.</p> : (
                 <ul className="text-muted d-flex flex-column gap-2">
                   <li>
                     Mức thu nhập cạnh tranh từ{" "}
@@ -307,10 +316,7 @@ export default function JobDetailPage() {
                   </h5>
 
                   {job.schedule ? (
-                    <div
-                      className="text-muted leading-relaxed"
-                      dangerouslySetInnerHTML={{ __html: job.schedule }}
-                    />
+                    <div className="text-muted leading-relaxed" style={{ whiteSpace: "pre-wrap" }}>{readableText(job.schedule)}</div>
                   ) : (
                     <p className="text-muted">
                       <i className="bi bi-geo-alt-fill text-danger me-2" />
@@ -334,12 +340,12 @@ export default function JobDetailPage() {
                 </div>
               )}
 
-              <div className="mt-4">
+              {(job.contact || !IS_API) && <div className="mt-4">
                 <HRContactCard
                   contact={job.contact || hrProfile}
                   title="Thông tin liên hệ HR phụ trách"
                 />
-              </div>
+              </div>}
             </div>
           </Card>
         </Col>
@@ -353,16 +359,16 @@ export default function JobDetailPage() {
             <h5 className="fw-bold mb-3">Sẵn sàng gia nhập?</h5>
 
             <p className="text-muted small">
-              Nhà tuyển dụng sẽ phản hồi hồ sơ của bạn trong vòng
-              24–48 giờ làm việc.
+              Xem kỹ yêu cầu và chuẩn bị hồ sơ phù hợp trước khi ứng tuyển.
             </p>
 
+            {IS_API && <p className="small text-muted">Ứng tuyển trực tuyến sẽ mở khi luồng gửi hồ sơ được kết nối. Bạn vẫn có thể xem và lưu tin.</p>}
             <div className="d-grid gap-2 mb-3">
               <Button
                 variant={alreadyApplied ? "outline-success" : "success"}
                 size="lg"
                 className="fw-bold"
-                disabled={alreadyApplied}
+                disabled={alreadyApplied || IS_API}
                 onClick={() => setShowModal(true)}
               >
                 <i
@@ -418,7 +424,7 @@ export default function JobDetailPage() {
 
               <div>
                 <span className="text-muted d-block">Hạn nộp hồ sơ</span>
-                <strong>{job.deadline || "15/10/2026"}</strong>
+                <strong>{job.deadline || "Chưa cập nhật"}</strong>
               </div>
 
               <div>
@@ -428,7 +434,7 @@ export default function JobDetailPage() {
 
               <div>
                 <span className="text-muted d-block">HR phụ trách</span>
-                <strong>{job.contact?.name || hrProfile.name}</strong>
+                <strong>{job.contact?.name || hrProfile.name || "Chưa cung cấp"}</strong>
                 <div className="text-muted">
                   {job.contact?.email || hrProfile.email}
                 </div>

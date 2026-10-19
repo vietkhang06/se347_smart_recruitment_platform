@@ -1,4 +1,4 @@
-import { useToast } from "../../context/ToastContext";
+import { IS_API } from "../../services/dataMode";
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import Container from "react-bootstrap/Container";
@@ -15,20 +15,23 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { login } = useAuth();
-  const { showToast } = useToast();
 
-  const [role, setRole] = useState(searchParams.get("role") || "candidate");
-  const [email, setEmail] = useState("ankhang@example.com");
-  const [password, setPassword] = useState("password123");
+  const [role, setRole] = useState(["candidate", "employer", "admin"].includes(searchParams.get("role")) ? searchParams.get("role") : "candidate");
+  const [email, setEmail] = useState(IS_API ? "" : "ankhang@example.com");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     const roleParam = searchParams.get("role");
-    if (roleParam) setRole(roleParam);
+    if (["candidate", "employer", "admin"].includes(roleParam)) setRole(roleParam);
   }, [searchParams]);
 
     const handleSubmit = async (event) => {
     event.preventDefault();
+    if (busy) return;
+    setBusy(true); setError("");
 
     try {
       const user = await login(email, role, password);
@@ -58,11 +61,8 @@ export default function LoginPage() {
         replace: true
       });
     } catch (error) {
-      showToast(
-        error?.message || "Không đăng nhập được.",
-        "danger"
-      );
-    }
+      setError(error?.message || "Không đăng nhập được.");
+    } finally { setBusy(false); }
   };
 
   const roleImages = {
@@ -138,9 +138,14 @@ export default function LoginPage() {
                 </div>
 
                 <Form onSubmit={handleSubmit}>
+              {!IS_API && <div className="alert alert-info small">
+                <strong>Tài khoản demo</strong><br />Ứng viên: ankhang@example.com<br />HR: talent@fpt.com<br />Admin: admin@matchajob.vn<br />
+                Mật khẩu mẫu: <strong>Demo123!</strong>. Tài khoản tự đăng ký dùng mật khẩu bạn đã đặt.
+              </div>}
+                  {error && <div className="alert alert-danger" role="alert">{error}</div>}
                   <Form.Group className="mb-3">
                     <Form.Label className="small fw-semibold">Địa chỉ Email</Form.Label>
-                    <Form.Control 
+                    <Form.Control aria-label="Email" autoComplete="username" disabled={busy}
                       type="email" 
                       required 
                       value={email} 
@@ -156,9 +161,9 @@ export default function LoginPage() {
                       </Link>
                     </div>
                     <div className="position-relative">
-                      <Form.Control 
+                      <Form.Control aria-label="Mật khẩu" autoComplete="current-password" disabled={busy}
                         type={showPassword ? "text" : "password"} 
-                        required 
+                        required
                         value={password} 
                         onChange={(e) => setPassword(e.target.value)}
                       />
@@ -172,8 +177,8 @@ export default function LoginPage() {
                     </div>
                   </Form.Group>
 
-                  <Button type="submit" variant="success" className="w-100 py-2 fw-bold mb-3">
-                    Đăng nhập ({roleNames[role]})
+                  <Button disabled={busy} type="submit" variant="success" className="w-100 py-2 fw-bold mb-3">
+                    {busy ? "Đang đăng nhập…" : `Đăng nhập (${roleNames[role]})`}
                   </Button>
 
                   <div className="text-center text-muted small">

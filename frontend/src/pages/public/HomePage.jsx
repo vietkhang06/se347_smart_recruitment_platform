@@ -1,3 +1,4 @@
+import { IS_API } from "../../services/dataMode";
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Container from "react-bootstrap/Container";
@@ -11,6 +12,10 @@ import JobCard from "../../components/jobs/JobCard";
 import { jobService } from "../../services/jobService";
 
 export default function HomePage() {
+  const [apiLoading, setApiLoading] = useState(IS_API);
+  const [apiError, setApiError] = useState("");
+  const [totalJobs, setTotalJobs] = useState(0);
+  const [reload, setReload] = useState(0);
   const [keyword, setKeyword] = useState("");
   const [location, setLocation] = useState("");
   const [jobs, setJobs] = useState(() => jobService.getJobsSnapshot());
@@ -18,6 +23,17 @@ export default function HomePage() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (!IS_API) return;
+    const controller = new AbortController();
+    setApiLoading(true); setApiError("");
+    jobService.search({ size: 8 }, { signal: controller.signal }).then(data => {
+      if (!controller.signal.aborted) { setJobs(data.content); setTotalJobs(data.totalElements); }
+    }).catch(err => { if (!controller.signal.aborted) setApiError(err.message); })
+      .finally(() => { if (!controller.signal.aborted) setApiLoading(false); });
+    return () => controller.abort();
+  }, [reload]);
+  useEffect(() => {
+    if (IS_API) return;
     const refresh = () => {
       setJobs(jobService.getJobsSnapshot());
       setStats(jobService.getDemoStats());
@@ -118,7 +134,7 @@ export default function HomePage() {
       </section>
 
       {/* Stats Strip */}
-      <section className="py-4 border-top border-bottom bg-surface-2">
+      {!IS_API && <section className="py-4 border-top border-bottom bg-surface-2">
         <Container>
           <Row className="text-center g-3">
             <Col sm={6} md={3} data-aos="fade-up" data-aos-delay="100">
@@ -139,7 +155,7 @@ export default function HomePage() {
             </Col>
           </Row>
         </Container>
-      </section>
+      </section>}
 
       {/* Featured Jobs Section */}
       <section className="py-5">
@@ -152,11 +168,11 @@ export default function HomePage() {
               </p>
             </div>
             <Button as={Link} to="/jobs" variant="outline-success" data-aos="fade-left">
-              Xem tất cả ({publicJobs.length}) <i className="bi bi-arrow-right ms-1"></i>
+              Xem tất cả ({IS_API ? totalJobs : publicJobs.length}) <i className="bi bi-arrow-right ms-1"></i>
             </Button>
           </div>
 
-          {featuredJobs.length ? <Row className="g-4">
+          {apiLoading ? <p role="status">Đang tải việc làm…</p> : apiError ? <div role="alert">{apiError} <Button onClick={() => setReload(v => v + 1)}>Thử lại</Button></div> : featuredJobs.length ? <Row className="g-4">
             {featuredJobs.map((job, index) => (
               <Col md={6} key={job.id}>
                 <JobCard job={job} aosDelay={index * 100} />

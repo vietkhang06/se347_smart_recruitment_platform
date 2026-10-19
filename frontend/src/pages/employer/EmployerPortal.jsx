@@ -128,7 +128,7 @@ function EmployerWorkspace({ companyId }) {
     }
     try {
       const liveCandidates = await applicationService.getApplications(companyId);
-      if (Array.isArray(liveCandidates) && liveCandidates.length > 0) {
+      if (Array.isArray(liveCandidates)) {
         setCandidates(liveCandidates);
       } else {
         setCandidates(mockStore.getCandidates());

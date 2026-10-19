@@ -2,8 +2,10 @@ import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 
 export default function RequireRole({ role }) {
-  const { user } = useAuth();
+  const { user, loading, error, retry } = useAuth();
   const location = useLocation();
+  if (loading) return <div className="container py-5" role="status">Đang kiểm tra phiên đăng nhập…</div>;
+  if (error) return <div className="container py-5" role="alert">{error} <button className="btn btn-outline-success" onClick={retry}>Thử lại</button></div>;
   if (!user) return <Navigate to={`/login?role=${role}`} replace state={{ from: location.pathname + location.search + location.hash }} />;
   if (user.role !== role) return <section className="container py-5" role="alert">
     <h1 className="h3">Bạn không có quyền truy cập trang này</h1>
