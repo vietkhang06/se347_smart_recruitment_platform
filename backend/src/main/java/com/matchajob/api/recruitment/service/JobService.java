@@ -19,8 +19,6 @@ public class JobService {
         job.setStatus("DRAFT");
         return jobRepository.save(job);
     }
-<<<<<<< HEAD
-=======
 
     // --- Added methods for search, pagination with stable sorting, and state machine / ownership ---
 
@@ -77,5 +75,4 @@ public class JobService {
         }
         return false;
     }
->>>>>>> 9f606963108af06510be846e2b8147d80f295599
 }

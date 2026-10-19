@@ -22,8 +22,6 @@ public class JobController {
     public ResponseEntity<Job> createJob(@RequestBody Job job) {
         return ResponseEntity.ok(jobService.createJob(job));
     }
-<<<<<<< HEAD
-=======
 
     // --- Added endpoints for search, pagination, and status updates ---
 
@@ -51,5 +49,4 @@ public class JobController {
             return ResponseEntity.badRequest().build();
         }
     }
->>>>>>> 9f606963108af06510be846e2b8147d80f295599
 }
