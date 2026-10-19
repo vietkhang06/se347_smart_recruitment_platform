@@ -1,14 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
-import { useLocation, useNavigate, Link } from "react-router-dom";
-import { exportCandidatesCSV } from "./views/CandidatesView";
+import { useLocation } from "react-router-dom";
 import Container from "react-bootstrap/Container";
 import Badge from "react-bootstrap/Badge";
 import Button from "react-bootstrap/Button";
-import { useAuth } from "../../context/AuthContext";
+import Nav from "react-bootstrap/Nav";
 import { useToast } from "../../context/ToastContext";
 import { mockStore } from "../../services/mockStore";
-import { jobService, interviewService, applicationService } from "../../services";
 
+// Modular Views
 import OverviewView from "./views/OverviewView";
 import JobsView from "./views/JobsView";
 import CandidatesView from "./views/CandidatesView";
@@ -19,369 +18,180 @@ import CompanyView from "./views/CompanyView";
 import BillingView from "./views/BillingView";
 import ProfileView from "./views/ProfileView";
 
+// Modals
 import JobComposerModal from "./components/JobComposerModal";
 import CandidateDetailModal from "./components/CandidateDetailModal";
 import InterviewModal from "./components/InterviewModal";
 
 export default function EmployerPortal() {
-  const { user } = useAuth();
-
-  let companyId = user?.companyId || "";
-  let error = "";
-
-  try {
-    const hrCompanyId = mockStore.getHRCompanyId();
-    if (hrCompanyId) companyId = hrCompanyId;
-  } catch (err) {
-    if (user?.role === "employer" || user?.role === "Nhà tuyển dụng") {
-      companyId = companyId || "COMP-01";
-    } else {
-      error = err.message;
-    }
-  }
-
-  if ((error && !companyId) || (user && user.role !== "employer" && user.role !== "Nhà tuyển dụng")) {
-    return (
-      <Container className="py-5">
-        <div className="alert alert-warning">
-          {error || "Đăng nhập bằng tài khoản HR."}
-        </div>
-        <Link to="/login">Đến trang đăng nhập</Link>
-      </Container>
-    );
-  }
-
-  const activeCompanyId = companyId || user?.companyId || "COMP-01";
-
-  return (
-    <EmployerWorkspace
-      key={`${user?.email || "employer"}:${activeCompanyId}`}
-      companyId={activeCompanyId}
-    />
-  );
-}
-
-function EmployerWorkspace({ companyId }) {
   const { showToast } = useToast();
   const location = useLocation();
-  const navigate = useNavigate();
 
-  const getTab = hash => {
-    const tab = String(hash || "").replace("#", "");
-    return ["overview", "jobs", "candidates", "pipeline", "interviews", "analytics", "company", "billing", "profile"].includes(tab) ? tab : "overview";
+  // Tab state synced with URL hash
+  const getInitialTab = () => {
+    const hash = window.location.hash.replace("#", "");
+    const validTabs = ["overview", "jobs", "candidates", "pipeline", "interviews", "analytics", "company", "billing", "profile"];
+    return validTabs.includes(hash) ? hash : "overview";
   };
-  const getInitialTab = () => getTab(location.hash);
 
   const [activeTab, setActiveTab] = useState(getInitialTab);
 
   useEffect(() => {
     const hash = location.hash.replace("#", "");
-    setActiveTab(getTab(hash));
+    if (hash) setActiveTab(hash);
   }, [location.hash]);
 
-  const handleTabChange = tabKey => {
-    const next = getTab(tabKey);
-    setActiveTab(next);
-    navigate({ pathname: location.pathname, search: location.search, hash: `#${next}` });
+  const handleTabChange = (tabKey) => {
+    setActiveTab(tabKey);
+    window.location.hash = tabKey;
   };
 
-  const [company, setCompany] = useState(
-    () => mockStore.getCompanies().find(item => String(item.id) === String(companyId)) || mockStore.getCompanies()[0]
-  );
+  // State managed via unified mockStore
+  const [company, setCompany] = useState(() => mockStore.getCompany("COMP-01"));
+  const [jobs, setJobs] = useState(() => mockStore.getEmployerJobs("COMP-01"));
+  const [candidates, setCandidates] = useState(() => mockStore.getCandidates());
+  const [interviews, setInterviews] = useState(() => mockStore.getInterviews());
+  const [plans, setPlans] = useState(() => mockStore.getPlans());
 
-  const [jobs, setJobs] = useState(
-    () => mockStore.getEmployerJobs(companyId)
-  );
-
-  const [candidates, setCandidates] = useState(
-    () => mockStore.getCandidates()
-  );
-
-  const [interviews, setInterviews] = useState(
-    () => mockStore.getInterviews()
-  );
-
-  const [plans, setPlans] = useState(
-    () => mockStore.getPlans()
-  );
-
-  const refreshStoreData = useCallback(async () => {
-    try {
-      const liveCompany = await companyService.getCompany(companyId);
-      if (liveCompany && liveCompany.name) {
-        setCompany(liveCompany);
-      } else {
-        setCompany(mockStore.getCompanies().find(item => String(item.id) === String(companyId)) || mockStore.getCompanies()[0]);
-      }
-    } catch {
-      setCompany(mockStore.getCompanies().find(item => String(item.id) === String(companyId)) || mockStore.getCompanies()[0]);
-    }
-    try {
-      const liveJobs = await jobService.getEmployerJobs(companyId);
-      if (Array.isArray(liveJobs)) {
-        setJobs(liveJobs);
-      } else {
-        setJobs(mockStore.getEmployerJobs(companyId));
-      }
-    } catch {
-      setJobs(mockStore.getEmployerJobs(companyId));
-    }
-    try {
-      const liveCandidates = await applicationService.getApplications(companyId);
-      if (Array.isArray(liveCandidates) && liveCandidates.length > 0) {
-        setCandidates(liveCandidates);
-      } else {
-        setCandidates(mockStore.getCandidates());
-      }
-    } catch {
-      setCandidates(mockStore.getCandidates());
-    }
-    try {
-      const liveInterviews = await interviewService.getInterviews(companyId);
-      if (Array.isArray(liveInterviews)) {
-        setInterviews(liveInterviews);
-      } else {
-        setInterviews(mockStore.getInterviews());
-      }
-    } catch {
-      setInterviews(mockStore.getInterviews());
-    }
+  // Reload data from store
+  const refreshStoreData = useCallback(() => {
+    setCompany(mockStore.getCompany("COMP-01"));
+    setJobs(mockStore.getEmployerJobs("COMP-01"));
+    setCandidates(mockStore.getCandidates());
+    setInterviews(mockStore.getInterviews());
     setPlans(mockStore.getPlans());
-  }, [companyId]);
+  }, []);
 
+  // Listen to store changes from any component/tab
   useEffect(() => {
-    refreshStoreData();
-  }, [refreshStoreData]);
-
-  useEffect(() => {
-    const handleStoreChange = () => refreshStoreData();
-
-    window.addEventListener(
-      "matchajob:store-changed",
-      handleStoreChange
-    );
-    window.addEventListener("storage", handleStoreChange);
-
+    const handleStoreChange = () => {
+      refreshStoreData();
+    };
+    window.addEventListener("matchajob:store-changed", handleStoreChange);
     return () => {
-      window.removeEventListener(
-        "matchajob:store-changed",
-        handleStoreChange
-      );
-      window.removeEventListener(
-        "storage",
-        handleStoreChange
-      );
+      window.removeEventListener("matchajob:store-changed", handleStoreChange);
     };
   }, [refreshStoreData]);
 
+  // Modals state
   const [showComposer, setShowComposer] = useState(false);
-  const [composerMode, setComposerMode] = useState("create");
-  const [composerJobToEdit, setComposerJobToEdit] = useState(null);
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [showCandidateModal, setShowCandidateModal] = useState(false);
   const [showInterviewModal, setShowInterviewModal] = useState(false);
   const [interviewCandidate, setInterviewCandidate] = useState(null);
 
-  const handleOpenCreateJob = () => {
-    setComposerMode("create");
-    setComposerJobToEdit(null);
-    setShowComposer(true);
-  };
-
-  const handleOpenEditJob = (job) => {
-    setComposerMode("edit");
-    setComposerJobToEdit(job);
-    setShowComposer(true);
-  };
-
-  const handleOpenCandidate = candidate => {
+  // Handle open candidate details
+  const handleOpenCandidate = (candidate) => {
     setSelectedCandidate(candidate);
     setShowCandidateModal(true);
   };
 
-  const handleInviteCandidate = candidate => {
-    const current = candidate || mockStore.getCandidateById(candidate?.id);
-    if (!current || current.withdrawnAt || /đã rút|từ chối|không phù hợp/i.test(current.stage || "")) {
-      showToast("Hồ sơ không còn ở trạng thái cho phép mời phỏng vấn.", "danger");
-      return;
-    }
-    setInterviewCandidate(current);
+  // Handle open interview modal with candidate prefilled
+  const handleInviteCandidate = (candidate) => {
+    setInterviewCandidate(candidate);
     setShowInterviewModal(true);
   };
 
-  const handleCandidateStageChange = async (applicationId, nextStage, selectedCandidateId = applicationId) => {
-    try {
-      await applicationService.updateApplicationStage(applicationId, nextStage);
-      await refreshStoreData();
-      setSelectedCandidate(current => current && (
-        String(current.applicationId || current.id) === String(applicationId)
-        || String(current.id) === String(selectedCandidateId)
-      )
-        ? { ...current, stage: nextStage } : current);
-      showToast(`Đã chuyển ứng viên sang giai đoạn: ${nextStage}`);
-    } catch (err) {
-      showToast(err?.message || "Không thể chuyển giai đoạn ứng viên.", "danger");
-      throw err;
+  // Candidate stage transition
+  const handleCandidateStageChange = (candidateId, nextStage) => {
+    mockStore.updateCandidateStage(candidateId, nextStage);
+    const updated = mockStore.getCandidates();
+    setCandidates(updated);
+    if (selectedCandidate && selectedCandidate.id === candidateId) {
+      setSelectedCandidate({ ...selectedCandidate, stage: nextStage });
     }
   };
 
-  const handleCandidateReject = async (applicationId, reason, selectedCandidateId = applicationId) => {
-    try {
-      await applicationService.updateApplicationStage(applicationId, "Từ chối", reason);
-      await refreshStoreData();
-      setSelectedCandidate(current => current && (
-        String(current.applicationId || current.id) === String(applicationId)
-        || String(current.id) === String(selectedCandidateId)
-      )
-        ? { ...current, stage: "Từ chối", rejectReason: reason } : current);
-      showToast("Đã lưu lý do từ chối ứng viên.");
-    } catch (err) {
-      showToast(err?.message || "Không thể từ chối hồ sơ.", "danger");
-      throw err;
+  // Candidate reject
+  const handleCandidateReject = (candidateId, reason) => {
+    mockStore.rejectCandidate(candidateId, reason);
+    const updated = mockStore.getCandidates();
+    setCandidates(updated);
+    if (selectedCandidate && selectedCandidate.id === candidateId) {
+      setSelectedCandidate({ ...selectedCandidate, stage: "Đã từ chối" });
     }
   };
 
-  const handleJobCreated = () => {
-    refreshStoreData();
-    handleTabChange("jobs");
+  // Handle job created
+  const handleJobCreated = (newJob) => {
+    setJobs(mockStore.getEmployerJobs("COMP-01"));
+    setActiveTab("jobs");
+    window.location.hash = "jobs";
   };
 
-  const handleJobUpdated = () => {
-    refreshStoreData();
+  // Handle interview created
+  const handleInterviewCreated = (newInterview) => {
+    setInterviews(mockStore.getInterviews());
+    setActiveTab("interviews");
+    window.location.hash = "interviews";
   };
 
-  const handleInterviewCreated = () => {
-    refreshStoreData();
-    handleTabChange("interviews");
-  };
-
-  const activeJobsCount = jobs.filter(
-    job => mockStore.isJobAcceptingApplications(job)
-  ).length;
-
-  const newCandidatesCount = candidates.filter(
-    candidate =>
-      candidate.stage === "Mới" ||
-      candidate.stage === "Sàng lọc"
-  ).length;
-
-  if (!company) return <Container className="py-5"><div className="alert alert-warning">Không tìm thấy doanh nghiệp của tài khoản.</div></Container>;
+  // Metrics calculation
+  const activeJobsCount = jobs.filter((j) => j.status === "Đang tuyển").length;
+  const newCandidatesCount = candidates.filter((c) => c.stage === "Mới" || c.stage === "Sàng lọc").length;
 
   return (
     <Container fluid className="py-4 px-lg-5">
+
+
+      {/* Portal Header */}
       <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 pb-3 border-bottom gap-3">
         <div>
           <div className="d-flex align-items-center gap-2 mb-1 flex-wrap">
             <h2 className="fw-bold mb-0 fs-3">{company.name}</h2>
-
             {company.verified && (
-              <Badge
-                bg="success"
-                className="bg-opacity-10 text-success border"
-              >
-                <i className="bi bi-patch-check-fill me-1" />
-                Doanh nghiệp đã xác minh
+              <Badge bg="success" className="bg-opacity-10 text-success border">
+                <i className="bi bi-patch-check-fill me-1"></i>Doanh nghiệp đã xác minh
               </Badge>
             )}
           </div>
-
-          <p className="text-muted small mb-0">
-            Trung tâm quản lý tuyển dụng & nhân tài thông minh
-          </p>
+          <p className="text-muted small mb-0">Trung tâm quản lý tuyển dụng & nhân tài thông minh</p>
         </div>
 
         <div className="d-flex gap-2 flex-wrap">
           <Button
             variant="outline-success"
             size="sm"
-            onClick={() => {
-              try { exportCandidatesCSV(candidates); showToast("Đã tạo tệp CSV ứng viên."); }
-              catch (err) { showToast(err.message || "Không thể tạo tệp CSV.", "danger"); }
-            }}
+            onClick={() => showToast("Báo cáo hiệu suất đã được tạo và gửi về email HR")}
           >
-            <i className="bi bi-download me-1" />
-            Xuất danh sách ứng viên
+            <i className="bi bi-download me-1"></i>Xuất báo cáo
           </Button>
-
           <Button
             variant="success"
             size="sm"
             className="fw-bold"
             onClick={() => setShowComposer(true)}
           >
-            <i className="bi bi-plus-lg me-1" />
-            Tạo tin tuyển dụng
+            <i className="bi bi-plus-lg me-1"></i>Tạo tin tuyển dụng
           </Button>
         </div>
       </div>
 
+      {/* 9 SUB-VIEWS RENDERED CONDITIONALLY */}
       {activeTab === "overview" && (
         <OverviewView
           employerData={{
             company,
             metrics: [
-              {
-                label: "Tin đang tuyển",
-                value: String(activeJobsCount),
-                change: `Tổng ${jobs.length} tin`,
-                tone: "green",
-                icon: "▣"
-              },
-              {
-                label: "Ứng viên tiếp nhận",
-                value: String(candidates.length),
-                change: `${newCandidatesCount} mới cần duyệt`,
-                tone: "purple",
-                icon: "●"
-              },
-              {
-                label: "Lịch phỏng vấn",
-                value: String(interviews.length),
-                change: `${
-                  interviews.filter(
-                    item => item.status === "Sắp diễn ra"
-                  ).length
-                } sắp diễn ra`,
-                tone: "orange",
-                icon: "◷"
-              },
-              {
-                label: "Tỷ lệ phản hồi",
-                value: "94%",
-                change: "+4,2% tuần này",
-                tone: "teal",
-                icon: "↗"
-              }
+              { label: "Tin đang tuyển", value: String(activeJobsCount), change: `Tổng ${jobs.length} tin`, tone: "green", icon: "▣" },
+              { label: "Ứng viên tiếp nhận", value: String(candidates.length), change: `${newCandidatesCount} mới cần duyệt`, tone: "purple", icon: "●" },
+              { label: "Lịch phỏng vấn", value: String(interviews.length), change: `${interviews.filter(iv => iv.status === "Sắp diễn ra").length} sắp diễn ra`, tone: "orange", icon: "◷" },
+              { label: "Tỷ lệ phản hồi", value: "94%", change: "+4,2% tuần này", tone: "teal", icon: "↗" }
             ],
             interviews,
             candidates,
             activity: [
-              {
-                time: "09:14",
-                text: "Nguyễn An Khang đã xác nhận lịch phỏng vấn",
-                tone: "green"
-              },
-              {
-                time: "Hôm qua",
-                text: "Tin Senior Product Designer có 8 hồ sơ mới",
-                tone: "purple"
-              },
-              {
-                time: "18/09",
-                text: "Lê Quốc Huy đã hoàn tất bài test kỹ thuật",
-                tone: "teal"
-              }
+              { time: "09:14", text: "Nguyễn An Khang đã xác nhận lịch phỏng vấn", tone: "green" },
+              { time: "Hôm qua", text: "Tin Senior Product Designer có 8 hồ sơ mới", tone: "purple" },
+              { time: "18/09", text: "Lê Quốc Huy đã hoàn tất bài test kỹ thuật", tone: "teal" }
             ],
             weeklyPerformance: {
-              labels: [
-                "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5",
-                "Thứ 6", "Thứ 7", "Chủ nhật"
-              ],
+              labels: ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật"],
               applications: [24, 38, 31, 52, 45, 68, 56],
               views: [110, 145, 132, 210, 185, 290, 240]
             }
           }}
-          onOpenComposer={handleOpenCreateJob}
+          onOpenComposer={() => setShowComposer(true)}
           onOpenCandidate={handleOpenCandidate}
           onNavigateTab={handleTabChange}
         />
@@ -391,11 +201,11 @@ function EmployerWorkspace({ companyId }) {
         <JobsView
           jobs={jobs}
           setJobs={setJobs}
-          onOpenComposer={handleOpenCreateJob}
-          onEditJob={handleOpenEditJob}
-          onNavigateCandidates={() =>
-            handleTabChange("pipeline")
-          }
+          onOpenComposer={() => setShowComposer(true)}
+          onNavigateCandidates={(job) => {
+            setActiveTab("pipeline");
+            window.location.hash = "pipeline";
+          }}
         />
       )}
 
@@ -411,7 +221,6 @@ function EmployerWorkspace({ companyId }) {
         <PipelineView
           candidates={candidates}
           setCandidates={setCandidates}
-          onStageChange={handleCandidateStageChange}
           onOpenCandidate={handleOpenCandidate}
           onInviteCandidate={handleInviteCandidate}
         />
@@ -429,67 +238,31 @@ function EmployerWorkspace({ companyId }) {
       )}
 
       {activeTab === "analytics" && (
-        <>
-        <div className="alert alert-info small">Biểu đồ hiệu suất và nguồn ứng viên đang sử dụng dữ liệu minh họa.</div>
-        <AnalyticsView
-          employerData={{
-            company,
-            jobs,
-            candidates,
-            interviews,
-            weeklyPerformance: {
-              labels: ["T2", "T3", "T4", "T5", "T6", "T7", "CN"],
-              applications: [24, 38, 31, 52, 45, 68, 56],
-              views: [110, 145, 132, 210, 185, 290, 240]
-            },
-            funnel: {
-              labels: [
-                "Ứng tuyển", "Sàng lọc", "Bài test",
-                "Phỏng vấn", "Nhận Offer"
-              ],
-              counts: [candidates.length, 4, 3, 2, 1]
-            },
-            sources: {
-              labels: [
-                "MatchaJob", "LinkedIn", "Nội bộ giới thiệu",
-                "Facebook", "Khác"
-              ],
-              data: [48, 26, 14, 8, 4]
-            }
-          }}
-        />
-        </>
+        <AnalyticsView employerData={{ company, jobs, candidates, interviews, weeklyPerformance: { labels: ["T2", "T3", "T4", "T5", "T6", "T7", "CN"], applications: [24, 38, 31, 52, 45, 68, 56], views: [110, 145, 132, 210, 185, 290, 240] }, funnel: { labels: ["Ứng tuyển", "Sàng lọc", "Bài test", "Phỏng vấn", "Nhận Offer"], counts: [candidates.length, 4, 3, 2, 1] }, sources: { labels: ["MatchaJob", "LinkedIn", "Nội bộ giới thiệu", "Facebook", "Khác"], data: [48, 26, 14, 8, 4] } }} />
       )}
 
       {activeTab === "company" && (
         <CompanyView
           companyData={company}
-          onCompanyUpdated={() => refreshStoreData()}
+          onCompanyUpdated={(updated) => setCompany(updated)}
         />
       )}
 
       {activeTab === "billing" && (
-        <BillingView
-          plans={plans}
-          activeJobsCount={activeJobsCount}
-        />
+        <BillingView plans={plans} activeJobsCount={activeJobsCount} />
       )}
 
-      {activeTab === "profile" && <ProfileView />}
+      {activeTab === "profile" && (
+        <ProfileView />
+      )}
 
+      {/* MODALS */}
       <JobComposerModal
         show={showComposer}
-        onHide={() => {
-          setShowComposer(false);
-          setComposerJobToEdit(null);
-        }}
-        mode={composerMode}
-        jobToEdit={composerJobToEdit}
+        onHide={() => setShowComposer(false)}
         onJobCreated={handleJobCreated}
-        onJobUpdated={handleJobUpdated}
         onNavigateProfile={() => {
           setShowComposer(false);
-          setComposerJobToEdit(null);
           handleTabChange("profile");
         }}
       />
@@ -498,9 +271,9 @@ function EmployerWorkspace({ companyId }) {
         candidate={selectedCandidate}
         show={showCandidateModal}
         onHide={() => setShowCandidateModal(false)}
-        onInviteInterview={candidate => {
+        onInviteInterview={(c) => {
           setShowCandidateModal(false);
-          handleInviteCandidate(candidate);
+          handleInviteCandidate(c);
         }}
         onStageChange={handleCandidateStageChange}
         onRejectCandidate={handleCandidateReject}

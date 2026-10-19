@@ -1,23 +1,17 @@
 package com.matchajob.api.recruitment.model;
 
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.Data;
 
-import java.util.UUID;
-
-@Getter
-@Setter
-@NoArgsConstructor
-// Note: table 'job_stages' does not exist in Flyway schema V1-V5.
-// Class retained as non-entity domain object.
+@Data
+@Entity
+@Table(name = "job_stages")
 public class JobStage {
-
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
-    private UUID id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
     private String name;
-
     private Integer orderIndex;
 
     @ManyToOne(fetch = FetchType.LAZY)

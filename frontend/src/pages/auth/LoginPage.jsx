@@ -1,6 +1,5 @@
-import { useToast } from "../../context/ToastContext";
 import { useState, useEffect } from "react";
-import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import Container from "react-bootstrap/Container";
 import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
@@ -13,9 +12,7 @@ import { useAuth } from "../../context/AuthContext";
 export default function LoginPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const location = useLocation();
   const { login } = useAuth();
-  const { showToast } = useToast();
 
   const [role, setRole] = useState(searchParams.get("role") || "candidate");
   const [email, setEmail] = useState("ankhang@example.com");
@@ -27,41 +24,15 @@ export default function LoginPage() {
     if (roleParam) setRole(roleParam);
   }, [searchParams]);
 
-    const handleSubmit = async (event) => {
-    event.preventDefault();
-
-    try {
-      const user = await login(email, role, password);
-
-      const home =
-        user.role === "employer"
-          ? "/employer"
-          : user.role === "admin"
-            ? "/admin"
-            : "/";
-
-      const prefix =
-        user.role === "candidate" ? "/candidate" : home;
-
-      const from = location.state?.from;
-
-      const canReturn =
-        typeof from === "string" &&
-        (
-          from === prefix ||
-          ["/", "?", "#"].some((suffix) =>
-            from.startsWith(prefix + suffix)
-          )
-        );
-
-      navigate(canReturn ? from : home, {
-        replace: true
-      });
-    } catch (error) {
-      showToast(
-        error?.message || "Không đăng nhập được.",
-        "danger"
-      );
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    login(email, role);
+    if (role === "employer") {
+      navigate("/employer");
+    } else if (role === "admin") {
+      navigate("/admin");
+    } else {
+      navigate("/");
     }
   };
 

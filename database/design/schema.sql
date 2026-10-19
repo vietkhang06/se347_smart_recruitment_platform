@@ -14,7 +14,6 @@
 -- =========================
 -- EXTENSIONS
 -- =========================
-CREATE EXTENSION IF NOT EXISTS "vector";        -- pgvector: vector embeddings & similarity search
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";      -- gen_random_uuid()
 CREATE EXTENSION IF NOT EXISTS "pg_trgm";       -- trigram index cho full-text search
 
@@ -205,9 +204,7 @@ CREATE TABLE jobs (
     title           VARCHAR(300)  NOT NULL,
     slug            VARCHAR(350) UNIQUE,      -- SEO-friendly URL
     department      VARCHAR(100),
-    level           VARCHAR(80)   CHECK (level IS NULL OR level IN (
-                        'intern', 'fresher', 'junior', 'middle', 'senior', 'lead', 'director'
-                    )),
+    level           VARCHAR(80),              -- JOB_LEVELS enum
     work_type       VARCHAR(60)   NOT NULL CHECK (work_type IN (
                         'full_time', 'part_time', 'hybrid', 'remote', 'contract'
                     )),
@@ -237,8 +234,8 @@ CREATE TABLE jobs (
     applicant_count INTEGER      NOT NULL DEFAULT 0,
     view_count      INTEGER      NOT NULL DEFAULT 0,
 
-    status          VARCHAR(20)  NOT NULL DEFAULT 'draft'
-                        CHECK (status IN ('draft', 'active', 'pending', 'paused', 'closed')),
+    status          VARCHAR(20)  NOT NULL DEFAULT 'pending'
+                        CHECK (status IN ('active', 'pending', 'paused', 'closed')),
     posted_at       TIMESTAMPTZ,
     deadline        DATE,
     created_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
@@ -264,9 +261,6 @@ CREATE INDEX idx_jobs_location_trgm ON jobs USING gin (location gin_trgm_ops);
 
 -- Composite cho browse: status + category + location
 CREATE INDEX idx_jobs_browse ON jobs (status, category_id, location) WHERE deleted_at IS NULL;
--- Composite tối ưu Search / Filter / Sort / Pagination
-CREATE INDEX idx_jobs_filter_composite ON jobs (status, category_id, level, work_type, posted_at DESC) WHERE deleted_at IS NULL;
-CREATE INDEX idx_jobs_salary_filter ON jobs (status, salary_min, salary_max) WHERE deleted_at IS NULL AND status = 'active';
 
 -- ============================================================================
 -- 10. JOB_TAGS – Tags cho requirements / specializations
@@ -282,35 +276,6 @@ CREATE TABLE job_tags (
 );
 
 CREATE INDEX idx_job_tags_tag ON job_tags (tag);
-
--- ============================================================================
--- 10b. SKILLS – Danh mục kỹ năng chuẩn hóa (quản trị tập trung, autocomplete)
--- ============================================================================
-CREATE TABLE skills (
-    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name        VARCHAR(100) NOT NULL,
-    category_id UUID REFERENCES categories(id) ON DELETE SET NULL,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-    deleted_at  TIMESTAMPTZ,
-
-    CONSTRAINT uq_skills_name UNIQUE (name)
-);
-
-CREATE INDEX idx_skills_name_trgm ON skills USING gin (name gin_trgm_ops);
-
--- ============================================================================
--- 10c. JOB_SKILLS – Quan hệ nhiều-nhiều giữa Job và Skill
--- ============================================================================
-CREATE TABLE job_skills (
-    job_id      UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
-    skill_id    UUID NOT NULL REFERENCES skills(id) ON DELETE RESTRICT,
-    is_required BOOLEAN NOT NULL DEFAULT true,
-
-    PRIMARY KEY (job_id, skill_id)
-);
-
-CREATE INDEX idx_job_skills_skill_id ON job_skills (skill_id);
 
 -- ============================================================================
 -- 11. SAVED_JOBS – Ứng viên lưu tin yêu thích
@@ -577,113 +542,6 @@ CREATE TABLE password_reset_tokens (
 );
 
 CREATE INDEX idx_reset_tokens_user ON password_reset_tokens (user_id, expires_at);
-
--- ============================================================================
--- 23. CV_VERSIONS – Lưu trữ phiên bản CV ứng viên và dữ liệu trích xuất (AI Phase 3)
--- ============================================================================
-CREATE TABLE cv_versions (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    candidate_id    UUID NOT NULL REFERENCES candidate_profiles(id) ON DELETE CASCADE,
-    file_path       VARCHAR(500) NOT NULL,
-    file_name       VARCHAR(255) NOT NULL,
-    file_size_bytes INTEGER NOT NULL,
-    mime_type       VARCHAR(100) NOT NULL,
-    sha256_hash     VARCHAR(64) NOT NULL,
-    raw_text        TEXT,
-    parsed_data     JSONB,
-    status          VARCHAR(20) NOT NULL DEFAULT 'uploaded'
-                    CHECK (status IN ('uploaded', 'extracted', 'failed')),
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE INDEX idx_cv_versions_candidate ON cv_versions(candidate_id, created_at DESC);
-CREATE INDEX idx_cv_versions_sha256 ON cv_versions(sha256_hash);
-
--- ============================================================================
--- 24. APPLICATION_CV_SNAPSHOTS – Gắn kết bất biến giữa hồ sơ ứng tuyển và CV (AI Phase 3)
--- ============================================================================
-CREATE TABLE application_cv_snapshots (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    application_id  UUID NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
-    cv_version_id   UUID NOT NULL REFERENCES cv_versions(id) ON DELETE RESTRICT,
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-
-    CONSTRAINT uq_app_cv_snapshot UNIQUE (application_id)
-);
-
-CREATE INDEX idx_app_cv_snapshot_cv ON application_cv_snapshots(cv_version_id);
-
--- ============================================================================
--- 25. PROCESSING_JOBS – Hàng đợi công việc bất đồng bộ với khả năng phục hồi lỗi (AI Phase 3)
--- ============================================================================
-CREATE TABLE processing_jobs (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    job_type        VARCHAR(50) NOT NULL
-                    CHECK (job_type IN ('CV_TEXT_EXTRACTION', 'CV_EMBEDDING_GENERATION', 'JOB_EMBEDDING_GENERATION', 'APPLICATION_MATCHING')),
-    entity_type     VARCHAR(30) NOT NULL
-                    CHECK (entity_type IN ('cv_version', 'job', 'application')),
-    entity_id       UUID NOT NULL,
-    status          VARCHAR(20) NOT NULL DEFAULT 'PENDING'
-                    CHECK (status IN ('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED')),
-    attempt_count   INTEGER NOT NULL DEFAULT 0,
-    max_attempts    INTEGER NOT NULL DEFAULT 3,
-    lease_token     VARCHAR(64),
-    lease_expires_at TIMESTAMPTZ,
-    retry_after     TIMESTAMPTZ NOT NULL DEFAULT now(),
-    last_error      TEXT,
-    idempotency_key VARCHAR(100) NOT NULL,
-    started_at      TIMESTAMPTZ,
-    completed_at    TIMESTAMPTZ,
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-
-    CONSTRAINT uq_processing_idempotency UNIQUE (idempotency_key)
-);
-
-CREATE INDEX idx_processing_jobs_ready ON processing_jobs (status, retry_after)
-    WHERE status IN ('PENDING', 'FAILED');
-CREATE INDEX idx_processing_jobs_lease ON processing_jobs (status, lease_expires_at)
-    WHERE status = 'PROCESSING';
-
--- ============================================================================
--- 26. EMBEDDINGS – Vector dense nhúng 1536 chiều với chỉ mục HNSW (AI Phase 3)
--- ============================================================================
-CREATE TABLE embeddings (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    entity_type     VARCHAR(30) NOT NULL CHECK (entity_type IN ('cv_version', 'job')),
-    entity_id       UUID NOT NULL,
-    chunk_index     INTEGER NOT NULL DEFAULT 0,
-    chunk_text      TEXT NOT NULL,
-    embedding       vector(1536) NOT NULL,
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-
-    CONSTRAINT uq_entity_chunk UNIQUE (entity_type, entity_id, chunk_index)
-);
-
-CREATE INDEX idx_embeddings_lookup ON embeddings(entity_type, entity_id);
-CREATE INDEX idx_embeddings_hnsw ON embeddings USING hnsw (embedding vector_cosine_ops)
-    WITH (m = 16, ef_construction = 64);
-
--- ============================================================================
--- 27. MATCH_RESULTS – Kết quả chấm điểm khớp giữa ứng tuyển và công việc (AI Phase 3)
--- ============================================================================
-CREATE TABLE match_results (
-    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    application_id      UUID NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
-    job_id              UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
-    cv_version_id       UUID NOT NULL REFERENCES cv_versions(id) ON DELETE CASCADE,
-    overall_score       SMALLINT NOT NULL CHECK (overall_score BETWEEN 0 AND 100),
-    skills_score        SMALLINT CHECK (skills_score BETWEEN 0 AND 100),
-    experience_score    SMALLINT CHECK (experience_score BETWEEN 0 AND 100),
-    breakdown           JSONB NOT NULL DEFAULT '{}'::jsonb,
-    rationale           TEXT,
-    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
-
-    CONSTRAINT uq_match_application UNIQUE (application_id)
-);
-
-CREATE INDEX idx_match_results_job ON match_results(job_id, overall_score DESC);
 -- Lookup active tokens by hash (partial: only unused + not expired checked at app layer)
 CREATE INDEX idx_reset_tokens_active ON password_reset_tokens (token_hash) WHERE used_at IS NULL;
 

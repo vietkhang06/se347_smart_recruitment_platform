@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import Button from "react-bootstrap/Button";
 import Badge from "react-bootstrap/Badge";
-import { jobService } from "../../services/jobService";
+import { mockStore } from "../../services/mockStore";
 
 export default function HRContactCard({
   contact,
@@ -12,14 +12,14 @@ export default function HRContactCard({
   isComposerSection = false,
   className = ""
 }) {
-  const [profile, setProfile] = useState(() => contact || jobService.getEmployerContact());
+  const [profile, setProfile] = useState(() => contact || mockStore.getEmployerProfile());
 
   useEffect(() => {
     if (contact) {
       setProfile(contact);
     } else {
       const handleStoreChange = () => {
-        setProfile(jobService.getEmployerContact());
+        setProfile(mockStore.getEmployerProfile());
       };
       window.addEventListener("matchajob:store-changed", handleStoreChange);
       return () => window.removeEventListener("matchajob:store-changed", handleStoreChange);

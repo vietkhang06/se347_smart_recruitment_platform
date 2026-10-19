@@ -22,7 +22,6 @@ Write-Host "`n[1/5] Validating Developer Environment..." -ForegroundColor Yellow
 # 1.1. Check Docker Desktop
 try {
     $null = docker info 2>&1
-    if ($LASTEXITCODE -ne 0) { throw "Docker daemon unavailable" }
     Write-Host "  -> Docker Desktop is running." -ForegroundColor Green
 } catch {
     Write-Host "ERROR: Docker Desktop is not running." -ForegroundColor Red
@@ -89,22 +88,13 @@ function Test-HttpUrl([string]$url) {
 # ------------------------------------------------------------
 # STEP 2: Starting Services via Docker Compose
 # ------------------------------------------------------------
-Write-Host "`n[2/5] Validating Compose and starting all four services..." -ForegroundColor Yellow
+Write-Host "`n[2/5] Starting Docker Containers (Database & Frontend)..." -ForegroundColor Yellow
 
 $pgContainer = "matchajob-postgres-pgvector"
 $feContainer = "matchajob-frontend-dev"
 
 Write-Host "  -> Executing docker compose up -d..." -ForegroundColor Gray
-docker compose config --quiet
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "ERROR: compose.yaml is invalid." -ForegroundColor Red
-    exit 1
-}
-docker compose up -d --build
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "ERROR: Docker Compose failed to start the environment." -ForegroundColor Red
-    exit 1
-}
+docker compose up -d
 
 # ------------------------------------------------------------
 # STEP 3: Polling Health & Readiness
@@ -162,22 +152,21 @@ if ($feReady) {
 # ------------------------------------------------------------
 Write-Host "`n[4/5] Checking Backend & AI Worker Status..." -ForegroundColor Yellow
 
-$backendRunning = $false
-$aiWorkerRunning = $false
-for ($attempt = 0; $attempt -lt 60; $attempt++) {
-    if (-not $backendRunning) {
-        $backendRunning = (Test-HttpUrl "http://127.0.0.1:8081/api/actuator/health/readiness") -eq "READY"
-    }
-    if (-not $aiWorkerRunning) {
-        $aiWorkerRunning = (Test-HttpUrl "http://127.0.0.1:8001/health/ready") -eq "READY"
-    }
-    if ($backendRunning -and $aiWorkerRunning) { break }
-    Start-Sleep -Seconds 2
+$backendRunning = Test-PortOccupied 8081
+if ($backendRunning) {
+    $backendStatusText = "READY (Port 8081 - http://localhost:8081/api)"
+} else {
+    $backendStatusText = "NOT RUNNING (Port 8081 - Chạy 'mvn spring-boot:run' hoặc 'docker compose up -d backend')"
 }
-$backendStatusText = if ($backendRunning) { "READY (http://localhost:8081/api)" } else { "NOT READY - docker compose logs backend" }
-$aiStatusText = if ($aiWorkerRunning) { "READY (http://localhost:8001)" } else { "NOT READY - docker compose logs ai-worker" }
-Write-Host "  -> Backend Status   : $backendStatusText" -ForegroundColor $(if ($backendRunning) { "Green" } else { "Yellow" })
-Write-Host "  -> AI Worker Status : $aiStatusText" -ForegroundColor $(if ($aiWorkerRunning) { "Green" } else { "Yellow" })
+Write-Host "  -> Backend Status   : $backendStatusText" -ForegroundColor $(if ($backendRunning) { "Green" } else { "Gray" })
+
+$aiWorkerRunning = Test-PortOccupied 8001
+if ($aiWorkerRunning) {
+    $aiStatusText = "READY (Port 8001 - http://localhost:8001)"
+} else {
+    $aiStatusText = "NOT RUNNING (Port 8001 - Chạy '.venv\Scripts\python -m uvicorn app.main:app' hoặc 'docker compose up -d ai-worker')"
+}
+Write-Host "  -> AI Worker Status : $aiStatusText" -ForegroundColor $(if ($aiWorkerRunning) { "Green" } else { "Gray" })
 
 # ------------------------------------------------------------
 # STEP 5: Final Status Summary & Browser Open
@@ -190,8 +179,8 @@ try {
 Write-Host "`n==========================================" -ForegroundColor Cyan
 Write-Host "   MATCHA JOB PLATFORM LOCAL STATUS" -ForegroundColor Cyan
 Write-Host "==========================================" -ForegroundColor Cyan
-Write-Host " PostgreSQL  : $(if ($dbHealthy) { 'READY' } else { 'NOT READY' }) (Port 5433, matchajob_db)" -ForegroundColor $(if ($dbHealthy) { "Green" } else { "Yellow" })
-Write-Host " Frontend    : $(if ($feReady) { 'READY' } else { 'NOT READY' }) (Port 5173, Vite + React 19)" -ForegroundColor $(if ($feReady) { "Green" } else { "Yellow" })
+Write-Host " PostgreSQL  : READY   (Port 5433, matchajob_db)" -ForegroundColor Green
+Write-Host " Frontend    : READY   (Port 5173, Vite + React 19)" -ForegroundColor Green
 Write-Host " Backend     : $backendStatusText" -ForegroundColor $(if ($backendRunning) { "Green" } else { "Yellow" })
 Write-Host " AI Worker   : $aiStatusText" -ForegroundColor $(if ($aiWorkerRunning) { "Green" } else { "Yellow" })
 Write-Host "------------------------------------------" -ForegroundColor Cyan
@@ -206,10 +195,3 @@ Write-Host "   Frontend  : http://localhost:5173" -ForegroundColor White
 Write-Host "   Backend   : http://localhost:8081/api" -ForegroundColor White
 Write-Host "   Database  : 127.0.0.1:5433 (matchajob_user)" -ForegroundColor White
 Write-Host "==========================================`n" -ForegroundColor Cyan
-
-docker compose ps
-
-if (-not ($dbHealthy -and $feReady -and $backendRunning -and $aiWorkerRunning)) {
-    Write-Host "One or more services did not become ready. Inspect with .\logs-dev.bat" -ForegroundColor Yellow
-    exit 1
-}

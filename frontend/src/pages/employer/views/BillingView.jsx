@@ -29,40 +29,6 @@ export default function BillingView({ plans: initialPlans, activeJobsCount = 8 }
     setPlans(mockStore.getPlans());
   };
 
-  const renderPlanBadge = (planName) => {
-    const p = (planName || "").toLowerCase();
-    if (p.includes("growth")) {
-      return (
-        <span className="plan-pill plan-pill-growth" title="Gói Growth - Tuyển dụng mở rộng">
-          <i className="bi bi-stars"></i>
-          <span>Growth</span>
-        </span>
-      );
-    }
-    if (p.includes("enterprise") || p.includes("doanh nghiệp")) {
-      return (
-        <span className="plan-pill plan-pill-enterprise" title="Gói Enterprise - Doanh nghiệp quy mô lớn">
-          <i className="bi bi-gem"></i>
-          <span>Enterprise</span>
-        </span>
-      );
-    }
-    if (p.includes("pro")) {
-      return (
-        <span className="plan-pill plan-pill-pro" title="Gói Professional - Chuyên nghiệp">
-          <i className="bi bi-award"></i>
-          <span>Professional</span>
-        </span>
-      );
-    }
-    return (
-      <span className="plan-pill plan-pill-starter" title="Gói Starter - Miễn phí cơ bản">
-        <i className="bi bi-lightning-charge"></i>
-        <span>Starter</span>
-      </span>
-    );
-  };
-
   return (
     <div data-aos="fade-up">
       <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
@@ -112,8 +78,9 @@ export default function BillingView({ plans: initialPlans, activeJobsCount = 8 }
         {plans.map((p) => (
           <Col md={4} key={p.id || p.name}>
             <Card
-              className={`matcha-card p-4 h-100 border shadow-sm text-center position-relative ${p.current ? "border-2 border-success" : ""
-                }`}
+              className={`matcha-card p-4 h-100 border shadow-sm text-center position-relative ${
+                p.current ? "border-2 border-success" : ""
+              }`}
             >
               {p.current && (
                 <span className="badge bg-success position-absolute top-0 start-50 translate-middle px-3 py-1">
@@ -152,104 +119,35 @@ export default function BillingView({ plans: initialPlans, activeJobsCount = 8 }
 
       {/* Recent Invoices Table */}
       <Card className="matcha-card p-4 border-0 shadow-sm">
-        <div className="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
-          <div>
-            <h5 className="fw-bold mb-0">Lịch sử hóa đơn thanh toán</h5>
-            <p className="text-muted small mb-0">Theo dõi các giao dịch gia hạn và tải hóa đơn điện tử VAT phục vụ quyết toán thuế</p>
-          </div>
-          <span className="badge bg-secondary bg-opacity-10 text-body border px-2.5 py-1.5 small">
-            <i className="bi bi-clock-history me-1 text-muted"></i>{invoices.length} hóa đơn gần nhất
-          </span>
-        </div>
-
+        <h5 className="fw-bold mb-3">Lịch sử hóa đơn thanh toán</h5>
         <div className="table-responsive">
           <Table hover className="matcha-table align-middle mb-0">
             <thead>
               <tr>
-                <th className="text-start" style={{ width: "22%", minWidth: "160px" }}>
-                  Mã hóa đơn
-                </th>
-                <th className="text-start" style={{ width: "18%", minWidth: "140px" }}>
-                  Ngày giao dịch
-                </th>
-                <th className="text-center" style={{ width: "16%", minWidth: "130px" }}>
-                  Gói dịch vụ
-                </th>
-                <th className="text-end" style={{ width: "16%", minWidth: "120px" }}>
-                  Số tiền
-                </th>
-                <th className="text-center" style={{ width: "14%", minWidth: "120px" }}>
-                  Trạng thái
-                </th>
-                <th className="text-center" style={{ width: "14%", minWidth: "140px" }}>
-                  Hóa đơn điện tử
-                </th>
+                <th>Mã hóa đơn</th>
+                <th>Ngày giao dịch</th>
+                <th>Gói dịch vụ</th>
+                <th>Số tiền</th>
+                <th>Trạng thái</th>
+                <th>Hóa đơn điện tử</th>
               </tr>
             </thead>
             <tbody>
               {invoices.map((inv) => (
                 <tr key={inv.id}>
-                  {/* Mã hóa đơn*/}
-                  <td className="text-start">
-                    <button
-                      type="button"
-                      className="btn p-0 border-0 bg-transparent text-start"
-                      title="Nhấp để sao chép mã hóa đơn"
-                      onClick={() => {
-                        if (navigator.clipboard?.writeText) {
-                          navigator.clipboard.writeText(inv.id);
-                        }
-                        showToast(`Đã sao chép mã hóa đơn: ${inv.id}`);
-                      }}
-                    >
-                      <span className="invoice-code-badge">
-                        <i className="bi bi-receipt text-success"></i>
-                        <span>{inv.id}</span>
-                      </span>
-                    </button>
-                  </td>
-
-                  {/* Ngày giao dịch*/}
-                  <td className="text-start">
-                    <div className="d-flex align-items-center gap-2 text-muted small">
-                      <i className="bi bi-calendar3 text-secondary opacity-75"></i>
-                      <span className="fw-medium text-body">{inv.date}</span>
-                    </div>
-                  </td>
-
-                  {/* Gói dịch vụ*/}
-                  <td className="text-center">
-                    {renderPlanBadge(inv.plan)}
-                  </td>
-
-                  {/* Số tiền*/}
-                  <td className="text-end">
-                    <span
-                      className={`font-monospace ${"text-body fw-semibold"}`}
-                      style={{ fontSize: "13.5px" }}
-                    >
-                      {inv.amount}
-                    </span>
-                  </td>
-
-                  {/* Trạng thái*/}
-                  <td className="text-center">
-                    <span className="status-badge status-badge-success">
-                      <i className="bi bi-check2-circle" style={{ fontSize: "11px" }}></i>
-                      {inv.status}
-                    </span>
-                  </td>
-
-                  {/* Hóa đơn điện tử*/}
-                  <td className="text-center">
+                  <td><span className="font-monospace text-muted small">{inv.id}</span></td>
+                  <td>{inv.date}</td>
+                  <td><span className="candidate-skill-badge">{inv.plan}</span></td>
+                  <td className="fw-semibold text-body">{inv.amount}</td>
+                  <td><span className="status-badge status-badge-success">{inv.status}</span></td>
+                  <td>
                     <Button
-                      variant="outline-danger"
+                      variant="link"
                       size="sm"
-                      className="invoice-download-btn d-inline-flex align-items-center gap-1.5"
-                      onClick={() => showToast(`Đang tải hóa đơn VAT điện tử ${inv.id} (.PDF)`)}
+                      className="p-0 text-decoration-none text-muted"
+                      onClick={() => showToast(`Đang tải hóa đơn VAT điện tử ${inv.id}`)}
                     >
-                      <i className="bi bi-file-earmark-pdf-fill"></i>
-                      <span>Tải VAT (.PDF)</span>
+                      <i className="bi bi-filetype-pdf me-1 text-danger"></i>Tải VAT (.PDF)
                     </Button>
                   </td>
                 </tr>
