@@ -63,6 +63,7 @@ export const storage = {
         phone: "0909 123 456",
         experience: "5 năm",
         location: "TP. Hồ Chí Minh",
+        skills: ["Figma", "Design System", "UX Research"],
         bio: "Chuyên gia thiết kế UX/UI với 5 năm kinh nghiệm trong các sản phẩm Fintech và SaaS quy mô lớn."
       };
     } catch {
@@ -71,17 +72,20 @@ export const storage = {
   },
   setCandidateProfile(profile) {
     localStorage.setItem(STORAGE_KEYS.CANDIDATE_PROFILE, JSON.stringify(profile));
+    window.dispatchEvent(new CustomEvent("matchajob:store-changed", { detail: { key: STORAGE_KEYS.CANDIDATE_PROFILE } }));
   },
 
   getApplications() {
     return mockStore.getApplications();
   },
   addApplication(application) {
+    const profile = this.getCandidateProfile() || {};
     return mockStore.applyForJob({
-      jobId: application.jobId || "JOB-2048",
-      candidateName: application.applicantName || "Nguyễn An Khang",
-      candidateEmail: application.applicantEmail || "ankhang@example.com",
-      candidatePhone: application.applicantPhone || "0909 123 456",
+      jobId: application.jobId,
+      candidateId: application.candidateId,
+      candidateName: application.applicantName || profile.name,
+      candidateEmail: application.applicantEmail || profile.email,
+      candidatePhone: application.applicantPhone || profile.phone,
       coverLetter: application.coverLetter || ""
     });
   }

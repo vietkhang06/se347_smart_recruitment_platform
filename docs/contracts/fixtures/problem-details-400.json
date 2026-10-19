@@ -1,0 +1,7 @@
+{
+  "type": "https://matchajob.example/errors/validation-error",
+  "title": "Validation failed",
+  "status": 400,
+  "detail": "One or more request fields are invalid. This fixture is illustrative.",
+  "instance": "/api/v1/example"
+}

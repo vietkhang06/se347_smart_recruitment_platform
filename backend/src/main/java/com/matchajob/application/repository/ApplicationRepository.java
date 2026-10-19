@@ -1,0 +1,71 @@
+package com.matchajob.application.repository;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+/**
+ * Repository for the applications table (V2 baseline schema).
+ * Re-uses the upstream Application entity from com.matchajob.api.recruitment.model
+ * but is registered under the application module's package for component-scan isolation.
+ *
+ * Note: We use a generic Object-based approach with native queries to avoid
+ * tight coupling with the upstream recruitment entity which is excluded from
+ * the main MatchaJobApplication component scan.
+ */
+@Repository
+public interface ApplicationRepository extends JpaRepository<com.matchajob.application.model.ApplicationEntity, UUID> {
+
+    /**
+     * Check if a candidate has already applied to a specific job (anti-duplicate).
+     */
+    boolean existsByCandidateIdAndJobId(UUID candidateId, UUID jobId);
+
+    /**
+     * Find application by candidate and job combination.
+     */
+    Optional<com.matchajob.application.model.ApplicationEntity> findByCandidateIdAndJobId(UUID candidateId, UUID jobId);
+
+    /**
+     * Find all applications for a specific job.
+     */
+    List<com.matchajob.application.model.ApplicationEntity> findByJobId(UUID jobId);
+
+    /**
+     * Find all applications for a specific job, ordered by applied_at desc.
+     */
+    List<com.matchajob.application.model.ApplicationEntity> findByJobIdOrderByAppliedAtDesc(UUID jobId);
+
+    /**
+     * Find all applications for a specific candidate, ordered by applied_at desc.
+     */
+    List<com.matchajob.application.model.ApplicationEntity> findByCandidateIdOrderByAppliedAtDesc(UUID candidateId);
+
+    /**
+     * Find paginated applications for a specific candidate.
+     */
+    org.springframework.data.domain.Page<com.matchajob.application.model.ApplicationEntity> findByCandidateId(
+            UUID candidateId, org.springframework.data.domain.Pageable pageable);
+
+    /**
+     * Find paginated applications for a specific candidate filtered by stage.
+     */
+    org.springframework.data.domain.Page<com.matchajob.application.model.ApplicationEntity> findByCandidateIdAndStage(
+            UUID candidateId, String stage, org.springframework.data.domain.Pageable pageable);
+
+    /**
+     * Find paginated applications for a specific job.
+     */
+    org.springframework.data.domain.Page<com.matchajob.application.model.ApplicationEntity> findByJobId(
+            UUID jobId, org.springframework.data.domain.Pageable pageable);
+
+    /**
+     * Find paginated applications for a specific job filtered by stage.
+     */
+    org.springframework.data.domain.Page<com.matchajob.application.model.ApplicationEntity> findByJobIdAndStage(
+            UUID jobId, String stage, org.springframework.data.domain.Pageable pageable);
+}
