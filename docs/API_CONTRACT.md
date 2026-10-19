@@ -1,5 +1,5 @@
 # API Convention & Integration Contract — MatchaJob (SE347, Nhóm 7)
-
+ 
 - **Phiên bản tài liệu:** Draft 0.1
 - **Ngày lập:** 2026-10-12
 - **Người tổng hợp:** Việt Khang — MVP Scope + API Convention + Integration Contract
@@ -246,10 +246,14 @@ Các trường cơ sở có căn cứ từ entity/SQL: `id`, `candidateId`, `job
 
 ### 6.5. Matching
 
+Implementation detail: `docs/MATCHING_RESULT_API_AND_CV_JD_UI.md`. Public response fields and fixtures use the camelCase `MatchingResultResponse` contract; AI Worker fields remain snake_case internally.
+
 | Method + path chuẩn | Trạng thái source | Contract mục tiêu | Vấn đề cần sửa |
 |---|---|---|---|
-| `POST /api/v1/applications/{applicationId}/match` | Có trong source | Matching đồng bộ: `200 MatchResultResponse`; request body không cần gửi `jobTitle`/requirements nếu Backend có thể load theo Application/Job và snapshot. Nếu nhóm chuyển sang queue thật, trả `202` kèm `processingJobId` rõ ràng. | Hiện code nhận query `cvVersionId` bắt buộc, `jobId` tùy chọn và default cứng cho `jobTitle`/`jobRequirements`; thiếu `jobId` thì sinh UUID ngẫu nhiên. Cần bỏ default, lấy dữ liệu từ DB và sửa status `202` khi xử lý vẫn đồng bộ. |
-| `GET /api/v1/applications/{applicationId}/match` | Có trong source | `200 MatchResultResponse`; `404` nếu chưa có kết quả | Cần authorization theo Application/Job; trả DTO, không trả entity với `breakdown` là chuỗi JSON. |
+| `POST /api/v1/applications/{applicationId}/match` | Có trong source; contract đồng bộ đã triển khai | `200 MatchingResultResponse`; body/query không cần truyền CV/JD. Backend đọc Application + `application_cv_snapshots` + Job trong DB. `409 MATCHING_NOT_READY` nếu CV chưa sẵn sàng hoặc retry bị chặn bởi trạng thái/backoff hiện tại. | Cần xác minh bằng runtime test với PostgreSQL và AI Worker thật trước merge. |
+| `GET /api/v1/applications/{applicationId}/match` | Có trong source; trả public DTO | `200 MatchingResultResponse`; nếu Application tồn tại nhưng chưa có kết quả, trả trạng thái `NOT_STARTED`, `PENDING`, `PROCESSING` hoặc `FAILED` với score `null`; `404` khi Application không tồn tại. | Cần xác minh ownership và response bằng runtime test trước merge. |
+
+Backend cập nhật row `APPLICATION_MATCHING` theo xử lý đồng bộ: `PROCESSING` khi bắt đầu, `COMPLETED` khi lưu result, và `PENDING`/`FAILED` theo retry/backoff của `ProcessingJobService`. Source audit chưa tìm thấy dispatcher matching bất đồng bộ.
 | `GET /api/v1/employer/jobs/{jobId}/ranking` | Chưa tìm thấy | `200 PageResponse<RankedApplication>` | Cần thực hiện query ranking và chốt tie-break cùng scoring owner. |
 
 `MatchResult` hiện chứa `id`, `applicationId`, `jobId`, `cvVersionId`, `overallScore`, `skillsScore`, `experienceScore`, `breakdown`, `rationale`, `createdAt`. `breakdown` được lưu JSONB nhưng field Java hiện khai báo `String`; API DTO nên serialize `breakdown` thành object JSON thay vì JSON string lồng bên trong string.
