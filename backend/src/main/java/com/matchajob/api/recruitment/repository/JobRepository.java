@@ -10,4 +10,3 @@ public interface JobRepository extends JpaRepository<Job, Long> {
     org.springframework.data.domain.Page<Job> findByTitleContainingIgnoreCaseOrderByCreatedAtDescIdAsc(String title, org.springframework.data.domain.Pageable pageable);
 
     org.springframework.data.domain.Page<Job> findAllByOrderByCreatedAtDescIdAsc(org.springframework.data.domain.Pageable pageable);
-}
