@@ -6,4 +6,8 @@ import java.util.List;
 
 public interface JobRepository extends JpaRepository<Job, Long> {
     List<Job> findByEmployerId(Long employerId);
+
+    org.springframework.data.domain.Page<Job> findByTitleContainingIgnoreCaseOrderByCreatedAtDescIdAsc(String title, org.springframework.data.domain.Pageable pageable);
+
+    org.springframework.data.domain.Page<Job> findAllByOrderByCreatedAtDescIdAsc(org.springframework.data.domain.Pageable pageable);
 }
