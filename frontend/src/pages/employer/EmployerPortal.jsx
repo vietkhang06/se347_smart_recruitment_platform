@@ -209,11 +209,14 @@ function EmployerWorkspace({ companyId }) {
     setShowInterviewModal(true);
   };
 
-  const handleCandidateStageChange = async (candidateId, nextStage) => {
+  const handleCandidateStageChange = async (applicationId, nextStage, selectedCandidateId = applicationId) => {
     try {
-      await applicationService.updateApplicationStage(candidateId, nextStage);
+      await applicationService.updateApplicationStage(applicationId, nextStage);
       await refreshStoreData();
-      setSelectedCandidate(current => current && String(current.id) === String(candidateId)
+      setSelectedCandidate(current => current && (
+        String(current.applicationId || current.id) === String(applicationId)
+        || String(current.id) === String(selectedCandidateId)
+      )
         ? { ...current, stage: nextStage } : current);
       showToast(`Đã chuyển ứng viên sang giai đoạn: ${nextStage}`);
     } catch (err) {
@@ -222,11 +225,14 @@ function EmployerWorkspace({ companyId }) {
     }
   };
 
-  const handleCandidateReject = async (candidateId, reason) => {
+  const handleCandidateReject = async (applicationId, reason, selectedCandidateId = applicationId) => {
     try {
-      await applicationService.updateApplicationStage(candidateId, "Từ chối", reason);
+      await applicationService.updateApplicationStage(applicationId, "Từ chối", reason);
       await refreshStoreData();
-      setSelectedCandidate(current => current && String(current.id) === String(candidateId)
+      setSelectedCandidate(current => current && (
+        String(current.applicationId || current.id) === String(applicationId)
+        || String(current.id) === String(selectedCandidateId)
+      )
         ? { ...current, stage: "Từ chối", rejectReason: reason } : current);
       showToast("Đã lưu lý do từ chối ứng viên.");
     } catch (err) {

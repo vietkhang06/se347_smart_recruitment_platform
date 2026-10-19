@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.NoSuchElementException;
 import java.util.UUID;
 
 /**
@@ -187,7 +188,7 @@ public class ResourceOwnershipService {
                 .optional();
 
         if (jobIdOpt.isEmpty()) {
-            throw new IllegalArgumentException("Application not found: " + applicationId);
+            throw new NoSuchElementException("Application not found: " + applicationId);
         }
 
         // 2. Verify employer owns the corresponding job
@@ -209,7 +210,7 @@ public class ResourceOwnershipService {
                 .optional();
 
         if (appRow.isEmpty()) {
-            throw new IllegalArgumentException("Application not found: " + applicationId);
+            throw new NoSuchElementException("Application not found: " + applicationId);
         }
 
         UUID appCandidateId = (UUID) appRow.get()[0];
