@@ -173,7 +173,7 @@ Contract lỗi public đề xuất:
 |---|---|---|
 | `GET /v1/jobs`, `GET /v1/jobs/{id}`, categories, skills | Public read | Chỉ trả Job public theo status/visibility đã duyệt; không để truy cập Job đã xóa/không public qua API chi tiết. |
 | `/v1/auth/register`, `/v1/auth/login` | Public | Validate input; không echo password; không cho public signup role `admin`. |
-| `/v1/auth/me` | Authenticated | Trả principal hiện tại và role; không nhận user ID để đọc người khác. |
+| `/v1/users/me` | Authenticated | Trả profile của principal hiện tại và danh sách companies; không nhận user ID tùy ý để đọc người khác. |
 | `/v1/employer/**` | Role Employer và quyền sở hữu/membership Company | Lấy user từ JWT; đối chiếu company membership trước CRUD Job/xem ứng viên. |
 | `/v1/candidates/{candidateId}/cv/**` | Candidate Profile của chính mình; Employer chỉ theo quan hệ Application/Job được phép | Map principal sang Candidate Profile rồi so sánh với candidate trên path, hoặc chuyển route sang `/me`; không truy vấn CV chỉ bằng `cvVersionId` rồi trả entity. |
 | `/v1/applications/me` | Candidate của chính mình | Candidate Profile ID được suy ra qua principal; không nhận candidate ID tùy ý. |
@@ -186,17 +186,19 @@ Contract lỗi public đề xuất:
 
 Trong bảng này, **Hiện có** có nghĩa route đã tìm thấy trong source; **Đề xuất** là API cần bổ sung để hoàn tất luồng MVP. Tất cả path trong cột “Path chuẩn” tính sau context path `/api`.
 
-### 6.1. Auth
+### 6.1. Auth & Current User [CONFIRMED per Auth Contract v2]
 
-Auth chưa tìm thấy trong Backend source; các route sau là hợp đồng đề xuất.
+Các route Auth và Current User đã được triển khai hoàn chỉnh trong source code (`com.matchajob.auth` và `com.matchajob.user`), tuân thủ đặc tả chính thức tại [`Auth_API_Contract_v2.md`](Auth_API_Contract_v2.md).
 
-| Method + path chuẩn | Auth | Request | Success | Owner/reviewer đề xuất | Ghi chú |
+| Method + path chuẩn | Auth | Request | Success | Controller / Owner | Ghi chú & Ràng buộc |
 |---|---|---|---|---|---|
-| `POST /api/v1/auth/register` | Public | `email`, `password`, `fullName`, `role` (`candidate` hoặc `employer`) | `201` + user DTO; token có thể trả kèm nếu nhóm chốt auto-login | Phúc Khang; review Việt Khang | Cần chốt quy trình Employer/Company profile và verification. Không cho đăng ký `admin`. |
-| `POST /api/v1/auth/login` | Public | `email`, `password` | `200` + `accessToken`, `tokenType: "Bearer"`, `user` | Phúc Khang | Token TTL/refresh-token policy chưa có căn cứ; không ghi số TTL cho đến khi implement và chốt. |
-| `GET /api/v1/auth/me` | Bearer | Không có body | `200` + thông tin user hiện tại | Phúc Khang | User ID/role lấy từ token. |
+| `POST /api/v1/auth/register` | Public | `email`, `password`, `role` (`CANDIDATE` hoặc `EMPLOYER`) | `201` + `RegisterResponse` | `AuthController.java`<br>(Phúc Khang) | Mật khẩu hash BCrypt; chuẩn hóa email; tự động tạo `CandidateProfile` trống cho Candidate. Tuyệt đối không cho phép đăng ký role `ADMIN`. |
+| `POST /api/v1/auth/login` | Public | `email`, `password` | `200` + `LoginResponse` (`access_token`, `token_type`, `expires_in`, `user`) | `AuthController.java`<br>(Phúc Khang) | Chặn tài khoản `suspended` (403) và chưa kích hoạt nếu bật verification; cập nhật `last_login_at`. Token TTL: 3600s (1 giờ). |
+| `GET /api/v1/users/me` | Bearer (Authenticated) | Không có body | `200` + `UserProfileResponse` | `UserController.java`<br>(Phúc Khang) | Lấy danh tính trực tiếp từ authenticated principal trong SecurityContext. Trả về profile và mảng `companies: []` (Candidate trả `[]`, Employer trả danh sách công ty quản lý). |
 
-**Contract tối thiểu về user response:** `id`, `email`, `fullName`, `role`, `status`; `password`/`passwordHash` tuyệt đối không trả. Các field hồ sơ Company/Candidate nên lấy qua module Profile nếu nhóm cần trong MVP.
+> **Quy ước mô hình Role:**
+> Hệ thống MatchaJob quản lý Role trực tiếp thông qua cột `users.role VARCHAR(20) NOT NULL CHECK (role IN ('candidate', 'employer', 'admin'))` trên bảng `users` ([`V2__baseline_schema.sql: L33`](../backend/src/main/resources/db/migration/V2__baseline_schema.sql#L33)), không tạo bảng `roles` riêng.
+> Access Token JWT chỉ chứa các standard claims (`sub`, `iat`, `exp`). Quyền hạn và trạng thái người dùng (`role`, `status`, `deleted_at`) luôn được nạp trực tiếp từ cơ sở dữ liệu trên mỗi request qua [`JwtAuthenticationFilter`](../backend/src/main/java/com/matchajob/security/JwtAuthenticationFilter.java), bảo đảm role không bị giả mạo và được cập nhật tức thì.
 
 ### 6.2. Job, Category, Skill
 
@@ -316,7 +318,7 @@ Khi thay đổi method/path/field/type/status/error/enum:
 ## 9. Acceptance criteria để freeze API Contract
 
 - [ ] Nhóm đồng ý canonical URL `/api/v1/...` và mapping controller dùng `/v1/...` dưới context path `/api`.
-- [ ] Auth owner xác nhận register/login/me, token claims, TTL/refresh policy, roles và việc đăng ký Employer.
+- [x] Auth owner xác nhận register/login/me, token claims, TTL/refresh policy, roles và việc đăng ký Employer (đã xác nhận theo [`Auth_API_Contract_v2.md`](Auth_API_Contract_v2.md) & [`docs/contracts/owner-packets/auth.md`](contracts/owner-packets/auth.md)).
 - [ ] Job owner xác nhận DTO, enums, filter/sort, page/size, status transitions, validation và quyền Company.
 - [ ] CV/Processing owner xác nhận response DTO, limits, status lifecycle, authorization, file access và error mapping.
 - [ ] Application owner xác nhận duplicate policy, `cvVersionId`/snapshot, stage transitions, list/history/ranking endpoints.

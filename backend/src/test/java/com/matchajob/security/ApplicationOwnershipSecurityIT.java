@@ -449,6 +449,103 @@ class ApplicationOwnershipSecurityIT {
                     .andExpect(status().isForbidden())
                     .andExpect(jsonPath("$.code").value("FORBIDDEN"));
         }
+
+        @Test
+        @DisplayName("Candidate owner accessing own CV returns 200 OK")
+        void getCv_ownerCandidate_returns200() throws Exception {
+            UUID ownerUser = UUID.randomUUID();
+            createActiveUser(ownerUser, "owner@test.com", "candidate");
+            String authHeader = generateBearerToken(ownerUser, "owner@test.com", "candidate");
+
+            UUID candidateId = UUID.randomUUID();
+            UUID cvId = UUID.randomUUID();
+            CvVersion cv = CvVersion.builder()
+                    .id(cvId)
+                    .candidateId(candidateId)
+                    .fileName("my_resume.pdf")
+                    .filePath("candidates/key.pdf")
+                    .fileSizeBytes(1024)
+                    .mimeType("application/pdf")
+                    .status("uploaded")
+                    .build();
+            when(cvVersionRepository.findByIdAndCandidateId(cvId, candidateId)).thenReturn(Optional.of(cv));
+
+            mockMvc.perform(get("/v1/candidates/" + candidateId + "/cv/" + cvId)
+                            .header("Authorization", authHeader))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.id").value(cvId.toString()))
+                    .andExpect(jsonPath("$.file_name").value("my_resume.pdf"));
+
+            verify(resourceOwnershipService).checkCvVersionAccess(ownerUser, candidateId, cvId);
+        }
+
+        @Test
+        @DisplayName("Owner accessing non-existent CV returns 404 Not Found")
+        void getCv_nonExistentCv_returns404() throws Exception {
+            UUID ownerUser = UUID.randomUUID();
+            createActiveUser(ownerUser, "owner@test.com", "candidate");
+            String authHeader = generateBearerToken(ownerUser, "owner@test.com", "candidate");
+
+            UUID candidateId = UUID.randomUUID();
+            UUID nonExistentCvId = UUID.randomUUID();
+            when(cvVersionRepository.findByIdAndCandidateId(nonExistentCvId, candidateId)).thenReturn(Optional.empty());
+
+            mockMvc.perform(get("/v1/candidates/" + candidateId + "/cv/" + nonExistentCvId)
+                            .header("Authorization", authHeader))
+                    .andExpect(status().isNotFound());
+
+            verify(resourceOwnershipService).checkCvVersionAccess(ownerUser, candidateId, nonExistentCvId);
+        }
+
+        @Test
+        @DisplayName("Third-party downloading CV returns 403 Forbidden")
+        void downloadCv_unrelatedUser_returns403() throws Exception {
+            UUID unrelatedUser = UUID.randomUUID();
+            createActiveUser(unrelatedUser, "unrelated@test.com", "candidate");
+            String authHeader = generateBearerToken(unrelatedUser, "unrelated@test.com", "candidate");
+
+            UUID candidateId = UUID.randomUUID();
+            UUID cvId = UUID.randomUUID();
+
+            doThrow(new AccessDeniedException("You do not have permission to view this CV"))
+                    .when(resourceOwnershipService).checkCvVersionAccess(unrelatedUser, candidateId, cvId);
+
+            mockMvc.perform(get("/v1/candidates/" + candidateId + "/cv/" + cvId + "/download")
+                            .header("Authorization", authHeader))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+
+            verify(cvStorageService, never()).readFile(any());
+            verify(cvVersionRepository, never()).findByIdAndCandidateId(any(), any());
+        }
+
+        @Test
+        @DisplayName("Candidate owner downloading own CV returns 200 OK")
+        void downloadCv_ownerCandidate_returns200() throws Exception {
+            UUID ownerUser = UUID.randomUUID();
+            createActiveUser(ownerUser, "owner@test.com", "candidate");
+            String authHeader = generateBearerToken(ownerUser, "owner@test.com", "candidate");
+
+            UUID candidateId = UUID.randomUUID();
+            UUID cvId = UUID.randomUUID();
+            CvVersion cv = CvVersion.builder()
+                    .id(cvId)
+                    .candidateId(candidateId)
+                    .fileName("my_resume.pdf")
+                    .filePath("candidates/key.pdf")
+                    .fileSizeBytes(4)
+                    .mimeType("application/pdf")
+                    .status("uploaded")
+                    .build();
+            when(cvVersionRepository.findByIdAndCandidateId(cvId, candidateId)).thenReturn(Optional.of(cv));
+            when(cvStorageService.readFile("candidates/key.pdf")).thenReturn("test".getBytes());
+
+            mockMvc.perform(get("/v1/candidates/" + candidateId + "/cv/" + cvId + "/download")
+                            .header("Authorization", authHeader))
+                    .andExpect(status().isOk());
+
+            verify(resourceOwnershipService).checkCvVersionAccess(ownerUser, candidateId, cvId);
+        }
     }
 
     // =========================================================================

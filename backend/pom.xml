@@ -178,6 +178,7 @@
                     </execution>
                 </executions>
                 <configuration>
+                  <argLine>-Dnet.bytebuddy.experimental=true</argLine>
                     <includes>
                         <include>**/*IT.java</include>
                         <include>**/*IntegrationTest.java</include>

@@ -10,7 +10,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
@@ -254,15 +253,6 @@ public class ApplicationController {
         problem.setTitle(status == HttpStatus.NOT_FOUND ? "Not Found" : "Bad Request");
         problem.setType(URI.create("about:blank"));
         return ResponseEntity.status(status).body(problem);
-    }
-
-    @ExceptionHandler(AccessDeniedException.class)
-    public ResponseEntity<ProblemDetail> handleAccessDenied(AccessDeniedException ex) {
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
-                HttpStatus.FORBIDDEN, ex.getMessage());
-        problem.setTitle("Forbidden");
-        problem.setType(URI.create("about:blank"));
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(problem);
     }
 
     @ExceptionHandler(ResponseStatusException.class)

@@ -68,7 +68,7 @@ public class SecurityConfig {
                     }
 
                     // Public Recruitment endpoints (evidence: guest job search and categories/skills in frontend)
-                    auth.requestMatchers(HttpMethod.GET, "/v1/jobs", "/v1/jobs/**").permitAll();
+                    auth.requestMatchers(HttpMethod.GET, "/v1/jobs").permitAll();
                     auth.requestMatchers(HttpMethod.GET, "/v1/categories", "/v1/categories/**").permitAll();
                     auth.requestMatchers(HttpMethod.GET, "/v1/skills", "/v1/skills/**").permitAll();
                     auth.requestMatchers(HttpMethod.GET, "/v1/companies/{id:[0-9a-fA-F\\-]+}").permitAll();
@@ -80,6 +80,7 @@ public class SecurityConfig {
                     auth.requestMatchers(HttpMethod.PATCH, "/v1/companies", "/v1/companies/**").hasRole("EMPLOYER");
                     auth.requestMatchers("/v1/employer/**").hasRole("EMPLOYER");
                     auth.requestMatchers(HttpMethod.PATCH, "/v1/applications/*/stage", "/v1/applications/{id}/stage").hasRole("EMPLOYER");
+                    auth.requestMatchers(HttpMethod.GET, "/v1/jobs/*/applications", "/v1/jobs/*/applications/**").hasRole("EMPLOYER");
                     auth.requestMatchers(HttpMethod.GET, "/v1/jobs/*/applications/ranking").hasRole("EMPLOYER");
                     auth.requestMatchers("/v1/interviews", "/v1/interviews/**").authenticated();
 

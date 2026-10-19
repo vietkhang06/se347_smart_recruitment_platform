@@ -107,25 +107,29 @@ class ApplicationWorkflowIT {
         return userId;
     }
 
-    private UUID createJobFixture(UUID employerUserId, String status) {
+    private UUID createJobFixture(UUID employerUserId, String status, String title, String companyName) {
         UUID companyId = UUID.randomUUID();
         UUID jobId = UUID.randomUUID();
 
         jdbcClient.sql("""
             INSERT INTO companies (id, owner_id, name)
-            VALUES (?, ?, 'Test Corp ' || ?)
+            VALUES (?, ?, ?)
             """)
-            .params(companyId, employerUserId, companyId)
+            .params(companyId, employerUserId, companyName)
             .update();
 
         jdbcClient.sql("""
             INSERT INTO jobs (id, company_id, created_by, title, status, work_type, salary_mode, salary_min, salary_max)
-            VALUES (?, ?, ?, 'Backend Engineer', ?, 'full_time', 'range', 1000, 2000)
+            VALUES (?, ?, ?, ?, ?, 'full_time', 'range', 1000, 2000)
             """)
-            .params(jobId, companyId, employerUserId, status)
+            .params(jobId, companyId, employerUserId, title, status)
             .update();
 
         return jobId;
+    }
+
+    private UUID createJobFixture(UUID employerUserId, String status) {
+        return createJobFixture(employerUserId, status, "Backend Engineer", "Test Corp " + UUID.randomUUID());
     }
 
     private UUID createCvVersionFixture(UUID candidateId) {
@@ -381,7 +385,7 @@ class ApplicationWorkflowIT {
     void getApplicationDetail_returnsFullInfo() {
         CandidateFixture candidate = createCandidateFixture();
         UUID employerId = createEmployerUser();
-        UUID jobId = createJobFixture(employerId, "active");
+        UUID jobId = createJobFixture(employerId, "active", "Software Engineer", "Acme Corp");
         UUID cvVersionId = createCvVersionFixture(candidate.candidateId());
 
         ApplicationResponse app = applicationService.applyForJob(
