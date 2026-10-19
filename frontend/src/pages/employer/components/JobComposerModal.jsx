@@ -6,10 +6,8 @@ import Col from "react-bootstrap/Col";
 import Form from "react-bootstrap/Form";
 import Badge from "react-bootstrap/Badge";
 import InputGroup from "react-bootstrap/InputGroup";
-import Spinner from "react-bootstrap/Spinner";
 import { useToast } from "../../../context/ToastContext";
 import HRContactCard from "../../../components/common/HRContactCard";
-import { jobService } from "../../../services";
 
 import {
   DEFAULT_REQ_SUGGESTIONS,
@@ -26,23 +24,13 @@ const formatNumberWithCommas = (val) => {
   return Number(raw).toLocaleString("en-US");
 };
 
-export default function JobComposerModal({
-  show,
-  onHide,
-  onJobCreated,
-  onJobUpdated,
-  onNavigateProfile,
-  mode = "create", // "create" | "edit"
-  jobToEdit = null
-}) {
+export default function JobComposerModal({ show, onHide, onJobCreated, onNavigateProfile }) {
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState("edit"); // "edit" | "preview"
   const [showExitConfirmModal, setShowExitConfirmModal] = useState(false);
   const [exitTarget, setExitTarget] = useState(null); // "profile" | "close"
-  const [showCancelConfirmModal, setShowCancelConfirmModal] = useState(false);
   const [showRestoreConfirmModal, setShowRestoreConfirmModal] = useState(false);
   const [hasDraft, setHasDraft] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // HR Profile state synced with mockStore
   const [hrProfile, setHrProfile] = useState(() => mockStore.getEmployerProfile());
@@ -52,11 +40,7 @@ export default function JobComposerModal({
       setHrProfile(mockStore.getEmployerProfile());
     };
     window.addEventListener("matchajob:store-changed", handleStoreChange);
-    window.addEventListener("storage", handleStoreChange);
-    return () => {
-      window.removeEventListener("matchajob:store-changed", handleStoreChange);
-      window.removeEventListener("storage", handleStoreChange);
-    };
+    return () => window.removeEventListener("matchajob:store-changed", handleStoreChange);
   }, []);
 
   // Sync contenteditable refs when switching tabs
@@ -81,27 +65,6 @@ export default function JobComposerModal({
   const [jobLevel, setJobLevel] = useState(template.jobLevel);
   const [workType, setWorkType] = useState(template.workType);
   const [team, setTeam] = useState(template.team);
-  const [categoryId, setCategoryId] = useState("");
-  const [categories, setCategories] = useState([]);
-
-  // Fetch taxonomy categories
-  useEffect(() => {
-    let isMounted = true;
-    async function fetchTaxonomy() {
-      try {
-        const cats = await jobService.getCategories();
-        if (isMounted && Array.isArray(cats)) {
-          setCategories(cats);
-        }
-      } catch (err) {
-        console.warn("Could not fetch categories:", err);
-      }
-    }
-    fetchTaxonomy();
-    return () => {
-      isMounted = false;
-    };
-  }, []);
 
   // 2. Salary & Deadline
   const [salaryMode, setSalaryMode] = useState(template.salaryMode); // range, from, under, negotiable
@@ -152,14 +115,6 @@ export default function JobComposerModal({
 
   const [reqTags, setReqTags] = useState(template.reqTags);
   const [specTags, setSpecTags] = useState(template.specTags);
-  const [skillRequirements, setSkillRequirements] = useState({});
-
-  const toggleSkillRequired = (tag) => {
-    setSkillRequirements((prev) => ({
-      ...prev,
-      [tag]: prev[tag] !== undefined ? !prev[tag] : false
-    }));
-  };
 
   const [newReqTag, setNewReqTag] = useState("");
   const [newSpecTag, setNewSpecTag] = useState("");
@@ -188,66 +143,9 @@ export default function JobComposerModal({
   const benefitsRef = useRef(null);
   const scheduleRef = useRef(null);
 
-  // Khởi tạo hoặc nạp dữ liệu khi modal mở
+  // Khi modal mở, tự động nạp bản nháp đã lưu (nếu có), ngoại trừ thông tin HR
   useEffect(() => {
-    if (!show) return;
-
-    if (mode === "edit" && jobToEdit) {
-      setTitle(jobToEdit.title || "");
-      setCity(jobToEdit.location || "TP. Hồ Chí Minh");
-      setAddress(jobToEdit.address || "");
-      setJobLevel(jobToEdit.level || "Nhân viên");
-      setWorkType(jobToEdit.workType || "Toàn thời gian");
-      setTeam(jobToEdit.department || jobToEdit.team || "Engineering");
-      setCategoryId(jobToEdit.categoryId || "");
-      setSalaryMode(jobToEdit.salaryMode || "range");
-      setSalaryCurrency(jobToEdit.salaryCurrency || "Triệu VNĐ");
-      setSalaryMin(formatNumberWithCommas(jobToEdit.salaryMin));
-      setSalaryMax(formatNumberWithCommas(jobToEdit.salaryMax));
-      setSalarySingle(formatNumberWithCommas(jobToEdit.salarySingle || jobToEdit.salaryMin));
-      setDeadline(jobToEdit.deadline || formatDateString(defaultDeadlineDate));
-      setExperience(jobToEdit.experience || "1-3 năm");
-
-      setReqTags(Array.isArray(jobToEdit.reqTags) ? jobToEdit.reqTags : []);
-
-      const sTags = Array.isArray(jobToEdit.specTags) && jobToEdit.specTags.length > 0
-        ? jobToEdit.specTags
-        : Array.isArray(jobToEdit.skills)
-          ? jobToEdit.skills
-          : [];
-      setSpecTags(sTags);
-
-      const reqMap = {};
-      if (Array.isArray(jobToEdit.skillsWithRequirement)) {
-        jobToEdit.skillsWithRequirement.forEach((item) => {
-          const name = item.name || item.skillName || item.skillId;
-          if (name) reqMap[name] = Boolean(item.isRequired);
-        });
-      } else {
-        sTags.forEach((tag) => {
-          reqMap[tag] = true;
-        });
-      }
-      setSkillRequirements(reqMap);
-
-      setDescHtml(jobToEdit.description || "");
-      setReqHtml(jobToEdit.requirements || "");
-      setBenefitsHtml(jobToEdit.benefits || "");
-      setScheduleHtml(jobToEdit.schedule || "");
-      setSumIndustry(jobToEdit.summaryIndustry || jobToEdit.summary?.industry || "");
-      setSumRequired(jobToEdit.summaryRequired || jobToEdit.summary?.required || "");
-      setSumPreferred(jobToEdit.summaryPreferred || jobToEdit.summary?.preferred || "");
-      setMapLink(jobToEdit.mapLink || "");
-      setHasDraft(false);
-
-      setTimeout(() => {
-        if (descRef.current && jobToEdit.description) descRef.current.innerHTML = jobToEdit.description;
-        if (reqRef.current && jobToEdit.requirements) reqRef.current.innerHTML = jobToEdit.requirements;
-        if (benefitsRef.current && jobToEdit.benefits) benefitsRef.current.innerHTML = jobToEdit.benefits;
-        if (scheduleRef.current && jobToEdit.schedule) scheduleRef.current.innerHTML = jobToEdit.schedule;
-      }, 50);
-    } else {
-      // Mode create: tự động nạp bản nháp đã lưu (nếu có)
+    if (show) {
       const draft = mockStore.getJobDraft();
       if (draft) {
         if (draft.title !== undefined) setTitle(draft.title);
@@ -256,7 +154,6 @@ export default function JobComposerModal({
         if (draft.jobLevel !== undefined) setJobLevel(draft.jobLevel);
         if (draft.workType !== undefined) setWorkType(draft.workType);
         if (draft.team !== undefined) setTeam(draft.team);
-        if (draft.categoryId !== undefined) setCategoryId(draft.categoryId);
         if (draft.salaryMode !== undefined) setSalaryMode(draft.salaryMode);
         if (draft.salaryCurrency !== undefined) setSalaryCurrency(draft.salaryCurrency);
         if (draft.salaryMin !== undefined) setSalaryMin(draft.salaryMin);
@@ -268,7 +165,6 @@ export default function JobComposerModal({
         if (draft.specPool !== undefined) setSpecPool(draft.specPool);
         if (draft.reqTags !== undefined) setReqTags(draft.reqTags);
         if (draft.specTags !== undefined) setSpecTags(draft.specTags);
-        if (draft.skillRequirements !== undefined) setSkillRequirements(draft.skillRequirements);
         if (draft.descHtml !== undefined) setDescHtml(draft.descHtml);
         if (draft.reqHtml !== undefined) setReqHtml(draft.reqHtml);
         if (draft.benefitsHtml !== undefined) setBenefitsHtml(draft.benefitsHtml);
@@ -288,10 +184,10 @@ export default function JobComposerModal({
       } else {
         setHasDraft(false);
       }
+      // Thông tin HR luôn lấy bản mới nhất từ hồ sơ HR
+      setHrProfile(mockStore.getEmployerProfile());
     }
-
-    setHrProfile(mockStore.getEmployerProfile());
-  }, [show, mode, jobToEdit]);
+  }, [show]);
 
   // Gom toàn bộ thông tin form hiện tại (ngoại trừ thông tin HR) để lưu nháp
   const getCurrentFormDataWithoutHr = () => {
@@ -302,7 +198,6 @@ export default function JobComposerModal({
       jobLevel,
       workType,
       team,
-      categoryId,
       salaryMode,
       salaryCurrency,
       salaryMin,
@@ -314,7 +209,6 @@ export default function JobComposerModal({
       specPool,
       reqTags,
       specTags,
-      skillRequirements,
       descHtml: descRef.current ? descRef.current.innerHTML : descHtml,
       reqHtml: reqRef.current ? reqRef.current.innerHTML : reqHtml,
       benefitsHtml: benefitsRef.current ? benefitsRef.current.innerHTML : benefitsHtml,
@@ -328,21 +222,10 @@ export default function JobComposerModal({
     };
   };
 
-  // Xử lý yêu cầu thoát / đóng cửa sổ (bằng nút X, click ngoài hoặc phím Esc) -> hỏi lưu bản nháp như hiện tại
+  // Xử lý yêu cầu thoát / chuyển tab (yêu cầu xác nhận nếu chưa đăng tin)
   const handleRequestClose = () => {
     setExitTarget("close");
     setShowExitConfirmModal(true);
-  };
-
-  // Xử lý yêu cầu HỦY TIN (bấm nút Hủy bỏ) -> hỏi xác nhận hủy thật không rồi thoát, KHÔNG lưu bản mẫu
-  const handleRequestCancel = () => {
-    setShowCancelConfirmModal(true);
-  };
-
-  const handleConfirmCancel = () => {
-    setShowCancelConfirmModal(false);
-    showToast("Đã hủy quá trình tạo tin tuyển dụng.");
-    onHide();
   };
 
   const handleRequestNavigateProfile = () => {
@@ -573,8 +456,10 @@ export default function JobComposerModal({
     setCalMonth(nextMonthDate.getMonth());
   };
 
-  // Handle Save / Publish Job
-  const handleSaveJob = async (targetStatus = "active") => {
+  // Handle Submit
+  const handlePublish = (e) => {
+    e.preventDefault();
+
     // 1. Tên vị trí tuyển dụng
     if (!title.trim()) {
       setActiveTab("edit");
@@ -582,181 +467,126 @@ export default function JobComposerModal({
       return;
     }
 
-    // Nếu lưu bản nháp thì chỉ cần tên vị trí
-    if (targetStatus === "active") {
-      // 2. Danh mục ngành nghề
-      if (!categoryId && categories.length > 0) {
-        setCategoryId(categories[0].id);
-      }
+    // 2. Địa chỉ cụ thể
+    if (!address.trim()) {
+      setActiveTab("edit");
+      showToast("Vui lòng nhập địa chỉ cụ thể nơi làm việc");
+      return;
+    }
 
-      // 3. Địa chỉ cụ thể
-      if (!address.trim()) {
+    // 3. Mức lương (theo từng chế độ thể hiện)
+    if (salaryMode === "range") {
+      if (!salaryMin.trim() || !salaryMax.trim()) {
         setActiveTab("edit");
-        showToast("Vui lòng nhập địa chỉ cụ thể nơi làm việc");
+        showToast("Vui lòng nhập đầy đủ mức lương tối thiểu và tối đa");
         return;
       }
-
-      // 4. Mức lương (theo từng chế độ thể hiện)
-      if (salaryMode === "range") {
-        if (!salaryMin.trim() || !salaryMax.trim()) {
-          setActiveTab("edit");
-          showToast("Vui lòng nhập đầy đủ mức lương tối thiểu và tối đa");
-          return;
-        }
-        const minVal = Number(String(salaryMin).replace(/\D/g, ""));
-        const maxVal = Number(String(salaryMax).replace(/\D/g, ""));
-        if (minVal > maxVal) {
-          setActiveTab("edit");
-          showToast("Mức lương tối thiểu không được lớn hơn mức lương tối đa!");
-          return;
-        }
-      } else if (salaryMode === "from" || salaryMode === "under") {
-        if (!salarySingle.trim()) {
-          setActiveTab("edit");
-          showToast("Vui lòng nhập số tiền lương");
-          return;
-        }
-      }
-
-      // 5. Hạn nộp hồ sơ: >= 7 ngày từ hôm nay
-      if (!deadline.trim()) {
+    } else if (salaryMode === "from" || salaryMode === "under") {
+      if (!salarySingle.trim()) {
         setActiveTab("edit");
-        showToast("Vui lòng chọn hạn nộp hồ sơ");
-        return;
-      }
-      if (/^\d{2}\/\d{2}\/\d{4}$/.test(deadline.trim())) {
-        const [d, m, y] = deadline.trim().split("/").map(Number);
-        const checkDate = new Date(y, m - 1, d, 0, 0, 0, 0);
-        if (checkDate < minDate) {
-          setActiveTab("edit");
-          showToast(`Hạn nộp hồ sơ phải từ ngày ${formatDateString(minDate)} trở đi (tối thiểu 7 ngày)!`);
-          return;
-        }
-      }
-
-      // 6. Yêu cầu kinh nghiệm
-      if (!experience.trim()) {
-        setActiveTab("edit");
-        showToast("Vui lòng nhập hoặc chọn yêu cầu kinh nghiệm");
-        return;
-      }
-
-      // 7. Thẻ Tags (Yêu cầu & Chuyên môn)
-      if (reqTags.length === 0) {
-        setActiveTab("edit");
-        showToast("Vui lòng chọn hoặc thêm ít nhất 1 thẻ Yêu cầu");
-        return;
-      }
-      if (specTags.length === 0) {
-        setActiveTab("edit");
-        showToast("Vui lòng chọn hoặc thêm ít nhất 1 thẻ Chuyên môn");
-        return;
-      }
-
-      // 8. Mô tả công việc & Yêu cầu ứng viên (WYSIWYG)
-      const descText = (descRef.current?.innerText || "").trim();
-      if (!descText) {
-        setActiveTab("edit");
-        showToast("Vui lòng điền nội dung Mô tả công việc");
-        return;
-      }
-
-      const reqText = (reqRef.current?.innerText || "").trim();
-      if (!reqText) {
-        setActiveTab("edit");
-        showToast("Vui lòng điền nội dung Yêu cầu ứng viên");
-        return;
-      }
-
-      // 9. 3 Dòng tóm tắt Icon
-      if (!sumIndustry.trim()) {
-        setActiveTab("edit");
-        showToast("Vui lòng nhập tóm tắt Kiến thức ngành (💡)");
-        return;
-      }
-      if (!sumRequired.trim()) {
-        setActiveTab("edit");
-        showToast("Vui lòng nhập tóm tắt Kỹ năng cần có (📐)");
-        return;
-      }
-      if (!sumPreferred.trim()) {
-        setActiveTab("edit");
-        showToast("Vui lòng nhập tóm tắt Kỹ năng nên có (✏️)");
-        return;
-      }
-
-      // 10. Quyền lợi & Đãi ngộ
-      const benefitsText = (benefitsRef.current?.innerText || "").trim();
-      if (!benefitsText) {
-        setActiveTab("edit");
-        showToast("Vui lòng điền nội dung Quyền lợi & Đãi ngộ");
-        return;
-      }
-
-      // 11. Thời gian & Địa điểm làm việc
-      const scheduleText = (scheduleRef.current?.innerText || "").trim();
-      if (!scheduleText) {
-        setActiveTab("edit");
-        showToast("Vui lòng điền nội dung Thời gian & Địa điểm làm việc");
-        return;
-      }
-
-      // 12. Link Google Maps
-      if (!mapLink.trim()) {
-        setActiveTab("edit");
-        showToast("Vui lòng nhập Link Google Maps vị trí văn phòng");
+        showToast("Vui lòng nhập số tiền lương");
         return;
       }
     }
 
-    const skillsWithRequirement = specTags.map((tag) => ({
-      skillId: tag,
-      name: tag,
-      isRequired: skillRequirements[tag] !== false
-    }));
+    // 4. Hạn nộp hồ sơ
+    if (!deadline.trim()) {
+      setActiveTab("edit");
+      showToast("Vui lòng chọn hạn nộp hồ sơ");
+      return;
+    }
 
-    const finalStatusText = targetStatus === "draft"
-      ? "Bản nháp"
-      : mode === "edit" && jobToEdit?.status
-        ? jobToEdit.status
-        : "Đang tuyển";
+    // 5. Yêu cầu kinh nghiệm
+    if (!experience.trim()) {
+      setActiveTab("edit");
+      showToast("Vui lòng nhập hoặc chọn yêu cầu kinh nghiệm");
+      return;
+    }
 
-    const finalStatusCode = targetStatus === "draft"
-      ? "draft"
-      : mode === "edit" && jobToEdit?.statusCode
-        ? jobToEdit.statusCode
-        : "active";
+    // 6. Thẻ Tags (Yêu cầu & Chuyên môn)
+    if (reqTags.length === 0) {
+      setActiveTab("edit");
+      showToast("Vui lòng chọn hoặc thêm ít nhất 1 thẻ Yêu cầu");
+      return;
+    }
+    if (specTags.length === 0) {
+      setActiveTab("edit");
+      showToast("Vui lòng chọn hoặc thêm ít nhất 1 thẻ Chuyên môn");
+      return;
+    }
 
-    const jobData = {
+    // 7. Mô tả công việc & Yêu cầu ứng viên (WYSIWYG)
+    const descText = (descRef.current?.innerText || "").trim();
+    if (!descText) {
+      setActiveTab("edit");
+      showToast("Vui lòng điền nội dung Mô tả công việc");
+      return;
+    }
+
+    const reqText = (reqRef.current?.innerText || "").trim();
+    if (!reqText) {
+      setActiveTab("edit");
+      showToast("Vui lòng điền nội dung Yêu cầu ứng viên");
+      return;
+    }
+
+    // 8. 3 Dòng tóm tắt Icon
+    if (!sumIndustry.trim()) {
+      setActiveTab("edit");
+      showToast("Vui lòng nhập tóm tắt Kiến thức ngành (💡)");
+      return;
+    }
+    if (!sumRequired.trim()) {
+      setActiveTab("edit");
+      showToast("Vui lòng nhập tóm tắt Kỹ năng cần có (📐)");
+      return;
+    }
+    if (!sumPreferred.trim()) {
+      setActiveTab("edit");
+      showToast("Vui lòng nhập tóm tắt Kỹ năng nên có (✏️)");
+      return;
+    }
+
+    // 9. Quyền lợi & Đãi ngộ
+    const benefitsText = (benefitsRef.current?.innerText || "").trim();
+    if (!benefitsText) {
+      setActiveTab("edit");
+      showToast("Vui lòng điền nội dung Quyền lợi & Đãi ngộ");
+      return;
+    }
+
+    // 10. Thời gian & Địa điểm làm việc
+    const scheduleText = (scheduleRef.current?.innerText || "").trim();
+    if (!scheduleText) {
+      setActiveTab("edit");
+      showToast("Vui lòng điền nội dung Thời gian & Địa điểm làm việc");
+      return;
+    }
+
+    // 11. Link Google Maps
+    if (!mapLink.trim()) {
+      setActiveTab("edit");
+      showToast("Vui lòng nhập Link Google Maps vị trí văn phòng");
+      return;
+    }
+
+    const newJob = {
+      id: `JOB-${Math.floor(1000 + Math.random() * 9000)}`,
       title,
       team,
-      department: team,
       location: city,
       address,
       jobLevel,
-      levelCode: jobLevel === "Trưởng nhóm" ? "lead" : jobLevel === "Giám đốc" ? "director" : jobLevel === "Thực tập sinh" ? "intern" : "middle",
       workType,
-      workTypeCode: workType === "Bán thời gian" ? "part_time" : workType === "Khác" ? "contract" : "full_time",
-      categoryId: categoryId || (categories[0]?.id || "CAT-01"),
-      salaryMode,
-      salaryCurrency,
-      salaryMin: salaryMin ? Number(String(salaryMin).replace(/\D/g, "")) : null,
-      salaryMax: salaryMax ? Number(String(salaryMax).replace(/\D/g, "")) : null,
-      salarySingle: salarySingle ? Number(String(salarySingle).replace(/\D/g, "")) : null,
       salary: getSalaryDisplay(),
       deadline,
       experience,
       reqTags,
       specTags,
-      skills: specTags,
-      skillsWithRequirement,
       description: descRef.current?.innerHTML || descHtml,
       requirements: reqRef.current?.innerHTML || reqHtml,
       benefits: benefitsRef.current?.innerHTML || benefitsHtml,
       schedule: scheduleRef.current?.innerHTML || scheduleHtml,
-      summaryIndustry: sumIndustry,
-      summaryRequired: sumRequired,
-      summaryPreferred: sumPreferred,
       summary: {
         industry: sumIndustry,
         required: sumRequired,
@@ -766,29 +596,20 @@ export default function JobComposerModal({
       company: "FPT Digital Talent",
       logo: "FP",
       contact: hrProfile,
-      status: finalStatusText,
-      statusCode: finalStatusCode
+      applicants: 0,
+      views: 1,
+      status: "Đang tuyển",
+      posted: "Vừa xong"
     };
 
-    setIsSubmitting(true);
-    try {
-      if (mode === "edit" && jobToEdit?.id) {
-        const updated = await jobService.updateJob(jobToEdit.id, jobData);
-        if (onJobUpdated) onJobUpdated(updated);
-        showToast(`Đã cập nhật tin tuyển dụng: ${title}`);
-      } else {
-        const created = await jobService.createJob(jobData);
-        if (onJobCreated) onJobCreated(created);
-        mockStore.clearJobDraft();
-        setHasDraft(false);
-        showToast(targetStatus === "draft" ? `Đã lưu bản nháp: ${title}` : `Đã đăng tin tuyển dụng: ${title}`);
-      }
-      onHide();
-    } catch (err) {
-      showToast(err?.message || "Có lỗi xảy ra khi lưu tin tuyển dụng.", "danger");
-    } finally {
-      setIsSubmitting(false);
-    }
+    // Save to unified mockStore
+    const createdJob = mockStore.saveJob(newJob);
+
+    if (onJobCreated) onJobCreated(createdJob);
+    mockStore.clearJobDraft();
+    setHasDraft(false);
+    showToast(`Đã xuất bản tin tuyển dụng: ${title} (${createdJob.status})`);
+    onHide();
   };
 
   return (
@@ -804,15 +625,11 @@ export default function JobComposerModal({
           <div className="d-flex align-items-center justify-content-between w-100 me-3 flex-wrap gap-2">
             <div>
               <div className="d-flex align-items-center gap-2">
-                <span className={`badge ${mode === "edit" ? "bg-primary" : "bg-success"} bg-opacity-10 text-${mode === "edit" ? "primary" : "success"} fw-bold`}>
-                  {mode === "edit" ? "Chỉnh sửa tin" : "Tuyển dụng"}
-                </span>
-                <h5 className="modal-title fw-bold mb-0">
-                  {mode === "edit" ? `Cập nhật tin tuyển dụng (${jobToEdit?.id || ""})` : "Tạo tin tuyển dụng chuyên nghiệp"}
-                </h5>
+                <span className="badge bg-success bg-opacity-10 text-success fw-bold">Tuyển dụng</span>
+                <h5 className="modal-title fw-bold mb-0">Tạo tin tuyển dụng chuyên nghiệp</h5>
               </div>
               <div className="d-flex align-items-center gap-2 mt-1">
-                {mode === "create" && hasDraft ? (
+                {hasDraft ? (
                   <>
                     <button
                       type="button"
@@ -850,7 +667,7 @@ export default function JobComposerModal({
                       <i className="bi bi-trash me-1"></i>Xóa nháp
                     </button>
                   </>
-                ) : mode === "create" ? (
+                ) : (
                   <>
                     <button
                       type="button"
@@ -878,10 +695,6 @@ export default function JobComposerModal({
                       <i className="bi bi-floppy me-1"></i>Lưu nháp
                     </button>
                   </>
-                ) : (
-                  <span className="text-muted small">
-                    Trạng thái hiện tại: <strong className="text-body">{jobToEdit?.status || "Đang tuyển"}</strong>
-                  </span>
                 )}
               </div>
             </div>
@@ -921,7 +734,7 @@ export default function JobComposerModal({
                   Thông tin chung vị trí
                 </h6>
                 <Row className="g-3">
-                  <Col md={7}>
+                  <Col md={12}>
                     <Form.Label className="small fw-semibold">
                       Tên vị trí tuyển dụng <span className="text-danger">*</span>
                     </Form.Label>
@@ -932,23 +745,6 @@ export default function JobComposerModal({
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
                     />
-                  </Col>
-
-                  <Col md={5}>
-                    <Form.Label className="small fw-semibold">
-                      Ngành nghề / Taxonomy <span className="text-danger">*</span>
-                    </Form.Label>
-                    <Form.Select
-                      value={categoryId}
-                      onChange={(e) => setCategoryId(e.target.value)}
-                    >
-                      <option value="">-- Chọn danh mục ngành nghề --</option>
-                      {categories.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </Form.Select>
                   </Col>
 
                   <Col sm={6}>
@@ -1353,35 +1149,19 @@ export default function JobComposerModal({
                     {specTags.length === 0 ? (
                       <span className="text-muted small fst-italic">Chưa có tag chuyên môn nào được chọn.</span>
                     ) : (
-                      specTags.map((t) => {
-                        const isReq = skillRequirements[t] !== false;
-                        return (
-                          <span key={t} className="tag-chip d-inline-flex align-items-center gap-1.5 py-1 px-2.5">
-                            <span className="fw-medium">{t}</span>
-                            <button
-                              type="button"
-                              className={`btn btn-xs rounded-pill px-1.5 py-0 small border-0 ${
-                                isReq
-                                  ? "bg-danger bg-opacity-10 text-danger fw-semibold"
-                                  : "bg-secondary bg-opacity-10 text-secondary"
-                              }`}
-                              style={{ fontSize: "11px", lineHeight: "16px", cursor: "pointer" }}
-                              onClick={() => toggleSkillRequired(t)}
-                              title="Bấm để chuyển đổi giữa Bắt buộc và Tùy chọn"
-                            >
-                              {isReq ? "Bắt buộc" : "Tùy chọn"}
-                            </button>
-                            <button
-                              type="button"
-                              className="tag-chip-remove ms-1"
-                              onClick={() => removeSpecTag(t)}
-                              title="Xóa tag này (trả về gợi ý)"
-                            >
-                              ×
-                            </button>
-                          </span>
-                        );
-                      })
+                      specTags.map((t) => (
+                        <span key={t} className="tag-chip">
+                          {t}
+                          <button
+                            type="button"
+                            className="tag-chip-remove"
+                            onClick={() => removeSpecTag(t)}
+                            title="Xóa tag này (trả về gợi ý)"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))
                     )}
                   </div>
 
@@ -1687,14 +1467,10 @@ export default function JobComposerModal({
                 <span className="job-highlight-badge badge-salary">{getSalaryDisplay()}</span>
                 <span className="job-highlight-badge">{workType}</span>
                 <span className="job-highlight-badge">{jobLevel}</span>
-                {categoryId && (
-                  <span className="job-highlight-badge">
-                    <i className="bi bi-folder2-open me-1"></i>
-                    {categories.find((c) => String(c.id) === String(categoryId))?.name || "Ngành nghề"}
-                  </span>
-                )}
-                <span className="job-highlight-badge">Hạn nộp: {deadline}</span>
                 <span className="job-highlight-badge">Kinh nghiệm: {experience}</span>
+                <span className="job-highlight-badge badge-match">
+                  <i className="bi bi-stars me-1 text-success"></i>96% Phù hợp
+                </span>
               </div>
 
               {/* 3 Summary Cards */}
@@ -1729,22 +1505,11 @@ export default function JobComposerModal({
                         {t}
                       </Badge>
                     ))}
-                    {specTags.map((t) => {
-                      const isReq = skillRequirements[t] !== false;
-                      return (
-                        <Badge
-                          bg={isReq ? "danger" : "secondary"}
-                          className={`bg-opacity-10 ${isReq ? "text-danger border border-danger border-opacity-25" : "text-body border"} p-2`}
-                          key={t}
-                        >
-                          <i className="bi bi-tag-fill me-1"></i>
-                          {t}
-                          <span className="ms-1 opacity-75 small">
-                            ({isReq ? "Bắt buộc" : "Tùy chọn"})
-                          </span>
-                        </Badge>
-                      );
-                    })}
+                    {specTags.map((t) => (
+                      <Badge bg="secondary" className="bg-opacity-10 text-body p-2" key={t}>
+                        <i className="bi bi-tag-fill me-1"></i>{t}
+                      </Badge>
+                    ))}
                   </div>
                 </div>
               )}
@@ -1800,105 +1565,20 @@ export default function JobComposerModal({
 
       <Modal.Footer className="border-top d-flex justify-content-between pe-4">
         <span className="text-muted small">
-          {mode === "edit"
-            ? `Đang chỉnh sửa tin: ${jobToEdit?.id || ""}`
-            : activeTab === "edit"
-              ? hasDraft
-                ? "Đang áp dụng bản nháp đã lưu (ngoại trừ thông tin HR)"
-                : "Bản nháp tự động lưu trên trình duyệt"
-              : ""}
+          {activeTab === "edit"
+            ? hasDraft
+              ? "Đang áp dụng bản nháp đã lưu (ngoại trừ thông tin HR)"
+              : "Bản nháp tự động lưu trên trình duyệt"
+            : ""}
         </span>
         <div className="d-flex gap-2">
-          <Button variant="secondary" onClick={handleRequestCancel} disabled={isSubmitting}>
+          <Button variant="secondary" onClick={handleRequestClose}>
             Hủy bỏ
           </Button>
-          {mode === "create" && (
-            <Button
-              variant="outline-primary"
-              className="fw-bold"
-              disabled={isSubmitting}
-              onClick={() => handleSaveJob("draft")}
-            >
-              <i className="bi bi-floppy me-1"></i>
-              Lưu bản nháp
-            </Button>
-          )}
-          <Button
-            variant="success"
-            className="fw-bold"
-            disabled={isSubmitting}
-            onClick={() => handleSaveJob("active")}
-          >
-            {isSubmitting ? (
-              <>
-                <Spinner animation="border" size="sm" className="me-1" />
-                Đang lưu...
-              </>
-            ) : mode === "edit" ? (
-              <>
-                <i className="bi bi-check2-circle me-1"></i>
-                Lưu thay đổi
-              </>
-            ) : (
-              <>
-                <i className="bi bi-send-check me-1"></i>
-                Đăng tin tuyển dụng
-              </>
-            )}
+          <Button variant="success" className="fw-bold" onClick={handlePublish}>
+            ✓ Đăng tin tuyển dụng
           </Button>
         </div>
-      </Modal.Footer>
-    </Modal>
-
-    {/* Modal xác nhận HỦY TẠO TIN - Thoát và KHÔNG lưu bản mẫu */}
-    <Modal
-      show={showCancelConfirmModal}
-      onHide={() => setShowCancelConfirmModal(false)}
-      centered
-      backdrop="static"
-      size="md"
-    >
-      <Modal.Header closeButton className="border-bottom">
-        <div className="d-flex align-items-center gap-2">
-          <div
-            className="rounded-circle d-flex align-items-center justify-content-center bg-danger bg-opacity-10 text-danger"
-            style={{ width: 36, height: 36 }}
-          >
-            <i className="bi bi-x-circle-fill fs-5"></i>
-          </div>
-          <Modal.Title className="fw-bold fs-6 mb-0 text-danger">Xác nhận hủy tạo tin</Modal.Title>
-        </div>
-      </Modal.Header>
-
-      <Modal.Body className="py-3 px-4">
-        <h6 className="fw-bold text-body mb-2">
-          Bạn có chắc chắn muốn hủy quá trình tạo tin tuyển dụng này?
-        </h6>
-        <p className="text-muted small mb-3">
-          Toàn bộ nội dung vừa nhập trên form sẽ bị hủy bỏ và <strong>sẽ không lưu lại bản mẫu/bản nháp</strong>.
-        </p>
-        <div className="p-2.5 px-3 rounded-3 bg-danger bg-opacity-10 border border-danger border-opacity-25 small text-danger d-flex align-items-center gap-2">
-          <i className="bi bi-exclamation-octagon-fill flex-shrink-0"></i>
-          <span>Thao tác này sẽ đóng cửa sổ soạn thảo và không lưu lại bất kỳ dữ liệu nào.</span>
-        </div>
-      </Modal.Body>
-
-      <Modal.Footer className="border-top d-flex justify-content-end gap-2">
-        <Button
-          variant="outline-secondary"
-          size="sm"
-          onClick={() => setShowCancelConfirmModal(false)}
-        >
-          Không, tiếp tục tạo tin
-        </Button>
-        <Button
-          variant="danger"
-          size="sm"
-          className="fw-bold"
-          onClick={handleConfirmCancel}
-        >
-          <i className="bi bi-trash me-1"></i>Hủy và thoát
-        </Button>
       </Modal.Footer>
     </Modal>
 

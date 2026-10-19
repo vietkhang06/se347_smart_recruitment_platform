@@ -1,10 +1,10 @@
 /* ========================================================
-   DESIGN TOKENS & SYSTEM STYLES
+   MAT पंतप्रधानB DESIGN TOKENS & SYSTEM STYLES
    Tương thích đồng thời với CSS thuần và Bootstrap 5
    ======================================================== */
 
 :root {
-  /* Bảng màu MatchaJob */
+  /* Bảng màu thương hiệu MatchaJob */
   --primary: #2d8653;
   --primary-hover: #246e43;
   --primary-soft: #ecfdf5;
@@ -46,45 +46,15 @@ body.dark,
   --shadow: 0 14px 36px rgba(0, 0, 0, 0.45);
 }
 
-/*
-   THỜI GIAN CHUYỂN MÀU THEME TOÀN TRANG
-   Thay đổi biến --theme-transition-duration bên dưới để tăng/giảm tốc độ chuyển màu.
-*/
-:root {
-  --theme-transition-duration: 0.75s;
-  --toggle-duration: 0.5s;
-  /*THỜI GIAN ANIMATION NÚT GẠT SÁNG/TỐI */
-}
-
 body {
   background-color: var(--bg);
   color: var(--text);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  transition: background-color var(--theme-transition-duration) ease, color var(--theme-transition-duration) ease;
+  transition: background-color 0.25s ease, color 0.25s ease;
   min-height: 100vh;
 }
 
-/* đồng bộ cho tất cả thành phần giao diện khi đổi theme*/
-.navbar-matcha,
-.matcha-card,
-.card,
-.modal-content,
-.table,
-.form-select,
-.form-control,
-.dropdown-menu,
-.kanban-col,
-.kanban-card,
-.filter-pill,
-.header-nav-tab,
-.user-avatar-pill {
-  transition: background-color var(--theme-transition-duration) ease,
-    color var(--theme-transition-duration) ease,
-    border-color var(--theme-transition-duration) ease,
-    box-shadow var(--theme-transition-duration) ease;
-}
-
-/* Tùy biến nút Primary theo màu*/
+/* Tùy biến nút Primary theo màu Matcha */
 .btn-primary {
   background-color: var(--primary) !important;
   border-color: var(--primary) !important;
@@ -95,8 +65,7 @@ body {
   transition: all 0.2s ease;
 }
 
-.btn-primary:hover,
-.btn-primary:focus {
+.btn-primary:hover, .btn-primary:focus {
   background-color: var(--primary-hover) !important;
   border-color: var(--primary-hover) !important;
   transform: translateY(-1px);
@@ -127,7 +96,7 @@ body {
   box-shadow: var(--shadow);
 }
 
-/* Thẻ Badge/Chip*/
+/* Thẻ Badge/Chip phong cách Matcha */
 .badge-matcha {
   background-color: var(--primary-soft);
   color: var(--primary);
@@ -181,7 +150,7 @@ body {
   font-weight: 600;
 }
 
-/* Nút thả tim*/
+/* Nút thả tim yêu thích */
 .btn-fav {
   background: none;
   border: 1px solid var(--border);
@@ -223,26 +192,10 @@ body {
   align-items: center;
   gap: 4px;
 }
-
-.status-chip.is-success {
-  background: rgba(22, 163, 74, 0.12);
-  color: #16a34a;
-}
-
-.status-chip.is-warning {
-  background: rgba(217, 119, 6, 0.12);
-  color: #d97706;
-}
-
-.status-chip.is-danger {
-  background: rgba(239, 68, 68, 0.12);
-  color: #ef4444;
-}
-
-.status-chip.is-neutral {
-  background: rgba(100, 116, 139, 0.12);
-  color: var(--muted);
-}
+.status-chip.is-success { background: rgba(22, 163, 74, 0.12); color: #16a34a; }
+.status-chip.is-warning { background: rgba(217, 119, 6, 0.12); color: #d97706; }
+.status-chip.is-danger  { background: rgba(239, 68, 68, 0.12); color: #ef4444; }
+.status-chip.is-neutral { background: rgba(100, 116, 139, 0.12); color: var(--muted); }
 
 /* Animation Timeline cho Ứng viên */
 .timeline-step {
@@ -250,7 +203,6 @@ body {
   padding-bottom: 1.5rem;
   padding-left: 2rem;
 }
-
 .timeline-step::before {
   content: "";
   position: absolute;
@@ -260,11 +212,9 @@ body {
   width: 2px;
   background: var(--border);
 }
-
 .timeline-step:last-child::before {
   display: none;
 }
-
 .timeline-dot {
   position: absolute;
   left: 0;
@@ -274,12 +224,10 @@ body {
   border-radius: 50%;
   background: var(--muted);
 }
-
 .timeline-step.completed .timeline-dot {
   background: var(--primary);
   box-shadow: 0 0 0 3px var(--primary-soft);
 }
-
 .timeline-step.completed::before {
   background: var(--primary);
 }
@@ -305,20 +253,18 @@ body {
   display: flex;
   flex-direction: column;
 }
-
 .kanban-card {
   background-color: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
-
 .kanban-card:hover {
   transform: translateY(-2px);
   border-color: var(--primary);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
 }
 
 /* WYSIWYG Mini Toolbar & Editor */
@@ -327,7 +273,6 @@ body {
   gap: 6px;
   align-items: center;
 }
-
 .toolbar-btn {
   background: var(--surface-2);
   border: 1px solid var(--border);
@@ -342,13 +287,11 @@ body {
   gap: 4px;
   transition: all 0.15s ease;
 }
-
 .toolbar-btn:hover {
   background: var(--primary-soft);
   color: var(--primary);
   border-color: var(--primary);
 }
-
 .rich-editor-box {
   min-height: 120px;
   max-height: 240px;
@@ -360,13 +303,11 @@ body {
   color: var(--text);
   line-height: 1.6;
 }
-
 .rich-editor-box:focus {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px var(--primary-soft);
 }
-
 .rich-editor-box ul {
   padding-left: 20px;
   margin-bottom: 0;
@@ -380,18 +321,13 @@ body {
 }
 
 .composer-custom-dialog .modal-content {
-  width: 860px;
-  /* Độ rộng ban đầu */
-  min-width: 580px;
-  /* Giới hạn co nhỏ tối thiểu để không gãy form */
-  max-width: 95vw;
-  /* Giới hạn độ rộng tối đa theo màn hình */
+  width: 860px; /* Độ rộng ban đầu */
+  min-width: 580px; /* Giới hạn co nhỏ tối thiểu để không gãy form */
+  max-width: 95vw; /* Giới hạn độ rộng tối đa theo màn hình */
   min-height: 520px;
   max-height: 92vh;
-  resize: both;
-  /* Cho phép người dùng kéo giãn cả 2 chiều */
-  overflow: hidden;
-  /* Bắt buộc để trình duyệt hiện resize handle ở góc */
+  resize: both; /* Cho phép người dùng kéo giãn cả 2 chiều */
+  overflow: hidden; /* Bắt buộc để trình duyệt hiện resize handle ở góc */
   display: flex;
   flex-direction: column;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25);
@@ -411,7 +347,6 @@ body {
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   user-select: none;
 }
-
 .composer-draft-badge:hover {
   background-color: var(--primary) !important;
   color: #fff !important;
@@ -425,13 +360,11 @@ body {
     max-width: 96% !important;
     margin: 0.5rem auto;
   }
-
   .composer-custom-dialog .modal-content {
     width: 100% !important;
     min-width: 100% !important;
     max-width: 100% !important;
-    resize: none;
-    /* Thiết bị di động không cần resize */
+    resize: none; /* Thiết bị di động không cần resize */
   }
 }
 
@@ -441,11 +374,9 @@ body {
     opacity: 0;
     transform: translateY(10px) scale(0.88);
   }
-
   60% {
     transform: translateY(-2px) scale(1.02);
   }
-
   100% {
     opacity: 1;
     transform: translateY(0) scale(1);
@@ -457,7 +388,6 @@ body {
     opacity: 0;
     transform: translateY(-8px) scale(0.88);
   }
-
   100% {
     opacity: 1;
     transform: translateY(0) scale(1);
@@ -478,7 +408,6 @@ body {
   animation: tagFlyUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   transition: all 0.2s ease;
 }
-
 .tag-chip:hover {
   border-color: var(--primary);
   box-shadow: 0 2px 6px rgba(45, 134, 83, 0.15);
@@ -495,7 +424,6 @@ body {
   opacity: 0.7;
   transition: opacity 0.15s ease, transform 0.15s ease;
 }
-
 .tag-chip-remove:hover {
   opacity: 1;
   transform: scale(1.2);
@@ -516,7 +444,6 @@ body {
   transition: all 0.2s ease;
   user-select: none;
 }
-
 .suggest-chip:hover {
   background: var(--primary-soft);
   color: var(--primary);
@@ -528,25 +455,15 @@ body {
 .custom-calendar-dropdown {
   position: absolute;
   top: calc(100% + 6px);
+  left: 0;
   z-index: 1060;
-  width: 290px;
-  max-width: calc(100vw - 24px);
+  width: 320px;
   background-color: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
-  padding: 14px;
+  padding: 16px;
   animation: calendarFadeIn 0.2s ease forwards;
-}
-
-.custom-calendar-dropdown.align-end {
-  left: auto !important;
-  right: 0 !important;
-}
-
-.custom-calendar-dropdown.align-start {
-  left: 0 !important;
-  right: auto !important;
 }
 
 @keyframes calendarFadeIn {
@@ -554,7 +471,6 @@ body {
     opacity: 0;
     transform: translateY(-6px);
   }
-
   to {
     opacity: 1;
     transform: translateY(0);
@@ -618,7 +534,6 @@ body {
   border-left: 4px solid var(--primary);
   padding-left: 12px;
 }
-
 .summary-icon-row {
   display: flex;
   align-items: flex-start;
@@ -628,189 +543,34 @@ body {
   border-radius: 8px;
   border: 1px solid var(--border);
 }
-
 .summary-icon {
   font-size: 20px;
   line-height: 1;
 }
 
-/* Priority Card Admin - Soft, gentle, dark-mode friendly */
+/* Priority Card Admin */
 .priority-alert-card {
-  padding: 12px 14px;
+  padding: 12px 16px;
   border-radius: var(--radius);
-  border: 1px solid var(--border);
-  background: var(--surface-2);
+  border: 1px solid transparent;
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
-
 .priority-alert-card:hover {
   transform: translateX(4px);
   box-shadow: var(--shadow-sm);
-  background: var(--surface);
 }
-
 .priority-alert-card.danger {
-  border-left: 4px solid #ef4444;
-  background: rgba(239, 68, 68, 0.04);
-}
-
-.priority-alert-card.warning {
-  border-left: 4px solid #f59e0b;
-  background: rgba(245, 158, 11, 0.04);
-}
-
-.priority-alert-card.info {
-  border-left: 4px solid #3b82f6;
-  background: rgba(59, 130, 246, 0.04);
-}
-
-[data-bs-theme="dark"] .priority-alert-card.danger,
-body.dark .priority-alert-card.danger {
   background: rgba(239, 68, 68, 0.08);
-  border-color: rgba(239, 68, 68, 0.25);
-  border-left: 4px solid #ef4444;
+  border-color: rgba(239, 68, 68, 0.2);
 }
-
-[data-bs-theme="dark"] .priority-alert-card.warning,
-body.dark .priority-alert-card.warning {
-  background: rgba(245, 158, 11, 0.08);
-  border-color: rgba(245, 158, 11, 0.25);
-  border-left: 4px solid #f59e0b;
+.priority-alert-card.warning {
+  background: rgba(217, 119, 6, 0.08);
+  border-color: rgba(217, 119, 6, 0.2);
 }
-
-[data-bs-theme="dark"] .priority-alert-card.info,
-body.dark .priority-alert-card.info {
+.priority-alert-card.info {
   background: rgba(59, 130, 246, 0.08);
-  border-color: rgba(59, 130, 246, 0.25);
-  border-left: 4px solid #3b82f6;
-}
-
-.alert-title-danger {
-  color: #dc2626;
-}
-
-.alert-title-warning {
-  color: #d97706;
-}
-
-.alert-title-info {
-  color: #2563eb;
-}
-
-[data-bs-theme="dark"] .alert-title-danger,
-body.dark .alert-title-danger {
-  color: #f87171 !important;
-}
-
-[data-bs-theme="dark"] .alert-title-warning,
-body.dark .alert-title-warning {
-  color: #fbbf24 !important;
-}
-
-[data-bs-theme="dark"] .alert-title-info,
-body.dark .alert-title-info {
-  color: #60a5fa !important;
-}
-
-/*
-   THEME TOGGLE SLIDING SWITCH (LIGHT / DARK)
-   tùy chỉnh thời gian animation của nút gạt:
-   - Dùng biến CSS: --toggle-duration (hiện tại đặt là 0.5s ở đầu file tokens.css)
-   - Hoặc chỉnh trực tiếp thời gian ở thuộc tính 'transition' của .theme-toggle-thumb bên dưới.
-*/
-.theme-toggle-switch {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  width: 60px;
-  height: 30px;
-  border-radius: 9999px;
-  background: #e2e8f0;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  padding: 3px;
-  cursor: pointer;
-  outline: none;
-  transition: background-color var(--toggle-duration, 0.5s) ease,
-    border-color var(--toggle-duration, 0.5s) ease,
-    box-shadow 0.2s ease;
-  user-select: none;
-}
-
-.theme-toggle-switch:hover {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 2px var(--primary-soft);
-}
-
-.theme-toggle-track {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 8px;
-  pointer-events: none;
-  font-size: 11.5px;
-}
-
-.theme-icon-sun {
-  color: #f59e0b;
-  opacity: 0.85;
-}
-
-.theme-icon-moon {
-  color: #94a3b8;
-  opacity: 0.85;
-}
-
-.theme-toggle-thumb {
-  position: relative;
-  z-index: 2;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: #ffffff;
-  color: #f59e0b;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18), 0 1px 2px rgba(0, 0, 0, 0.08);
-  /* DÒNG TRANSITION QUYẾT ĐỊNH TỐC ĐỘ TRƯỢT NÚT GẠT
-     Đang đặt thời gian là var(--toggle-duration, 0.5s).
-     có thể thay đổi biến --toggle-duration ở dòng 55 hoặc sửa trực tiếp số giây tại đây
-  */
-  transition: transform var(--toggle-duration, 0.5s) cubic-bezier(0.34, 1.25, 0.64, 1),
-    background-color var(--toggle-duration, 0.5s) ease,
-    color var(--toggle-duration, 0.5s) ease,
-    box-shadow var(--toggle-duration, 0.5s) ease;
-  transform: translateX(0);
-}
-
-/* Dark mode*/
-.theme-toggle-switch.is-dark {
-  background: #475569;
-  border-color: #334155;
-}
-
-.theme-toggle-switch.is-dark .theme-icon-sun {
-  color: #94a3b8;
-  opacity: 0.5;
-}
-
-.theme-toggle-switch.is-dark .theme-icon-moon {
-  color: #93c5fd;
-  opacity: 0.85;
-}
-
-.theme-toggle-switch.is-dark .theme-toggle-thumb {
-  transform: translateX(30px);
-  background: #ffffff;
-  color: #3b82f6;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  border-color: rgba(59, 130, 246, 0.2);
 }
 
 /* Service Health Dot */
@@ -820,7 +580,6 @@ body.dark .alert-title-info {
   border-radius: 50%;
   display: inline-block;
 }
-
 .service-dot.online {
   background-color: #16a34a;
   box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.2);
@@ -833,7 +592,6 @@ body.dark .alert-title-info {
   background: linear-gradient(135deg, #10b981 0%, #047857 50%, #064e3b 100%);
   position: relative;
 }
-
 .company-avatar-overlap {
   width: 72px;
   height: 72px;
@@ -852,598 +610,37 @@ body.dark .alert-title-info {
   color: var(--primary);
 }
 
-/*COMBOBOX*/
-.form-select,
-select.form-control,
-select {
-  background-color: var(--surface) !important;
-  color: var(--text) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: 9px !important;
-  padding: 0.45rem 2.25rem 0.45rem 0.85rem !important;
-  font-size: 13.5px !important;
-  font-weight: 500 !important;
-  line-height: 1.5 !important;
-  cursor: pointer;
-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%232d8653' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e") !important;
-  background-repeat: no-repeat !important;
-  background-position: right 0.75rem center !important;
-  background-size: 14px 10px !important;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease !important;
-  appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-}
-
-[data-bs-theme="dark"] .form-select,
-body.dark .form-select,
-[data-bs-theme="dark"] select.form-control,
-body.dark select.form-control,
-[data-bs-theme="dark"] select,
-body.dark select {
-  background-color: var(--surface) !important;
-  color: var(--text) !important;
-  border-color: var(--border) !important;
-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%233fb978' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e") !important;
-}
-
-.form-select:hover,
-select.form-control:hover,
-select:hover {
-  border-color: var(--primary) !important;
-}
-
-.form-select:focus,
-select.form-control:focus,
-select:focus {
-  border-color: var(--primary) !important;
-  box-shadow: 0 0 0 3px var(--primary-soft) !important;
-  outline: 0 !important;
-}
-
-.form-select-sm {
-  padding-top: 0.35rem !important;
-  padding-bottom: 0.35rem !important;
-  padding-left: 0.75rem !important;
-  font-size: 12.5px !important;
-  border-radius: 7.5px !important;
-}
-
-.form-select-lg {
-  padding-top: 0.65rem !important;
-  padding-bottom: 0.65rem !important;
-  padding-left: 1rem !important;
-  font-size: 15px !important;
-  border-radius: 11px !important;
-}
-
-.form-select option,
-select option {
-  background-color: var(--surface) !important;
-  color: var(--text) !important;
-  padding: 8px 12px;
-}
-
-/*HEADER TABS, HOVER DROPDOWN*/
-.header-nav-tab,
+/* ========================================================
+   ROLE-BASED HEADER TASK LINKS
+   Tối ưu không gian, không icon/số, không scroll ngang
+   ======================================================== */
 .header-task-link {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
   color: var(--muted) !important;
-  font-size: 15px !important;
+  font-size: 14px !important;
   font-weight: 500;
-  padding: 0 20px !important;
-  height: 100% !important;
-  border-radius: 0;
+  padding: 6px 12px !important;
+  border-radius: 8px;
   text-decoration: none;
   white-space: nowrap;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  line-height: 1;
-  letter-spacing: -0.2px;
-  transition: color 0.2s ease, background-color 0.2s ease;
+  transition: all 0.15s ease;
+  line-height: 1.25;
 }
 
-.header-nav-tab:hover,
 .header-task-link:hover {
   color: var(--text) !important;
   background-color: var(--surface-2);
 }
 
-.header-nav-tab .tab-icon,
-.header-task-link .tab-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 15px;
-  line-height: 1;
-  opacity: 0;
-  max-width: 0;
-  margin-right: 0;
-  transform: scale(0.65);
-  transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1),
-              max-width 0.22s cubic-bezier(0.16, 1, 0.3, 1),
-              transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
-              margin-right 0.22s cubic-bezier(0.16, 1, 0.3, 1);
-  overflow: hidden;
-  vertical-align: middle;
-  pointer-events: none;
-}
-
-/* Tab đang active: LUÔN HIỆN ICON của tab đó */
-.header-nav-tab.active .tab-icon,
-.header-task-link.active .tab-icon {
-  opacity: 1;
-  max-width: 20px;
-  margin-right: 4px;
-  transform: scale(1.05);
-  color: var(--primary) !important;
-}
-
-/* Tab khi được hover vào: hiển thị icon */
-.header-nav-tab:hover .tab-icon,
-.header-task-link:hover .tab-icon {
-  opacity: 1;
-  max-width: 20px;
-  margin-right: 4px;
-  transform: scale(1);
-  color: var(--text);
-}
-
-.header-nav-tab.active:hover .tab-icon,
-.header-task-link.active:hover .tab-icon {
-  color: var(--primary) !important;
-  transform: scale(1.08);
-}
-
-.header-nav-tab::after,
-.header-task-link::after {
-  content: "";
-  position: absolute;
-  bottom: 0;
-  left: 10px;
-  right: 10px;
-  height: 3px;
-  border-radius: 3px 3px 0 0;
-  background-color: var(--primary);
-  transform: scaleX(0);
-  transform-origin: center;
-  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease;
-  z-index: 2;
-}
-
-.header-nav-tab.active,
 .header-task-link.active {
   color: var(--primary) !important;
-  font-weight: 600;
-  background-color: transparent !important;
-}
-
-.header-nav-tab.active::after,
-.header-task-link.active::after {
-  transform: scaleX(1);
-}
-
-/* Dropdown arrow khi hover */
-.header-nav-tab .dropdown-arrow {
-  transition: transform 0.2s ease;
-}
-
-.nav-hover-dropdown:hover .header-nav-tab .dropdown-arrow {
-  transform: rotate(180deg);
-}
-
-.nav-hover-dropdown {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  height: 100%;
-}
-
-.nav-hover-dropdown .dropdown-menu {
-  display: block;
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(6px);
-  transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1),
-    transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
-    visibility 0.2s ease;
-  pointer-events: none;
-  min-width: 210px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  background-color: var(--surface) !important;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
-  padding: 6px;
-  top: 100%;
-  margin-top: 0;
-  z-index: 1050;
-}
-
-.nav-hover-dropdown .dropdown-menu::before {
-  content: "";
-  position: absolute;
-  top: -6px;
-  left: 0;
-  right: 0;
-  height: 6px;
-}
-
-.nav-hover-dropdown:hover .dropdown-menu {
-  opacity: 1;
-  visibility: visible;
-  transform: translateY(0);
-  pointer-events: auto;
-}
-
-.nav-hover-dropdown .dropdown-item {
-  color: var(--text) !important;
-  font-size: 13.5px;
-  font-weight: 500;
-  padding: 8px 12px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  transition: all 0.16s ease;
-  background: transparent;
-  text-decoration: none;
-  cursor: pointer;
-  border: none;
-  width: 100%;
-  text-align: left;
-}
-
-/*hover dropdown item*/
-.nav-hover-dropdown .dropdown-item:hover {
-  background-color: var(--surface-2) !important;
-  color: var(--primary) !important;
-  transform: translateX(2px);
-}
-
-.nav-hover-dropdown .dropdown-item.active,
-.nav-hover-dropdown .dropdown-item:active {
   background-color: var(--primary-soft) !important;
-  color: var(--primary) !important;
   font-weight: 600;
 }
 
-/*RESPONSIVE HEADER & MOBILE COLLAPSE NAVIGATION (< 1200px)*/
-@media (max-width: 1199px) {
-  .navbar-matcha {
-    min-height: 64px;
-    height: auto !important;
-  }
-
-  .navbar-matcha .container-fluid {
-    padding-top: 8px;
-    padding-bottom: 8px;
-    min-height: 64px;
-  }
-
-  .navbar-matcha .navbar-collapse {
-    width: 100%;
-    background-color: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 12px 14px 16px;
-    margin-top: 10px;
-    margin-bottom: 8px;
-    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.16);
-  }
-
-  [data-bs-theme="dark"] .navbar-matcha .navbar-collapse,
-  body.dark .navbar-matcha .navbar-collapse {
-    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.55);
-  }
-
-  .navbar-matcha .navbar-collapse .nav {
-    flex-direction: column !important;
-    align-items: stretch !important;
-    gap: 4px !important;
-    height: auto !important;
-    width: 100%;
-  }
-
-  .header-nav-tab {
-    height: 42px !important;
-    border-radius: 8px !important;
-    padding: 0 12px !important;
-    justify-content: flex-start !important;
-    width: 100% !important;
-    font-size: 14px !important;
-  }
-
-  .header-nav-tab::after {
-    display: none !important;
-  }
-
-  .header-nav-tab.active {
-    background-color: var(--primary-soft) !important;
-    color: var(--primary) !important;
-  }
-
-  .header-nav-tab .tab-icon {
-    opacity: 1 !important;
-    max-width: 20px !important;
-    margin-right: 8px !important;
-    transform: scale(1) !important;
-  }
-
-  .nav-hover-dropdown {
-    width: 100% !important;
-    flex-direction: column !important;
-    align-items: stretch !important;
-    height: auto !important;
-  }
-
-  .nav-hover-dropdown .header-nav-tab .dropdown-arrow {
-    margin-left: auto !important;
-  }
-
-  .nav-hover-dropdown .dropdown-menu {
-    position: static !important;
-    transform: none !important;
-    opacity: 1 !important;
-    visibility: visible !important;
-    pointer-events: auto !important;
-    display: flex !important;
-    flex-direction: column !important;
-    box-shadow: none !important;
-    border: 1px solid var(--border) !important;
-    border-radius: 10px !important;
-    background-color: var(--surface-2) !important;
-    margin: 4px 0 8px 12px !important;
-    padding: 6px !important;
-    width: calc(100% - 12px) !important;
-  }
-
-  .nav-hover-dropdown .dropdown-item {
-    padding: 8px 12px !important;
-    border-radius: 6px !important;
-    font-size: 13.5px !important;
-    height: auto !important;
-  }
-}
-
-/*DESKTOP & LAPTOP HEADER DIMENSIONS*/
-@media (min-width: 1200px) {
-  .navbar-matcha {
-    height: 68px !important;
-    min-height: 68px !important;
-  }
-
-  .navbar-matcha .container-fluid {
-    height: 68px !important;
-    min-height: 68px !important;
-  }
-
-  .navbar-matcha .navbar-collapse {
-    height: 100% !important;
-  }
-
-  .navbar-matcha .navbar-nav {
-    height: 100% !important;
-    align-items: stretch !important;
-    gap: 8px !important;
-  }
-
-  .header-nav-tab,
-  .header-task-link,
-  .nav-hover-dropdown {
-    height: 68px !important;
-  }
-
-  .header-nav-tab {
-    padding: 0 20px !important;
-    font-size: 15px !important;
-  }
-
-  .nav-hover-dropdown .dropdown-menu {
-    top: 68px !important;
-  }
-}
-
-/*RESPONSIVE KANBAN BOARD SCROLLBAR & TOUCH POLISH*/
-.kanban-board-row {
-  -webkit-overflow-scrolling: touch;
-  scroll-behavior: smooth;
-  scrollbar-width: thin;
-  scrollbar-color: var(--primary) var(--surface-2);
-}
-
-.kanban-board-row::-webkit-scrollbar {
-  height: 8px;
-}
-
-.kanban-board-row::-webkit-scrollbar-track {
-  background: var(--surface-2);
-  border-radius: 9999px;
-}
-
-.kanban-board-row::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 9999px;
-}
-
-.kanban-board-row::-webkit-scrollbar-thumb:hover {
-  background: var(--primary);
-}
-
-/*RESPONSIVE FILTER COLUMNS ON TABLET / MOBILE*/
-.filter-select-col {
-  flex: 1 1 180px;
-  min-width: 150px;
-}
-
-@media (max-width: 576px) {
-  .filter-select-col {
-    flex: 1 1 100% !important;
-    width: 100% !important;
-  }
-}
-
-/*CÂN ĐỐI NÚT THEME SWITCH VÀ AVATAR PILL*/
-.user-profile-nav-dropdown {
-  display: flex;
-  align-items: center;
-  height: 100%;
-}
-
-.user-profile-nav-dropdown .dropdown-toggle::after,
-.user-profile-nav-dropdown .dropdown-toggle::before,
-.navbar-matcha .dropdown-toggle::after {
-  display: none !important;
-}
-
-.user-profile-nav-dropdown .nav-link {
-  padding: 0 !important;
-  display: flex !important;
-  align-items: center !important;
-  margin: 0 !important;
-  line-height: 1 !important;
-  border: none !important;
-}
-
-/* Avatar Pill trong Header */
-.user-avatar-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  height: 34px;
-  padding: 0 12px 0 5px !important;
-  border-radius: 9999px;
-  background-color: var(--surface-2);
-  border: 1px solid var(--border);
-  transition: all 0.2s ease;
-  cursor: pointer;
-  line-height: 1;
-}
-
-.user-avatar-pill:hover {
-  border-color: var(--primary);
-  background-color: var(--surface);
-}
-
-/*PROFILE DROPDOWN MENU*/
-.user-profile-nav-dropdown .dropdown-menu {
-  min-width: 255px !important;
-  border-radius: 18px !important;
-  border: 1px solid var(--border) !important;
-  background-color: var(--surface) !important;
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.05) !important;
-  padding: 0 !important;
-  overflow: hidden;
-  margin-top: 8px !important;
-  z-index: 1060;
-}
-
-[data-bs-theme="dark"] .user-profile-nav-dropdown .dropdown-menu,
-body.dark .user-profile-nav-dropdown .dropdown-menu {
-  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.55), 0 4px 16px rgba(0, 0, 0, 0.25) !important;
-}
-
-/* Gradient Ring cho Avatar*/
-.avatar-gradient-ring {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  padding: 2.5px;
-  background: linear-gradient(135deg, #f43f5e 0%, #a855f7 50%, #3b82f6 100%);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.avatar-gradient-inner {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  background-color: var(--surface);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-}
-
-.user-avatar-pill .avatar-gradient-ring {
-  width: 26px;
-  height: 26px;
-  padding: 1.5px;
-}
-
-.profile-dropdown-header {
-  background-color: var(--surface);
-  border-bottom: 1px solid var(--border);
-}
-
-.profile-menu-item {
-  color: var(--text) !important;
-  font-size: 13.5px !important;
-  font-weight: 500 !important;
-  padding: 8.5px 12px !important;
-  border-radius: 10px !important;
-  margin-bottom: 2px;
-  transition: all 0.15s ease !important;
-  cursor: pointer;
-  border: none;
-}
-
-.profile-menu-item:hover {
-  background-color: var(--surface-2) !important;
-  color: var(--primary) !important;
-  transform: translateX(2px);
-}
-
-.profile-menu-item.logout-item:hover {
-  background-color: rgba(239, 68, 68, 0.08) !important;
-  color: #ef4444 !important;
-}
-
-.profile-menu-icon {
-  font-size: 15px;
-  color: var(--muted);
-  width: 18px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.profile-menu-item:hover .profile-menu-icon {
-  color: inherit;
-}
-
-/* Badge Gói dịch vụ hiện tại*/
-.profile-plan-pill {
-  font-size: 10.5px;
-  font-weight: 700;
-  padding: 2.5px 8px;
-  border-radius: 9999px;
-  background-color: rgba(34, 197, 94, 0.15);
-  color: #16a34a;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  letter-spacing: 0.4px;
-  line-height: 1.2;
-}
-
-.profile-plan-pill .plan-dot {
-  font-size: 8px;
-}
-
-[data-bs-theme="dark"] .profile-plan-pill,
-body.dark .profile-plan-pill {
-  background-color: rgba(74, 222, 128, 0.16);
-  color: #4ade80;
-}
-
-/*THEME-AWARE FILTER PILLS*/
+/* ========================================================
+   THEME-AWARE FILTER PILLS (LIGHT & DARK MODE)
+   Khắc phục chói mắt, hỗ trợ focus dịu nhẹ
+   ======================================================== */
 .filter-pill {
   background-color: var(--surface-2) !important;
   color: var(--muted) !important;
@@ -1491,7 +688,11 @@ body.dark .profile-plan-pill {
   color: #ffffff !important;
 }
 
-/*MATCHA TABLE*/
+/* ========================================================
+   MATCHA THEME-AWARE TABLE
+   Xóa bỏ table-light gây chói trắng ở dark mode,
+   chữ vừa vặn, không quá to, hàng gọn gàng
+   ======================================================== */
 .matcha-table {
   font-size: 13px !important;
 }
@@ -1540,34 +741,18 @@ body.dark .profile-plan-pill {
   font-size: 11.5px !important;
 }
 
-/*ENHANCED ACCESSIBLE CHECKBOXES*/
-.matcha-table th.table-check-col,
-.matcha-table td.table-check-col,
-.matcha-table th:has(.form-check),
-.matcha-table td:has(.form-check),
-.matcha-table th:has(.matcha-checkbox-wrap),
-.matcha-table td:has(.matcha-checkbox-wrap) {
+/* ========================================================
+   ENHANCED ACCESSIBLE CHECKBOXES (LIGHT & DARK MODE)
+   Tăng kích thước từ 13px -> 19px, viền 2px Slate đậm nét,
+   nền sáng rõ, căn giữa ô cột và tương thích hoàn hảo Light/Dark Mode.
+   ======================================================== */
+.matcha-table th:first-child,
+.matcha-table td:first-child {
   width: 48px !important;
   text-align: center !important;
   vertical-align: middle !important;
   padding-left: 8px !important;
   padding-right: 8px !important;
-}
-
-/* Explicit text alignment overrides for matcha-table cells */
-.matcha-table thead th.text-start,
-.matcha-table tbody td.text-start {
-  text-align: left !important;
-}
-
-.matcha-table thead th.text-end,
-.matcha-table tbody td.text-end {
-  text-align: right !important;
-}
-
-.matcha-table thead th.text-center,
-.matcha-table tbody td.text-center {
-  text-align: center !important;
 }
 
 .matcha-table .form-check,
@@ -1588,7 +773,7 @@ body.dark .profile-plan-pill {
   height: 19px !important;
   min-width: 19px !important;
   min-height: 19px !important;
-  border: 2px solid #94a3b8 !important;
+  border: 2px solid #94a3b8 !important; /* Viền xám đậm Slate-400 tương phản cao trên nền sáng */
   background-color: var(--surface, #ffffff) !important;
   border-radius: 5px !important;
   cursor: pointer !important;
@@ -1616,12 +801,12 @@ body.dark .profile-plan-pill {
   background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='M6 10h8'/%3e%3c/svg%3e") !important;
 }
 
-/*Dark mode cho ô Checkbox*/
+/* Dark mode cho ô Checkbox */
 [data-bs-theme="dark"] .matcha-table .form-check-input,
 body.dark .matcha-table .form-check-input,
 [data-bs-theme="dark"] .matcha-checkbox,
 body.dark .matcha-checkbox {
-  border-color: #64748b !important;
+  border-color: #64748b !important; /* Viền sáng rõ Slate-500 trên nền dark mode */
   background-color: var(--surface-2, #1e293b) !important;
 }
 
@@ -1645,7 +830,11 @@ body.dark .matcha-checkbox:indeterminate {
   border-color: var(--primary, #3fb978) !important;
 }
 
-/*MATCHA STATUS BADGES*/
+/* ========================================================
+   MATCHA STATUS BADGES (SYNCHRONIZED HARMONIOUS PALETTE)
+   Không bị quá đậm (như solid bg), không bị quá nhạt (như opacity-10 text-body),
+   đẹp mắt hài hòa trên cả Light Mode & Dark Mode.
+   ======================================================== */
 .status-badge {
   display: inline-flex;
   align-items: center;
@@ -1659,13 +848,12 @@ body.dark .matcha-checkbox:indeterminate {
   white-space: nowrap;
 }
 
-/*Biến thể Xanh lá*/
+/* Biến thể Xanh lá (Đang tuyển, Đã xác nhận, Đã thanh toán, Hoàn thành) */
 .status-badge-success {
   background-color: rgba(34, 197, 94, 0.15) !important;
   color: #15803d !important;
   border: 1px solid rgba(34, 197, 94, 0.3) !important;
 }
-
 [data-bs-theme="dark"] .status-badge-success,
 body.dark .status-badge-success {
   background-color: rgba(34, 197, 94, 0.22) !important;
@@ -1673,13 +861,12 @@ body.dark .status-badge-success {
   border-color: rgba(74, 222, 128, 0.35) !important;
 }
 
-/*Biến thể Xanh lam / Cyan*/
+/* Biến thể Xanh lam / Cyan (Mới, Đang kích hoạt) */
 .status-badge-info {
   background-color: rgba(14, 165, 233, 0.15) !important;
   color: #0284c7 !important;
   border: 1px solid rgba(14, 165, 233, 0.3) !important;
 }
-
 [data-bs-theme="dark"] .status-badge-info,
 body.dark .status-badge-info {
   background-color: rgba(14, 165, 233, 0.22) !important;
@@ -1687,13 +874,12 @@ body.dark .status-badge-info {
   border-color: rgba(56, 189, 248, 0.35) !important;
 }
 
-/*Biến thể Tím*/
+/* Biến thể Tím / Purple (Sàng lọc, Đánh giá) */
 .status-badge-purple {
   background-color: rgba(168, 85, 247, 0.15) !important;
   color: #7e22ce !important;
   border: 1px solid rgba(168, 85, 247, 0.3) !important;
 }
-
 [data-bs-theme="dark"] .status-badge-purple,
 body.dark .status-badge-purple {
   background-color: rgba(168, 85, 247, 0.22) !important;
@@ -1701,13 +887,12 @@ body.dark .status-badge-purple {
   border-color: rgba(192, 132, 252, 0.35) !important;
 }
 
-/*Biến thể Xanh dương*/
+/* Biến thể Xanh dương / Tím (Sắp diễn ra, Phỏng vấn) */
 .status-badge-primary {
   background-color: rgba(59, 130, 246, 0.15) !important;
   color: #1d4ed8 !important;
   border: 1px solid rgba(59, 130, 246, 0.3) !important;
 }
-
 [data-bs-theme="dark"] .status-badge-primary,
 body.dark .status-badge-primary {
   background-color: rgba(59, 130, 246, 0.22) !important;
@@ -1715,13 +900,12 @@ body.dark .status-badge-primary {
   border-color: rgba(96, 165, 250, 0.35) !important;
 }
 
-/* Biến thể Vàng cam*/
+/* Biến thể Vàng cam (Chờ duyệt, Chờ xác nhận, Bài kiểm tra) */
 .status-badge-warning {
   background-color: rgba(245, 158, 11, 0.15) !important;
   color: #b45309 !important;
   border: 1px solid rgba(245, 158, 11, 0.3) !important;
 }
-
 [data-bs-theme="dark"] .status-badge-warning,
 body.dark .status-badge-warning {
   background-color: rgba(245, 158, 11, 0.22) !important;
@@ -1729,13 +913,12 @@ body.dark .status-badge-warning {
   border-color: rgba(251, 191, 36, 0.35) !important;
 }
 
-/* Biến thể Trung tính / Xám*/
+/* Biến thể Trung tính / Xám (Tạm dừng, Hoàn tất, Lưu trữ) */
 .status-badge-secondary {
   background-color: rgba(148, 163, 184, 0.16) !important;
   color: #475569 !important;
   border: 1px solid rgba(148, 163, 184, 0.3) !important;
 }
-
 [data-bs-theme="dark"] .status-badge-secondary,
 body.dark .status-badge-secondary {
   background-color: rgba(148, 163, 184, 0.22) !important;
@@ -1743,13 +926,12 @@ body.dark .status-badge-secondary {
   border-color: rgba(203, 213, 225, 0.35) !important;
 }
 
-/* Biến thể Đỏ*/
+/* Biến thể Đỏ (Đã đóng, Đã hủy, Từ chối) */
 .status-badge-danger {
   background-color: rgba(239, 68, 68, 0.15) !important;
   color: #b91c1c !important;
   border: 1px solid rgba(239, 68, 68, 0.3) !important;
 }
-
 [data-bs-theme="dark"] .status-badge-danger,
 body.dark .status-badge-danger {
   background-color: rgba(239, 68, 68, 0.22) !important;
@@ -1779,7 +961,9 @@ body.dark .status-badge-danger {
   font-weight: 600 !important;
 }
 
-/*MINI CALENDAR WIDGET*/
+/* ========================================================
+   THEME-AWARE MINI CALENDAR WIDGET (LIGHT & DARK MODE)
+   ======================================================== */
 .matcha-calendar-popover {
   background-color: var(--surface) !important;
   color: var(--text) !important;
@@ -1866,125 +1050,4 @@ body.dark .status-badge-danger {
   color: var(--primary) !important;
 }
 
-/*BILLING & INVOICES STYLING*/
-.invoice-code-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-family: var(--mono);
-  font-size: 12px;
-  font-weight: 600;
-  padding: 4px 9px;
-  border-radius: 6px;
-  background-color: var(--surface-2);
-  color: var(--text);
-  border: 1px solid var(--border);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  letter-spacing: 0.25px;
-  user-select: all;
-  cursor: pointer;
-}
 
-.invoice-code-badge:hover {
-  border-color: var(--primary);
-  color: var(--primary);
-  background-color: var(--primary-soft);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.15);
-}
-
-/* Plan Badges*/
-.plan-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 3px 10px;
-  border-radius: 9999px;
-  letter-spacing: 0.2px;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-}
-
-.plan-pill:hover {
-  transform: scale(1.05);
-}
-
-/* Gói Growth*/
-.plan-pill-growth {
-  background-color: rgba(34, 197, 94, 0.12);
-  color: #15803d;
-  border: 1px solid rgba(34, 197, 94, 0.35);
-  box-shadow: 0 1px 4px rgba(34, 197, 94, 0.08);
-}
-
-[data-bs-theme="dark"] .plan-pill-growth,
-body.dark .plan-pill-growth {
-  background-color: rgba(34, 197, 94, 0.22);
-  color: #4ade80;
-  border-color: rgba(74, 222, 128, 0.4);
-}
-
-/* Gói Starter*/
-.plan-pill-starter {
-  background-color: rgba(148, 163, 184, 0.15);
-  color: #475569;
-  border: 1px solid rgba(148, 163, 184, 0.35);
-}
-
-[data-bs-theme="dark"] .plan-pill-starter,
-body.dark .plan-pill-starter {
-  background-color: rgba(148, 163, 184, 0.22);
-  color: #cbd5e1;
-  border-color: rgba(203, 213, 225, 0.4);
-}
-
-/* Gói Enterprise*/
-.plan-pill-enterprise {
-  background-color: rgba(168, 85, 247, 0.14);
-  color: #7e22ce;
-  border: 1px solid rgba(168, 85, 247, 0.35);
-  box-shadow: 0 1px 4px rgba(168, 85, 247, 0.1);
-}
-
-[data-bs-theme="dark"] .plan-pill-enterprise,
-body.dark .plan-pill-enterprise {
-  background-color: rgba(168, 85, 247, 0.22);
-  color: #c084fc;
-  border-color: rgba(192, 132, 252, 0.4);
-}
-
-/* Gói Pro */
-.plan-pill-pro {
-  background-color: rgba(245, 158, 11, 0.14);
-  color: #b45309;
-  border: 1px solid rgba(245, 158, 11, 0.35);
-}
-
-[data-bs-theme="dark"] .plan-pill-pro,
-body.dark .plan-pill-pro {
-  background-color: rgba(245, 158, 11, 0.22);
-  color: #fbbf24;
-  border-color: rgba(251, 191, 36, 0.4);
-}
-
-/* Nút tải hóa đơn VAT */
-.invoice-download-btn {
-  font-size: 12px !important;
-  font-weight: 500;
-  padding: 4px 10px !important;
-  border-radius: 6px;
-  transition: all 0.2s ease;
-  color: #dc3545 !important;
-  border: 1px solid rgba(220, 53, 69, 0.3) !important;
-  background-color: transparent !important;
-  text-decoration: none !important;
-}
-
-.invoice-download-btn:hover {
-  background-color: rgba(220, 53, 69, 0.1) !important;
-  border-color: #dc3545 !important;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 6px rgba(220, 53, 69, 0.15);
-}

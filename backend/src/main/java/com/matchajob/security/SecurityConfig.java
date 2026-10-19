@@ -71,6 +71,7 @@ public class SecurityConfig {
                     auth.requestMatchers(HttpMethod.GET, "/v1/jobs").permitAll();
                     auth.requestMatchers(HttpMethod.GET, "/v1/categories", "/v1/categories/**").permitAll();
                     auth.requestMatchers(HttpMethod.GET, "/v1/skills", "/v1/skills/**").permitAll();
+                    auth.requestMatchers(HttpMethod.GET, "/api/v1/recruitment/taxonomies", "/api/v1/recruitment/taxonomies/**").permitAll();
                     auth.requestMatchers(HttpMethod.GET, "/v1/companies/{id:[0-9a-fA-F\\-]+}").permitAll();
 
                     // Role-protected endpoints: Employer

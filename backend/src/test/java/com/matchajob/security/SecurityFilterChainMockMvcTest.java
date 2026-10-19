@@ -148,4 +148,20 @@ class SecurityFilterChainMockMvcTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.status").value(401));
     }
+
+    @Test
+    @DisplayName("8. Public Taxonomy GET endpoint is permitted anonymously and does not return 401")
+    void taxonomyEndpoint_permittedAnonymously() throws Exception {
+        mockMvc.perform(get("/api/v1/recruitment/taxonomies/categories"))
+                .andExpect(result -> assertThat(result.getResponse().getStatus()).isNotEqualTo(401));
+    }
+
+    @Test
+    @DisplayName("9. Non-GET or arbitrary recruitment endpoint is rejected with 401 when accessed anonymously")
+    void nonGetRecruitmentEndpoint_rejectedAnonymouslyWith401() throws Exception {
+        mockMvc.perform(post("/api/v1/recruitment/taxonomies/categories"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401));
+    }
 }
+
