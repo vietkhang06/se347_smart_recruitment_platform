@@ -51,13 +51,13 @@ class CvHttpContractTest {
             var stored = (CvStorageService.StorageResult) call.getArgument(1);
             CvVersion cv = CvVersion.builder().id(cvId).candidateId(candidate).fileName(stored.fileName())
                     .filePath(stored.objectKey()).mimeType(stored.mimeType()).fileSizeBytes(stored.fileSizeBytes())
-                    .sha256Hash(stored.sha256Hash()).createdAt(Instant.now()).build();
+                    .sha256Hash(stored.sha256Hash()).createdAt(Instant.now()).active(true).build();
             when(cvs.findByIdAndCandidateId(cvId, candidate)).thenReturn(Optional.of(cv));
             return new CvRegistrationService.RegistrationResult(cv, ProcessingJob.builder().id(UUID.randomUUID()).build());
         });
         mvc.perform(multipart("/v1/candidates/{candidate}/cv", candidate)
                 .file(new MockMultipartFile("file", "resume.pdf", "application/pdf", bytes)).principal(principal()))
-                .andExpect(status().isAccepted())
+                .andExpect(status().isAccepted()).andExpect(jsonPath("$.is_active").value(true))
                 .andExpect(jsonPath("$.cv_version_id").value(cvId.toString()))
                 .andExpect(jsonPath("$.file_path").doesNotExist());
         mvc.perform(get("/v1/candidates/{candidate}/cv/{cv}/download", candidate, cvId)

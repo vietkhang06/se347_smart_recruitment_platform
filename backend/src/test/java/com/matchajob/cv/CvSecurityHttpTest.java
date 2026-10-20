@@ -50,7 +50,17 @@ class CvSecurityHttpTest {
     }
 
     @Test
-    void adminMayReadSpecificMetadataWithAudit() throws Exception {
+    void employerCannotSelectOrQueryActiveVersion() throws Exception {
+        String token = token(UUID.randomUUID(), "employer");
+        mvc.perform(put("/v1/candidates/{candidate}/cv/{cv}/active", UUID.randomUUID(), UUID.randomUUID())
+                .header("Authorization", token)).andExpect(status().isForbidden());
+        mvc.perform(get("/v1/candidates/{candidate}/cv/active", UUID.randomUUID())
+                .header("Authorization", token)).andExpect(status().isForbidden());
+        verifyNoInteractions(registrations);
+    }
+
+    @Test
+    void adminMayReadSpecificMetadataWithAuditButCannotMutateSelection() throws Exception {
         UUID adminId = UUID.randomUUID(), candidateId = UUID.randomUUID(), cvId = UUID.randomUUID();
         String token = token(adminId, "admin");
         when(cvs.findByIdAndCandidateId(cvId, candidateId)).thenReturn(Optional.of(CvVersion.builder()
@@ -58,6 +68,8 @@ class CvSecurityHttpTest {
         mvc.perform(get("/v1/candidates/{candidate}/cv/{cv}", candidateId, cvId).header("Authorization", token))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.file_path").doesNotExist());
         verify(audit).recordAdminRead(adminId, cvId, "VIEW_CV_METADATA");
+        mvc.perform(put("/v1/candidates/{candidate}/cv/{cv}/active", candidateId, cvId).header("Authorization", token))
+                .andExpect(status().isForbidden());
     }
 
     private String token(UUID id, String role) {

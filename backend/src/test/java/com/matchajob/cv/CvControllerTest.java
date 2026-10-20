@@ -191,6 +191,16 @@ class CvControllerTest {
     }
 
     @Test
+    void deniedActiveSelectionDoesNotModifyVersions() {
+        UUID candidateId = UUID.randomUUID(), userId = UUID.randomUUID(), cvId = UUID.randomUUID();
+        doThrow(new AccessDeniedException("not owner")).when(resourceOwnershipService)
+                .checkCandidateProfileOwnership(userId, candidateId);
+        assertThatThrownBy(() -> controller().activateCv(candidateId, cvId, authentication(userId)))
+                .isInstanceOf(AccessDeniedException.class);
+        verify(registrationService, never()).activate(any(), any());
+    }
+
+    @Test
     void adminAuditFailurePreventsPrivateMetadataResponse() {
         UUID userId = UUID.randomUUID(), candidateId = UUID.randomUUID(), cvId = UUID.randomUUID();
         Authentication admin = new UsernamePasswordAuthenticationToken(userId, null,

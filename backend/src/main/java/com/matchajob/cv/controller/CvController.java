@@ -23,6 +23,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -91,7 +92,7 @@ public class CvController {
         CvUploadResponse response = new CvUploadResponse(
                 cv.getId(), candidateId, cv.getFileName(), cv.getFileSizeBytes(), cv.getMimeType(),
                 cv.getStatus(), registration.job().getId(),
-                "CV uploaded successfully. Processing queued.");
+                "CV uploaded successfully. Processing queued.", cv.isActive());
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
     }
 
@@ -105,6 +106,20 @@ public class CvController {
         CvVersion cv = findCandidateCv(candidateId, cvVersionId);
         auditAdmin(authentication, userId, cvVersionId, "VIEW_CV_METADATA");
         return CvVersionResponse.from(cv);
+    }
+
+    @GetMapping("/{candidateId}/cv/active")
+    public CvVersionResponse getActiveCv(@PathVariable UUID candidateId, Authentication authentication) {
+        resourceOwnershipService.checkCandidateProfileOwnership(SecurityUtils.extractUserId(authentication), candidateId);
+        return CvVersionResponse.from(cvVersionRepository.findByCandidateIdAndActiveTrue(candidateId)
+                .orElseThrow(() -> new NoSuchElementException("No active CV was found for this candidate.")));
+    }
+
+    @PutMapping("/{candidateId}/cv/{cvVersionId}/active")
+    public CvVersionResponse activateCv(
+            @PathVariable UUID candidateId, @PathVariable UUID cvVersionId, Authentication authentication) {
+        resourceOwnershipService.checkCandidateProfileOwnership(SecurityUtils.extractUserId(authentication), candidateId);
+        return CvVersionResponse.from(registrationService.activate(candidateId, cvVersionId));
     }
 
     @GetMapping("/{candidateId}/cv")

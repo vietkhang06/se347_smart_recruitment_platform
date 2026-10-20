@@ -41,6 +41,9 @@ public class CvVersion {
     @Column(name = "sha256_hash", nullable = false, length = 64)
     private String sha256Hash;
 
+    @Column(name = "is_active", nullable = false)
+    private boolean active;
+
     @Column(name = "raw_text", columnDefinition = "TEXT")
     private String rawText;
 
