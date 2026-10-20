@@ -4,7 +4,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.matchajob.client.dto.CVExtractResponse;
 import com.matchajob.client.dto.EmbeddingsResponse;
-import com.matchajob.cv.model.CvVersion;
 import com.matchajob.cv.repository.CvVersionRepository;
 import com.matchajob.matching.repository.EmbeddingRepository;
 import com.matchajob.processing.model.ProcessingJob;
@@ -15,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.NoSuchElementException;
 import java.util.UUID;
 
 @Service
@@ -43,16 +43,15 @@ public class CvProcessingPersistenceService {
         if (embeddings == null || embeddings.getEmbeddings() == null || embeddings.getEmbeddings().isEmpty()) {
             throw new IllegalArgumentException("AI Worker returned no CV embedding.");
         }
-        CvVersion cv = cvRepository.findById(cvId).orElseThrow();
-        cv.setRawText(extraction.getRawText());
+        String parsedData;
         try {
-            cv.setParsedData(objectMapper.writeValueAsString(extraction.getParsedData()));
+            parsedData = objectMapper.writeValueAsString(extraction.getParsedData());
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Cannot persist CV extraction data.", e);
         }
-        cv.setStatus("extracted");
-        cv.setUpdatedAt(Instant.now());
-        cvRepository.save(cv);
+        if (cvRepository.updateProcessingResult(cvId, extraction.getRawText(), parsedData, Instant.now()) == 0) {
+            throw new NoSuchElementException("CV version was not found during processing.");
+        }
         embeddingRepository.saveEmbedding(UUID.randomUUID(), "cv_version", cvId, 0,
                 extraction.getRawText(), embeddings.getEmbeddings().get(0));
         jobService.markJobCompleted(lease.getId());
@@ -63,11 +62,8 @@ public class CvProcessingPersistenceService {
         requireLease(lease);
         jobService.markJobFailed(lease.getId(), safeReason, retryable);
         ProcessingJob job = jobService.getJob(lease.getId()).orElseThrow();
-        cvRepository.findById(cvId).ifPresent(cv -> {
-            cv.setStatus("FAILED".equals(job.getStatus()) ? "failed" : "uploaded");
-            cv.setUpdatedAt(Instant.now());
-            cvRepository.save(cv);
-        });
+        cvRepository.updateProcessingStatus(cvId,
+                "FAILED".equals(job.getStatus()) ? "failed" : "uploaded", Instant.now());
     }
 
     @Transactional

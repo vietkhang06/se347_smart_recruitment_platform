@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -18,6 +19,24 @@ public interface CvVersionRepository extends JpaRepository<CvVersion, UUID> {
     Optional<CvVersion> findBySha256Hash(String sha256Hash);
 
     Optional<CvVersion> findByCandidateIdAndActiveTrue(UUID candidateId);
+
+    // Processing owns only these columns; never merge a stale entity over the candidate's active selection.
+    @Modifying
+    @Query(value = """
+            UPDATE cv_versions
+            SET raw_text = :rawText, parsed_data = CAST(:parsedData AS jsonb),
+                status = 'extracted', updated_at = :updatedAt
+            WHERE id = :cvId
+            """, nativeQuery = true)
+    int updateProcessingResult(@Param("cvId") UUID cvId, @Param("rawText") String rawText,
+            @Param("parsedData") String parsedData, @Param("updatedAt") Instant updatedAt);
+
+    @Modifying
+    @Query(value = """
+            UPDATE cv_versions SET status = :status, updated_at = :updatedAt WHERE id = :cvId
+            """, nativeQuery = true)
+    int updateProcessingStatus(@Param("cvId") UUID cvId, @Param("status") String status,
+            @Param("updatedAt") Instant updatedAt);
 
     // Serialize uploads and active-version switches even when this candidate has no CV yet.
     @Query(value = "SELECT id FROM candidate_profiles WHERE id = :candidateId AND deleted_at IS NULL FOR UPDATE", nativeQuery = true)
