@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.UUID;
+import java.util.NoSuchElementException;
 
 @Service
 public class CvRegistrationService {
@@ -25,6 +26,9 @@ public class CvRegistrationService {
 
     @Transactional
     public RegistrationResult register(UUID candidateId, CvStorageService.StorageResult storage) {
+        cvVersionRepository.lockCandidate(candidateId)
+                .orElseThrow(() -> new NoSuchElementException("Candidate profile was not found."));
+        cvVersionRepository.clearActive(candidateId);
         CvVersion cv = CvVersion.builder()
                 .candidateId(candidateId)
                 .filePath(storage.objectKey())
@@ -32,6 +36,7 @@ public class CvRegistrationService {
                 .fileSizeBytes(storage.fileSizeBytes())
                 .mimeType(storage.mimeType())
                 .sha256Hash(storage.sha256Hash())
+                .active(true)
                 .status("uploaded")
                 .createdAt(Instant.now())
                 .updatedAt(Instant.now())
@@ -47,4 +52,15 @@ public class CvRegistrationService {
     }
 
     public record RegistrationResult(CvVersion cv, ProcessingJob job) {}
+
+    @Transactional
+    public CvVersion activate(UUID candidateId, UUID cvId) {
+        cvVersionRepository.lockCandidate(candidateId)
+                .orElseThrow(() -> new NoSuchElementException("Candidate profile was not found."));
+        cvVersionRepository.findByIdAndCandidateId(cvId, candidateId)
+                .orElseThrow(() -> new NoSuchElementException("CV version was not found for this candidate."));
+        cvVersionRepository.clearActive(candidateId);
+        cvVersionRepository.selectActive(candidateId, cvId);
+        return cvVersionRepository.findByIdAndCandidateId(cvId, candidateId).orElseThrow();
+    }
 }

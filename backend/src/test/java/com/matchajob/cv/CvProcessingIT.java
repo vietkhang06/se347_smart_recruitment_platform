@@ -11,6 +11,7 @@ import com.matchajob.cv.model.CvVersion;
 import com.matchajob.cv.repository.CvVersionRepository;
 import com.matchajob.cv.service.CvProcessingOrchestrator;
 import com.matchajob.cv.service.CvStorageService;
+import com.matchajob.cv.service.CvProcessingPersistenceService;
 import com.matchajob.matching.model.MatchResult;
 import com.matchajob.matching.repository.EmbeddingRepository;
 import com.matchajob.matching.service.MatchingService;
@@ -59,6 +60,9 @@ class CvProcessingIT {
 
     @Autowired
     private CvStorageService storageService;
+
+    @Autowired
+    private CvProcessingPersistenceService processingPersistence;
 
     @Autowired
     private MatchingService matchingService;
@@ -237,7 +241,8 @@ class CvProcessingIT {
         ProcessingJob updated = jobService.getJob(job.getId()).orElseThrow();
         assertThat(updated.getStatus()).isEqualTo("PENDING");
         assertThat(updated.getAttemptCount()).isEqualTo(1);
-        assertThat(updated.getLastError()).contains("Connection timed out");
+        assertThat(updated.getLastError()).contains("temporarily unavailable");
+        assertThat(cvVersionRepository.findById(cv.getId()).orElseThrow().getStatus()).isEqualTo("uploaded");
         assertThat(updated.getRetryAfter()).isAfter(updated.getCreatedAt());
     }
 
@@ -272,7 +277,8 @@ class CvProcessingIT {
 
         ProcessingJob updated = jobService.getJob(job.getId()).orElseThrow();
         assertThat(updated.getStatus()).isEqualTo("FAILED");
-        assertThat(updated.getLastError()).contains("Corrupt PDF");
+        assertThat(updated.getLastError()).contains("HTTP 400");
+        assertThat(cvVersionRepository.findById(cv.getId()).orElseThrow().getStatus()).isEqualTo("failed");
     }
 
     @Test
@@ -284,6 +290,41 @@ class CvProcessingIT {
         ProcessingJob job2 = jobService.createJob("CV_TEXT_EXTRACTION", "cv_version", entityId, idempotencyKey);
 
         assertThat(job1.getId()).isEqualTo(job2.getId());
+    }
+
+    @Test
+    void invalidEmbeddingRollsBackExtractedDataBeforeMarkingFailure() throws Exception {
+        UUID candidateId = createTestCandidateProfile();
+        when(aiWorkerClient.extractCv(any(), any(), any())).thenReturn(CVExtractResponse.builder()
+                .rawText("Synthetic CV for rollback test").parsedData(Map.of("skills", List.of("Java"))).build());
+        when(aiWorkerClient.generateEmbeddings(anyList())).thenReturn(EmbeddingsResponse.builder()
+                .embeddings(List.of(List.of(0.1f))).dimension(1).build());
+        var response = cvController.uploadCv(candidateId, authenticationForCandidate(candidateId),
+                new MockMultipartFile("file", "rollback.pdf", "application/pdf", createSamplePdfBytes()), true).getBody();
+        CvVersion stored = cvVersionRepository.findById(response.cvVersionId()).orElseThrow();
+        assertThat(stored.getStatus()).isEqualTo("failed");
+        assertThat(stored.getRawText()).isNull();
+        assertThat(stored.getParsedData()).isNull();
+        assertThat(jobService.getJob(response.processingJobId()).orElseThrow().getStatus()).isEqualTo("FAILED");
+    }
+
+    @Test
+    void expiredCvLeaseRetriesUntilAttemptsAreExhausted() throws Exception {
+        UUID candidateId = createTestCandidateProfile();
+        var response = cvController.uploadCv(candidateId, authenticationForCandidate(candidateId),
+                new MockMultipartFile("file", "lease.pdf", "application/pdf", createSamplePdfBytes()), false).getBody();
+        ProcessingJob lease = jobService.startCvJob(jobService.getJob(response.processingJobId()).orElseThrow()).orElseThrow();
+        jdbcClient.sql("UPDATE processing_jobs SET lease_expires_at = now() - interval '1 minute' WHERE id = ?")
+                .param(lease.getId()).update();
+        processingPersistence.recoverExpiredLeases();
+        assertThat(jobService.getJob(lease.getId()).orElseThrow().getStatus()).isEqualTo("PENDING");
+        assertThat(cvVersionRepository.findById(response.cvVersionId()).orElseThrow().getStatus()).isEqualTo("uploaded");
+
+        jdbcClient.sql("UPDATE processing_jobs SET status = 'PROCESSING', attempt_count = max_attempts, lease_expires_at = now() - interval '1 minute' WHERE id = ?")
+                .param(lease.getId()).update();
+        processingPersistence.recoverExpiredLeases();
+        assertThat(jobService.getJob(lease.getId()).orElseThrow().getStatus()).isEqualTo("FAILED");
+        assertThat(cvVersionRepository.findById(response.cvVersionId()).orElseThrow().getStatus()).isEqualTo("failed");
     }
 
     @Test

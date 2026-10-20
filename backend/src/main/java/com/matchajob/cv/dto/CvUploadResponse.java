@@ -12,5 +12,6 @@ public record CvUploadResponse(
         @JsonProperty("mime_type") String mimeType,
         String status,
         @JsonProperty("processing_job_id") UUID processingJobId,
-        String message
+        String message,
+        @JsonProperty("is_active") boolean active
 ) {}

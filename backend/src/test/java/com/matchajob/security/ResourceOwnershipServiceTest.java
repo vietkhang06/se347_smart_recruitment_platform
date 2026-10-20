@@ -287,4 +287,47 @@ class ResourceOwnershipServiceTest {
                     .hasMessageContaining("You do not have permission to access this application");
         }
     }
+
+    @Nested
+    @DisplayName("CV Version Access Tests")
+    class CvVersionAccess {
+
+        @Test
+        @DisplayName("permits employer only when the application snapshot references the requested CV version")
+        void checkCvVersionAccess_employerWithMatchingSnapshot_permitted() {
+            UUID userId = UUID.randomUUID();
+            UUID candidateId = UUID.randomUUID();
+            UUID cvVersionId = UUID.randomUUID();
+
+            when(candidateProfileRepository.findByUserId(userId)).thenReturn(Optional.empty());
+            when(jdbcClient.sql(anyString()).param(userId).query(UUID.class).optional())
+                    .thenReturn(Optional.empty());
+            when(jdbcClient.sql(anyString())
+                    .params(cvVersionId, candidateId, userId, userId, userId)
+                    .query(Integer.class).single())
+                    .thenReturn(1);
+
+            ownershipService.checkCvVersionAccess(userId, candidateId, cvVersionId);
+        }
+
+        @Test
+        @DisplayName("rejects employer when no owned application snapshot references the requested CV version")
+        void checkCvVersionAccess_employerWithoutMatchingSnapshot_rejected() {
+            UUID userId = UUID.randomUUID();
+            UUID candidateId = UUID.randomUUID();
+            UUID cvVersionId = UUID.randomUUID();
+
+            when(candidateProfileRepository.findByUserId(userId)).thenReturn(Optional.empty());
+            when(jdbcClient.sql(anyString()).param(userId).query(UUID.class).optional())
+                    .thenReturn(Optional.empty());
+            when(jdbcClient.sql(anyString())
+                    .params(cvVersionId, candidateId, userId, userId, userId)
+                    .query(Integer.class).single())
+                    .thenReturn(0);
+
+            assertThatThrownBy(() -> ownershipService.checkCvVersionAccess(userId, candidateId, cvVersionId))
+                    .isInstanceOf(AccessDeniedException.class)
+                    .hasMessageContaining("You do not have permission to view this CV");
+        }
+    }
 }

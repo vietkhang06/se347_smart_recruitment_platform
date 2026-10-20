@@ -5,6 +5,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.unit.DataSize;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -13,6 +15,8 @@ import java.io.OutputStream;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.LinkOption;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
@@ -21,6 +25,9 @@ import java.util.HexFormat;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
+import java.util.zip.ZipFile;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipException;
 
 @Service
 public class CvStorageService {
@@ -36,10 +43,12 @@ public class CvStorageService {
     public CvStorageService(
             @Value("${matchajob.upload-dir:target/uploads/cv}") String uploadDir,
             @Value("${matchajob.cv.max-file-size:10MB}") DataSize maxFileSize) {
-        this.storageDirectory = Path.of(uploadDir).toAbsolutePath().normalize();
         this.maxFileSizeBytes = maxFileSize.toBytes();
+        if (maxFileSizeBytes <= 0 || maxFileSizeBytes > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException("CV size limit must be positive and fit the metadata size field.");
+        }
         try {
-            Files.createDirectories(this.storageDirectory);
+            this.storageDirectory = Files.createDirectories(Path.of(uploadDir).toAbsolutePath().normalize()).toRealPath();
         } catch (IOException e) {
             throw new IllegalStateException("Cannot initialize CV storage directory", e);
         }
@@ -96,6 +105,9 @@ public class CvStorageService {
                 throw new IllegalArgumentException("Cannot store an empty file.");
             }
             validateMagicBytes(header, headerLength, fileType);
+            if (DOCX_MIME.equals(fileType.mimeType())) {
+                validateDocxPackage(temporaryFile);
+            }
             moveAtomicallyWhenSupported(temporaryFile, destination);
         } catch (IOException | RuntimeException e) {
             Files.deleteIfExists(temporaryFile);
@@ -109,6 +121,14 @@ public class CvStorageService {
 
     public byte[] readFile(String objectKey) throws IOException {
         return Files.readAllBytes(resolveObjectKey(objectKey));
+    }
+
+    public Resource loadResource(String objectKey) throws IOException {
+        Path file = resolveObjectKey(objectKey);
+        if (!Files.isRegularFile(file)) {
+            throw new NoSuchFileException("CV object is missing.");
+        }
+        return new FileSystemResource(file);
     }
 
     public void deleteFile(String objectKey) {
@@ -130,6 +150,17 @@ public class CvStorageService {
         if (!resolved.startsWith(storageDirectory)) {
             throw new IllegalArgumentException("Invalid CV object key.");
         }
+        Path existing = resolved;
+        while (!Files.exists(existing, LinkOption.NOFOLLOW_LINKS)) {
+            existing = existing.getParent();
+        }
+        try {
+            if (!existing.toRealPath().startsWith(storageDirectory)) {
+                throw new IllegalArgumentException("Invalid CV object key.");
+            }
+        } catch (IOException e) {
+            throw new IllegalArgumentException("Invalid CV object key.", e);
+        }
         return resolved;
     }
 
@@ -143,7 +174,46 @@ public class CvStorageService {
         if (sanitized.isBlank() || sanitized.equals(".") || sanitized.equals("..")) {
             throw new IllegalArgumentException("Invalid original filename.");
         }
+        if (sanitized.length() > 255) {
+            throw new IllegalArgumentException("CV filename must not exceed 255 characters.");
+        }
         return sanitized;
+    }
+
+    private void validateDocxPackage(Path file) throws IOException {
+        // Inspect the archive without extracting entries or trusting ZIP size declarations.
+        long expandedLimit = Math.min(maxFileSizeBytes * 10, 100L * 1024 * 1024);
+        try (ZipFile zip = new ZipFile(file.toFile())) {
+            if (zip.size() > 2048) {
+                throw new IllegalArgumentException("DOCX contains too many archive entries.");
+            }
+            for (String required : Set.of("[Content_Types].xml", "_rels/.rels", "word/document.xml")) {
+                ZipEntry entry = zip.getEntry(required);
+                if (entry == null || entry.isDirectory()) {
+                    throw new IllegalArgumentException("Invalid DOCX package: required document parts are missing.");
+                }
+            }
+            long total = 0;
+            var entries = zip.entries();
+            byte[] buffer = new byte[8192];
+            while (entries.hasMoreElements()) {
+                ZipEntry entry = entries.nextElement();
+                if (entry.isDirectory()) {
+                    continue;
+                }
+                try (InputStream input = zip.getInputStream(entry)) {
+                    int count;
+                    while ((count = input.read(buffer)) != -1) {
+                        total += count;
+                        if (total > expandedLimit) {
+                            throw new IllegalArgumentException("DOCX expanded content exceeds the configured safety limit.");
+                        }
+                    }
+                }
+            }
+        } catch (ZipException e) {
+            throw new IllegalArgumentException("Invalid DOCX archive.", e);
+        }
     }
 
     private FileType validateExtensionAndDeclaredMime(String filename, String declaredMime) {
@@ -195,7 +265,7 @@ public class CvStorageService {
         try {
             Files.move(source, destination, StandardCopyOption.ATOMIC_MOVE);
         } catch (AtomicMoveNotSupportedException e) {
-            Files.move(source, destination, StandardCopyOption.REPLACE_EXISTING);
+            Files.move(source, destination);
         }
     }
 

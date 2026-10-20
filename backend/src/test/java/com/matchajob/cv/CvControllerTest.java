@@ -7,6 +7,10 @@ import com.matchajob.cv.repository.CvVersionRepository;
 import com.matchajob.cv.service.CvProcessingOrchestrator;
 import com.matchajob.cv.service.CvRegistrationService;
 import com.matchajob.cv.service.CvStorageService;
+import com.matchajob.cv.service.CvAccessAuditService;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.mock.web.MockMultipartFile;
 import com.matchajob.security.ResourceOwnershipService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -46,6 +50,8 @@ class CvControllerTest {
     CvProcessingOrchestrator orchestrator;
     @Mock
     ResourceOwnershipService resourceOwnershipService;
+    @Mock
+    CvAccessAuditService auditService;
 
     @Test
     void metadataIsCandidateScopedAndDoesNotExposeObjectKey() {
@@ -81,12 +87,12 @@ class CvControllerTest {
         CvVersion cv = cv(candidateId, cvId);
         byte[] content = "%PDF-1.4".getBytes(StandardCharsets.UTF_8);
         when(cvVersionRepository.findByIdAndCandidateId(cvId, candidateId)).thenReturn(Optional.of(cv));
-        when(storageService.readFile("candidates/key.pdf")).thenReturn(content);
+        when(storageService.loadResource("candidates/key.pdf")).thenReturn(new ByteArrayResource(content));
 
-        ResponseEntity<byte[]> response = controller().downloadCv(
+        ResponseEntity<Resource> response = controller().downloadCv(
                 candidateId, cvId, authentication(userId), "attachment");
 
-        assertThat(response.getBody()).isEqualTo(content);
+        assertThat(response.getBody().getInputStream()).hasBinaryContent(content);
         assertThat(response.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION)).contains("attachment");
         assertThat(response.getHeaders().getCacheControl()).isEqualTo("no-store");
         verify(resourceOwnershipService).checkCvVersionAccess(userId, candidateId, cvId);
@@ -119,7 +125,7 @@ class CvControllerTest {
         assertThatThrownBy(() -> controller().downloadCv(candidateId, cvId, authentication(userId), "attachment"))
                 .isInstanceOf(AccessDeniedException.class);
 
-        verify(storageService, never()).readFile(any());
+        verify(storageService, never()).loadResource(any());
         verify(cvVersionRepository, never()).findByIdAndCandidateId(any(), any());
     }
 
@@ -129,7 +135,7 @@ class CvControllerTest {
                 cvVersionRepository,
                 registrationService,
                 orchestrator,
-                resourceOwnershipService);
+                resourceOwnershipService, auditService);
     }
 
     private Authentication authentication(UUID userId) {
@@ -152,5 +158,56 @@ class CvControllerTest {
                 .createdAt(Instant.now())
                 .updatedAt(Instant.now())
                 .build();
+    }
+
+    @Test
+    void uploadRegistrationFailureRemovesNewObject() throws Exception {
+        UUID candidateId = UUID.randomUUID();
+        var file = new MockMultipartFile("file", "resume.pdf", "application/pdf", "%PDF-1.4".getBytes());
+        var stored = new CvStorageService.StorageResult("candidates/new.pdf", "resume.pdf", 8, "application/pdf", "hash");
+        when(storageService.store(candidateId, file)).thenReturn(stored);
+        when(registrationService.register(candidateId, stored)).thenThrow(new IllegalStateException("DB failed"));
+        assertThatThrownBy(() -> controller().uploadCv(candidateId, authentication(UUID.randomUUID()), file, false))
+                .isInstanceOf(IllegalStateException.class);
+        verify(storageService).deleteFile("candidates/new.pdf");
+    }
+
+    @Test
+    void adminReadMustBeAuditedAndCandidateRelationshipStillChecked() {
+        UUID userId = UUID.randomUUID(), candidateId = UUID.randomUUID(), cvId = UUID.randomUUID();
+        Authentication admin = new UsernamePasswordAuthenticationToken(userId, null,
+                java.util.List.of(new SimpleGrantedAuthority("ROLE_ADMIN")));
+        when(cvVersionRepository.findByIdAndCandidateId(cvId, candidateId)).thenReturn(Optional.of(cv(candidateId, cvId)));
+        controller().getCvVersion(candidateId, cvId, admin);
+        verify(auditService).recordAdminRead(userId, cvId, "VIEW_CV_METADATA");
+        verify(resourceOwnershipService, never()).checkCvVersionAccess(any(), any(), any());
+    }
+
+    @Test
+    void invalidDispositionIsRejectedBeforeReadingPrivateContent() {
+        assertThatThrownBy(() -> controller().downloadCv(UUID.randomUUID(), UUID.randomUUID(),
+                authentication(UUID.randomUUID()), "invalid"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void deniedActiveSelectionDoesNotModifyVersions() {
+        UUID candidateId = UUID.randomUUID(), userId = UUID.randomUUID(), cvId = UUID.randomUUID();
+        doThrow(new AccessDeniedException("not owner")).when(resourceOwnershipService)
+                .checkCandidateProfileOwnership(userId, candidateId);
+        assertThatThrownBy(() -> controller().activateCv(candidateId, cvId, authentication(userId)))
+                .isInstanceOf(AccessDeniedException.class);
+        verify(registrationService, never()).activate(any(), any());
+    }
+
+    @Test
+    void adminAuditFailurePreventsPrivateMetadataResponse() {
+        UUID userId = UUID.randomUUID(), candidateId = UUID.randomUUID(), cvId = UUID.randomUUID();
+        Authentication admin = new UsernamePasswordAuthenticationToken(userId, null,
+                java.util.List.of(new SimpleGrantedAuthority("ROLE_ADMIN")));
+        when(cvVersionRepository.findByIdAndCandidateId(cvId, candidateId)).thenReturn(Optional.of(cv(candidateId, cvId)));
+        doThrow(new IllegalStateException("audit unavailable")).when(auditService).recordAdminRead(userId, cvId, "VIEW_CV_METADATA");
+        assertThatThrownBy(() -> controller().getCvVersion(candidateId, cvId, admin))
+                .isInstanceOf(IllegalStateException.class);
     }
 }

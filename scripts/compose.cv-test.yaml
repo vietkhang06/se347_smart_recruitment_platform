@@ -1,0 +1,41 @@
+# Isolated CV audit stack: does not reuse the normal project's containers, ports, or volumes.
+name: matchajob-cv-week2-test
+services:
+  database:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: matchajob_db
+      POSTGRES_USER: matchajob_user
+      POSTGRES_PASSWORD: matchajob_password
+    ports:
+      - '15433:5432'
+    volumes:
+      - cv_test_postgres:/var/lib/postgresql/data
+      - ../docker/postgres/01-init-test-db.sh:/docker-entrypoint-initdb.d/01-init-test-db.sh:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U matchajob_user -d matchajob_db']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    ports:
+      - '18081:8080'
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SPRING_DATASOURCE_URL: jdbc:postgresql://database:5432/matchajob_db
+      SPRING_DATASOURCE_USERNAME: matchajob_user
+      SPRING_DATASOURCE_PASSWORD: matchajob_password
+      MATCHAJOB_UPLOAD_DIR: /data/cv
+      AI_WORKER_BASE_URL: http://ai-worker:8000
+      REQUIRE_EMAIL_VERIFICATION: 'false'
+    depends_on:
+      database:
+        condition: service_healthy
+    volumes:
+      - cv_test_storage:/data/cv
+volumes:
+  cv_test_postgres:
+  cv_test_storage:

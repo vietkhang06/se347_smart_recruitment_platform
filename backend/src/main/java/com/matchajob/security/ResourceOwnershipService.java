@@ -259,11 +259,15 @@ public class ResourceOwnershipService {
             return; // Authorized as candidate owner
         }
 
-        // 2. Check if user is an employer with an application referencing this candidate on their job
+        // 2. Check if user is an employer reviewing an application that references this exact CV version.
         Integer authorizedEmployer = jdbcClient.sql("""
-                SELECT COUNT(*) FROM applications a
+                SELECT COUNT(*) FROM application_cv_snapshots acs
+                JOIN applications a ON a.id = acs.application_id
                 JOIN jobs j ON a.job_id = j.id
-                WHERE a.candidate_id = ?
+                JOIN cv_versions cv ON cv.id = acs.cv_version_id
+                WHERE cv.id = ?
+                  AND cv.candidate_id = ?
+                  AND a.candidate_id = cv.candidate_id
                   AND j.deleted_at IS NULL
                   AND (
                     j.created_by = ?
@@ -274,7 +278,7 @@ public class ResourceOwnershipService {
                     )
                   )
                 """)
-                .params(candidateId, userId, userId, userId)
+                .params(cvVersionId, candidateId, userId, userId, userId)
                 .query(Integer.class)
                 .single();
 

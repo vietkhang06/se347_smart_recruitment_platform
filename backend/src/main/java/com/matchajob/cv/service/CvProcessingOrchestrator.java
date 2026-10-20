@@ -1,26 +1,20 @@
 package com.matchajob.cv.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.matchajob.client.AiWorkerClient;
 import com.matchajob.client.dto.CVExtractResponse;
 import com.matchajob.client.dto.EmbeddingsResponse;
 import com.matchajob.cv.model.CvVersion;
 import com.matchajob.cv.repository.CvVersionRepository;
-import com.matchajob.matching.repository.EmbeddingRepository;
 import com.matchajob.processing.model.ProcessingJob;
 import com.matchajob.processing.service.ProcessingJobService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.ResourceAccessException;
 
 import java.io.IOException;
-import java.time.Instant;
 import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
 
 @Service
 public class CvProcessingOrchestrator {
@@ -31,47 +25,38 @@ public class CvProcessingOrchestrator {
     private final CvVersionRepository cvVersionRepository;
     private final ProcessingJobService jobService;
     private final AiWorkerClient aiWorkerClient;
-    private final EmbeddingRepository embeddingRepository;
-    private final ObjectMapper objectMapper;
+    private final CvProcessingPersistenceService persistence;
 
     public CvProcessingOrchestrator(
             CvStorageService storageService,
             CvVersionRepository cvVersionRepository,
             ProcessingJobService jobService,
             AiWorkerClient aiWorkerClient,
-            EmbeddingRepository embeddingRepository,
-            ObjectMapper objectMapper) {
+            CvProcessingPersistenceService persistence) {
         this.storageService = storageService;
         this.cvVersionRepository = cvVersionRepository;
         this.jobService = jobService;
         this.aiWorkerClient = aiWorkerClient;
-        this.embeddingRepository = embeddingRepository;
-        this.objectMapper = objectMapper;
+        this.persistence = persistence;
     }
 
     /**
      * Executes CV processing WITHOUT holding a database transaction during external HTTP calls.
      */
     public boolean processSingleJob(ProcessingJob job) {
-        log.info("Starting processing for job: {} (entity: {})", job.getId(), job.getEntityId());
-        jobService.startJob(job.getId());
-
-        Optional<CvVersion> cvOpt = cvVersionRepository.findById(job.getEntityId());
-        if (cvOpt.isEmpty()) {
-            jobService.markJobFailed(job.getId(), "CvVersion not found for ID: " + job.getEntityId(), false);
-            return false;
+        var started = jobService.startCvJob(job);
+        if (started.isEmpty()) {
+            return jobService.getJob(job.getId()).map(current -> "COMPLETED".equals(current.getStatus())).orElse(false);
         }
-
-        CvVersion cv = cvOpt.get();
-        byte[] fileBytes;
-        try {
-            fileBytes = storageService.readFile(cv.getFilePath());
-        } catch (IOException e) {
-            jobService.markJobFailed(job.getId(), "Failed to read CV file from disk: " + e.getMessage(), false);
+        ProcessingJob lease = started.get();
+        CvVersion cv = cvVersionRepository.findById(lease.getEntityId()).orElse(null);
+        if (cv == null) {
+            persistence.fail(lease.getEntityId(), lease, "CV metadata was not found.", false);
             return false;
         }
 
         try {
+            byte[] fileBytes = storageService.readFile(cv.getFilePath());
             // STEP 1: HTTP Network call to AI Worker (OUTSIDE TRANSACTION)
             CVExtractResponse extractResponse = aiWorkerClient.extractCv(
                     fileBytes,
@@ -82,55 +67,24 @@ public class CvProcessingOrchestrator {
             // STEP 2: HTTP Network call for Embeddings (OUTSIDE TRANSACTION)
             String textForEmbedding = extractResponse.getRawText();
             if (textForEmbedding == null || textForEmbedding.isBlank()) {
-                textForEmbedding = cv.getFileName();
+                throw new IllegalArgumentException("CV text extraction returned no content.");
             }
             EmbeddingsResponse embeddingsResponse = aiWorkerClient.generateEmbeddings(List.of(textForEmbedding));
 
             // STEP 3: Short Database Transaction to Persist Results
-            saveResultsTransaction(cv.getId(), extractResponse, embeddingsResponse, job.getId());
+            persistence.complete(cv.getId(), extractResponse, embeddingsResponse, lease);
             return true;
 
         } catch (Exception ex) {
             boolean isRetryable = isRetryableException(ex);
-            log.error("Error processing CV job {} (retryable={}): {}", job.getId(), isRetryable, ex.getMessage());
-            jobService.markJobFailed(job.getId(), ex.getMessage(), isRetryable);
+            String safeReason = ex instanceof IOException ? "CV file could not be read."
+                    : ex instanceof ResourceAccessException ? "AI Worker is temporarily unavailable."
+                    : ex instanceof HttpStatusCodeException http ? "AI Worker returned HTTP " + http.getStatusCode().value() + "."
+                    : "CV processing failed.";
+            log.warn("CV job {} failed; retryable={}, cause={}", lease.getId(), isRetryable, ex.getClass().getSimpleName());
+            persistence.fail(cv.getId(), lease, safeReason, isRetryable);
             return false;
         }
-    }
-
-    @Transactional
-    public void saveResultsTransaction(
-            UUID cvId,
-            CVExtractResponse extractResponse,
-            EmbeddingsResponse embeddingsResponse,
-            UUID jobId) {
-        CvVersion cv = cvVersionRepository.findById(cvId)
-                .orElseThrow(() -> new IllegalStateException("CvVersion missing during commit: " + cvId));
-
-        cv.setRawText(extractResponse.getRawText());
-        try {
-            cv.setParsedData(objectMapper.writeValueAsString(extractResponse.getParsedData()));
-        } catch (Exception e) {
-            log.warn("Failed to serialize parsedData JSON: {}", e.getMessage());
-        }
-        cv.setStatus("extracted");
-        cv.setUpdatedAt(Instant.now());
-        cvVersionRepository.save(cv);
-
-        if (embeddingsResponse != null && !embeddingsResponse.getEmbeddings().isEmpty()) {
-            List<Float> vector = embeddingsResponse.getEmbeddings().get(0);
-            embeddingRepository.saveEmbedding(
-                    UUID.randomUUID(),
-                    "cv_version",
-                    cv.getId(),
-                    0,
-                    extractResponse.getRawText(),
-                    vector
-            );
-        }
-
-        jobService.markJobCompleted(jobId);
-        log.info("Successfully persisted extraction results and embeddings for CV: {}", cvId);
     }
 
     private boolean isRetryableException(Exception ex) {

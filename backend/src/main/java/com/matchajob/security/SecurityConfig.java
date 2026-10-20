@@ -90,6 +90,8 @@ public class SecurityConfig {
                     auth.requestMatchers(HttpMethod.POST, "/v1/applications").hasRole("CANDIDATE");
                     auth.requestMatchers(HttpMethod.POST, "/v1/candidates/*/cv").hasRole("CANDIDATE");
                     auth.requestMatchers(HttpMethod.GET, "/v1/candidates/*/cv").hasRole("CANDIDATE");
+                    auth.requestMatchers(HttpMethod.GET, "/v1/candidates/*/cv/active").hasRole("CANDIDATE");
+                    auth.requestMatchers(HttpMethod.PUT, "/v1/candidates/*/cv/*/active").hasRole("CANDIDATE");
 
                     // All other endpoints require authentication by default (deny-by-default)
                     auth.anyRequest().authenticated();
@@ -136,7 +138,7 @@ public class SecurityConfig {
                 "Origin",
                 "X-Requested-With"
         ));
-        configuration.setExposedHeaders(List.of("Authorization", "Content-Type"));
+        configuration.setExposedHeaders(List.of("Authorization", "Content-Type", "Content-Disposition"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
 

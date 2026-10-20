@@ -19,6 +19,9 @@ matchajob:
   upload-dir: ${MATCHAJOB_UPLOAD_DIR:target/uploads/cv}
   cv:
     max-file-size: ${MATCHAJOB_CV_MAX_FILE_SIZE:10MB}
+    processing:
+      enabled: ${MATCHAJOB_CV_PROCESSING_ENABLED:true}
+      poll-delay-ms: ${MATCHAJOB_CV_PROCESSING_POLL_DELAY_MS:2000}
 
 management:
   endpoints:

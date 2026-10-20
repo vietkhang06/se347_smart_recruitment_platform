@@ -86,6 +86,8 @@ public class ProcessingJobService {
     public void markJobCompleted(UUID jobId) {
         jobRepository.findById(jobId).ifPresent(job -> {
             job.setStatus("COMPLETED");
+            job.setLeaseToken(null);
+            job.setLeaseExpiresAt(null);
             job.setCompletedAt(Instant.now());
             job.setUpdatedAt(Instant.now());
             jobRepository.save(job);
@@ -128,5 +130,38 @@ public class ProcessingJobService {
 
     public Optional<ProcessingJob> getJob(UUID jobId) {
         return jobRepository.findById(jobId);
+    }
+
+    @Transactional
+    public Optional<ProcessingJob> claimNextCvJob() {
+        Instant now = Instant.now();
+        return jobRepository.claimNextCvJob(now).map(job -> {
+            startCvLease(job, now);
+            return jobRepository.save(job);
+        });
+    }
+
+    @Transactional
+    public Optional<ProcessingJob> startCvJob(ProcessingJob submitted) {
+        return jobRepository.findByIdForUpdate(submitted.getId()).flatMap(job -> {
+            if ("PROCESSING".equals(job.getStatus())) {
+                return submitted.getLeaseToken() != null && submitted.getLeaseToken().equals(job.getLeaseToken())
+                        ? Optional.of(job) : Optional.empty();
+            }
+            if (!"PENDING".equals(job.getStatus()) || job.getAttemptCount() >= job.getMaxAttempts()) {
+                return Optional.empty();
+            }
+            startCvLease(job, Instant.now());
+            return Optional.of(jobRepository.save(job));
+        });
+    }
+
+    private void startCvLease(ProcessingJob job, Instant now) {
+        job.setStatus("PROCESSING");
+        job.setStartedAt(now);
+        job.setAttemptCount(job.getAttemptCount() + 1);
+        job.setLeaseToken(UUID.randomUUID().toString());
+        job.setLeaseExpiresAt(now.plusSeconds(120));
+        job.setUpdatedAt(now);
     }
 }

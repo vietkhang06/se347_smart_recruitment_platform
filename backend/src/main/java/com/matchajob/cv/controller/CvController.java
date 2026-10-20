@@ -7,6 +7,8 @@ import com.matchajob.cv.repository.CvVersionRepository;
 import com.matchajob.cv.service.CvProcessingOrchestrator;
 import com.matchajob.cv.service.CvRegistrationService;
 import com.matchajob.cv.service.CvStorageService;
+import com.matchajob.cv.service.CvAccessAuditService;
+import org.springframework.core.io.Resource;
 import com.matchajob.security.ResourceOwnershipService;
 import com.matchajob.security.SecurityUtils;
 import org.slf4j.Logger;
@@ -21,6 +23,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -44,18 +47,21 @@ public class CvController {
     private final CvRegistrationService registrationService;
     private final CvProcessingOrchestrator orchestrator;
     private final ResourceOwnershipService resourceOwnershipService;
+    private final CvAccessAuditService auditService;
 
     public CvController(
             CvStorageService storageService,
             CvVersionRepository cvVersionRepository,
             CvRegistrationService registrationService,
             CvProcessingOrchestrator orchestrator,
-            ResourceOwnershipService resourceOwnershipService) {
+            ResourceOwnershipService resourceOwnershipService,
+            CvAccessAuditService auditService) {
         this.storageService = storageService;
         this.cvVersionRepository = cvVersionRepository;
         this.registrationService = registrationService;
         this.orchestrator = orchestrator;
         this.resourceOwnershipService = resourceOwnershipService;
+        this.auditService = auditService;
     }
 
     @PostMapping(value = "/{candidateId}/cv", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -83,10 +89,14 @@ public class CvController {
         }
 
         CvVersion cv = registration.cv();
+        if (sync) {
+            cv = findCandidateCv(candidateId, cv.getId());
+        }
         CvUploadResponse response = new CvUploadResponse(
                 cv.getId(), candidateId, cv.getFileName(), cv.getFileSizeBytes(), cv.getMimeType(),
                 cv.getStatus(), registration.job().getId(),
-                "CV uploaded successfully. Processing queued.");
+                sync ? "CV uploaded. Processing attempted; inspect status for the result."
+                        : "CV uploaded successfully. Processing queued.", cv.isActive());
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
     }
 
@@ -96,9 +106,24 @@ public class CvController {
             @PathVariable UUID cvVersionId,
             Authentication authentication) {
         UUID userId = SecurityUtils.extractUserId(authentication);
-        resourceOwnershipService.checkCvVersionAccess(userId, candidateId, cvVersionId);
+        checkReadAccess(authentication, userId, candidateId, cvVersionId);
         CvVersion cv = findCandidateCv(candidateId, cvVersionId);
+        auditAdmin(authentication, userId, cvVersionId, "VIEW_CV_METADATA");
         return CvVersionResponse.from(cv);
+    }
+
+    @GetMapping("/{candidateId}/cv/active")
+    public CvVersionResponse getActiveCv(@PathVariable UUID candidateId, Authentication authentication) {
+        resourceOwnershipService.checkCandidateProfileOwnership(SecurityUtils.extractUserId(authentication), candidateId);
+        return CvVersionResponse.from(cvVersionRepository.findByCandidateIdAndActiveTrue(candidateId)
+                .orElseThrow(() -> new NoSuchElementException("No active CV was found for this candidate.")));
+    }
+
+    @PutMapping("/{candidateId}/cv/{cvVersionId}/active")
+    public CvVersionResponse activateCv(
+            @PathVariable UUID candidateId, @PathVariable UUID cvVersionId, Authentication authentication) {
+        resourceOwnershipService.checkCandidateProfileOwnership(SecurityUtils.extractUserId(authentication), candidateId);
+        return CvVersionResponse.from(registrationService.activate(candidateId, cvVersionId));
     }
 
     @GetMapping("/{candidateId}/cv")
@@ -114,7 +139,7 @@ public class CvController {
     }
 
     @GetMapping("/{candidateId}/cv/{cvVersionId}/download")
-    public ResponseEntity<byte[]> downloadCv(
+    public ResponseEntity<Resource> downloadCv(
             @PathVariable UUID candidateId,
             @PathVariable UUID cvVersionId,
             Authentication authentication,
@@ -126,9 +151,10 @@ public class CvController {
         }
 
         UUID userId = SecurityUtils.extractUserId(authentication);
-        resourceOwnershipService.checkCvVersionAccess(userId, candidateId, cvVersionId);
+        checkReadAccess(authentication, userId, candidateId, cvVersionId);
         CvVersion cv = findCandidateCv(candidateId, cvVersionId);
-        byte[] content = storageService.readFile(cv.getFilePath());
+        Resource content = storageService.loadResource(cv.getFilePath());
+        auditAdmin(authentication, userId, cvVersionId, inline ? "PREVIEW_CV" : "DOWNLOAD_CV");
 
         ContentDisposition contentDisposition = (inline
                 ? ContentDisposition.inline()
@@ -145,10 +171,23 @@ public class CvController {
 
         return ResponseEntity.ok()
                 .contentType(mediaType)
-                .contentLength(content.length)
+                .contentLength(content.contentLength())
                 .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition.toString())
+                .header("X-Content-Type-Options", "nosniff")
                 .cacheControl(CacheControl.noStore())
                 .body(content);
+    }
+
+    private void checkReadAccess(Authentication authentication, UUID userId, UUID candidateId, UUID cvVersionId) {
+        if (!SecurityUtils.hasRole(authentication, "ADMIN")) {
+            resourceOwnershipService.checkCvVersionAccess(userId, candidateId, cvVersionId);
+        }
+    }
+
+    private void auditAdmin(Authentication authentication, UUID userId, UUID cvVersionId, String action) {
+        if (SecurityUtils.hasRole(authentication, "ADMIN")) {
+            auditService.recordAdminRead(userId, cvVersionId, action);
+        }
     }
 
     private CvVersion findCandidateCv(UUID candidateId, UUID cvVersionId) {

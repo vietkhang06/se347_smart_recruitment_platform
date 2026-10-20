@@ -1,6 +1,7 @@
 package com.matchajob.processing.controller;
 
 import com.matchajob.processing.model.ProcessingJob;
+import com.matchajob.processing.dto.ProcessingJobResponse;
 import com.matchajob.processing.service.ProcessingJobService;
 import com.matchajob.security.ResourceOwnershipService;
 import com.matchajob.security.SecurityUtils;
@@ -33,7 +34,7 @@ public class ProcessingJobController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ProcessingJob> getJob(
+    public ResponseEntity<ProcessingJobResponse> getJob(
             @PathVariable UUID id,
             Authentication authentication) {
 
@@ -47,13 +48,13 @@ public class ProcessingJobController {
             resourceOwnershipService.checkProcessingJobAccess(userId, id, job.getEntityType(), job.getEntityId());
         }
 
-        return ResponseEntity.ok(job);
+        return ResponseEntity.ok(ProcessingJobResponse.from(job));
     }
 
     /**
      * Programmatic overload for internal integration tests.
      */
-    public ResponseEntity<ProcessingJob> getJob(UUID id) {
+    public ResponseEntity<ProcessingJobResponse> getJob(UUID id) {
         return getJob(id, null);
     }
 }

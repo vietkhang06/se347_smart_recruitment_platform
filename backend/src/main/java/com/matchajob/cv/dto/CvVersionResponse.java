@@ -15,11 +15,12 @@ public record CvVersionResponse(
         @JsonProperty("sha256_hash") String sha256Hash,
         String status,
         @JsonProperty("created_at") Instant createdAt,
-        @JsonProperty("updated_at") Instant updatedAt
+        @JsonProperty("updated_at") Instant updatedAt,
+        @JsonProperty("is_active") boolean active
 ) {
     public static CvVersionResponse from(CvVersion cv) {
         return new CvVersionResponse(
                 cv.getId(), cv.getCandidateId(), cv.getFileName(), cv.getFileSizeBytes(),
-                cv.getMimeType(), cv.getSha256Hash(), cv.getStatus(), cv.getCreatedAt(), cv.getUpdatedAt());
+                cv.getMimeType(), cv.getSha256Hash(), cv.getStatus(), cv.getCreatedAt(), cv.getUpdatedAt(), cv.isActive());
     }
 }
