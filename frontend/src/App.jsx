@@ -1,3 +1,4 @@
+import DataModeNotice from "./components/common/DataModeNotice";
 import { Routes, Route, useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import Header from "./components/common/Header";
@@ -32,6 +33,7 @@ export default function App() {
   return (
     <div className="d-flex flex-column min-vh-100">
       <Header />
+      <DataModeNotice />
       <main className="flex-grow-1">
         <Routes>
           {/* Public Routes */}

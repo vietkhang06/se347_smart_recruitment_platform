@@ -1,3 +1,4 @@
+import { IS_API } from "../../services/dataMode";
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import Container from "react-bootstrap/Container";
@@ -12,11 +13,27 @@ import { jobService } from "../../services/jobService";
 export default function SavedJobsPage() {
   const { favorites } = useFavorites();
 
+  const [loading, setLoading] = useState(IS_API);
+  const [error, setError] = useState("");
+  const [retry, setRetry] = useState(0);
+  const ids = favorites.join(",");
   const [query, setQuery] = useState("");
   const [onlyOpen, setOnlyOpen] = useState(false);
   const [jobs, setJobs] = useState(() => jobService.getJobsSnapshot());
 
   useEffect(() => {
+    if (!IS_API) return;
+    const controller = new AbortController();
+    setLoading(true); setError("");
+    const list = ids ? ids.split(",") : [];
+    Promise.all(list.map(id => jobService.getPublicJobById(id, { signal: controller.signal })))
+      .then(data => { if (!controller.signal.aborted) setJobs(data.filter(Boolean)); })
+      .catch(err => { if (!controller.signal.aborted) setError(err.message); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [ids, retry]);
+  useEffect(() => {
+    if (IS_API) return;
     const refresh = () => setJobs(jobService.getJobsSnapshot());
 
     window.addEventListener("matchajob:store-changed", refresh);
@@ -40,6 +57,8 @@ export default function SavedJobsPage() {
         .includes(query.trim().toLowerCase())
   );
 
+  if (loading) return <Container className="py-5" role="status">Đang tải việc làm đã lưu…</Container>;
+  if (error) return <Container className="py-5"><p role="alert">{error}</p><Button onClick={() => setRetry(v => v + 1)}>Thử lại</Button></Container>;
   return (
     <Container className="py-5">
       <div className="mb-4">

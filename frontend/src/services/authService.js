@@ -1,6 +1,8 @@
+import { mockAuthService } from "./mock/mockAuthService";
 import { storage } from "./storage";
 import { mockStore } from "./mockStore";
 import { httpClient } from "./httpClient";
+import { IS_API, DATA_MODE, TOKEN_KEY } from "./dataMode";
 
 const ROLE_CODES = {
   "Ứng viên": "candidate",
@@ -73,150 +75,88 @@ function toSession(account, role) {
   };
 }
 
-// Kiểm tra tài khoản và vai trò trong hệ thống.
+function apiSession(data) {
+  const role = String(data?.role || "").toLowerCase();
+  if (!data?.id || !["candidate", "employer", "admin"].includes(role)) throw new Error("Dữ liệu tài khoản từ máy chủ không hợp lệ.");
+  return { id: data.id, email: normalize(data.email), name: data.full_name || data.fullName || "", role,
+    loggedIn: true, mode: DATA_MODE, companies: data.companies || [],
+    ...(role === "employer" ? { companyId: data.companies?.[0]?.id || null } : {}) };
+}
+function persist(user) {
+  storage.setUser(user);
+  localStorage.setItem("matchajob_active_user_id", String(user.id));
+  window.dispatchEvent(new Event("matchajob:auth-changed"));
+  return user;
+}
 export const authService = {
   getUser() {
     const saved = storage.getUser();
     if (!saved?.loggedIn) return null;
-
+    if (IS_API) return saved.mode === DATA_MODE && localStorage.getItem(TOKEN_KEY) ? saved : null;
+    if (saved.mode && saved.mode !== "mock") return null;
     try {
       const account = findAccount(saved.email);
-      if (!account) return saved;
-
-      const actualRole = validateAccount(account);
-      if (saved.role !== actualRole) return null;
-
-      if (
-        saved.id != null &&
-        String(saved.id) !== String(account.id)
-      ) {
-        return null;
-      }
-
-      return toSession(account, actualRole);
-    } catch {
-      return saved;
-    }
+      const role = validateAccount(account);
+      return saved.role === role && String(saved.id) === String(account.id) && saved.expiresAt > Date.now() ? { ...toSession(account, role), mode: "mock", expiresAt: saved.expiresAt } : null;
+    } catch { return null; }
   },
-
-  async loginWithCredentials(email, requestedRole = "candidate", password = "") {
-    // 1. Thử gọi API backend POST /v1/auth/login nếu backend đang hoạt động
-    try {
-      const response = await httpClient.post("/v1/auth/login", {
-        email: normalize(email),
-        password: password || "Password123!"
-      });
-
-      if (response?.access_token) {
-        localStorage.setItem("matchajob_access_token", response.access_token);
-        if (response.user?.id) {
-          localStorage.setItem("matchajob_active_user_id", response.user.id);
-        }
-
-        const backendRole = (response.user?.role || "").toLowerCase();
-        const role = backendRole || requestedRole;
-
-        let companyId = "COMP-01";
-        const matchedLocal = findAccount(email);
-        if (matchedLocal?.companyId) {
-          companyId = matchedLocal.companyId;
-        }
-
-        const sessionUser = {
-          id: response.user?.id || matchedLocal?.id || "USR-2001",
-          email: normalize(response.user?.email || email),
-          role,
-          loggedIn: true,
-          name: response.user?.full_name || matchedLocal?.name || "",
-          ...(role === "employer" ? { companyId } : {})
-        };
-
-        storage.setUser(sessionUser);
-        window.dispatchEvent(new Event("matchajob:auth-changed"));
-        return sessionUser;
-      }
-    } catch (apiErr) {
-      console.warn("[authService] Backend login error, fallback sang mock:", apiErr.message);
-    }
-
-    // 2. Fallback sang logic local mock
-    return this.login(email, requestedRole);
-  },
-
-  login(email, requestedRole = "candidate") {
-    const account = findAccount(email);
-    const actualRole = validateAccount(account);
-
-    if (requestedRole !== actualRole) {
-      throw new Error(
-        `Email này thuộc vai trò ${account.role}. Hãy chọn đúng vai trò.`
-      );
-    }
-
-    const user = toSession(account, actualRole);
+  async restore() {
+    if (!IS_API) return this.getUser();
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (!token) return null;
+    if (DATA_MODE === "api" && token.startsWith("fixture-session:")) { this.logout(); return null; }
+    const data = await httpClient.get("/v1/users/me");
+    if (localStorage.getItem(TOKEN_KEY) !== token) return null;
+    const user = apiSession(data);
     storage.setUser(user);
-
-    if (account.id) {
-      localStorage.setItem("matchajob_active_user_id", String(account.id));
-    }
-    if (account.candidateId) {
-      localStorage.setItem("matchajob_active_candidate_id", String(account.candidateId));
-    }
-
-    window.dispatchEvent(
-      new Event("matchajob:auth-changed")
-    );
-
     return user;
   },
-
+  async loginWithCredentials(email, requestedRole = "candidate", password = "") {
+    if (!IS_API) {
+      const account = findAccount(email);
+      const role = validateAccount(account);
+      await mockAuthService.verify(account, password);
+      if (requestedRole !== role) throw new Error(`Email này thuộc vai trò ${account.role}. Hãy chọn đúng vai trò.`);
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem("matchajob_active_candidate_id");
+      if (account.candidateId) localStorage.setItem("matchajob_active_candidate_id", String(account.candidateId));
+      return persist({ ...toSession(account, role), mode: "mock", expiresAt: Date.now() + 8 * 60 * 60 * 1000 });
+    }
+    if (!password) throw new Error("Vui lòng nhập mật khẩu.");
+    const response = await httpClient.post("/v1/auth/login", { email: normalize(email), password }, { auth: false });
+    if (!response?.access_token) throw new Error("Máy chủ không trả token đăng nhập.");
+    localStorage.setItem(TOKEN_KEY, response.access_token);
+    localStorage.removeItem("matchajob_active_candidate_id");
+    try {
+      const user = apiSession(await httpClient.get("/v1/users/me"));
+      return persist(user);
+    } catch (error) { this.logout(); throw error; }
+  },
+  async register({ email, password, role, name = "", companyName = "" }) {
+    if (!["candidate", "employer"].includes(role)) throw new Error("Vai trò đăng ký không hợp lệ.");
+    if (password.length < 8 || new TextEncoder().encode(password).length > 72) throw new Error("Mật khẩu cần ít nhất 8 ký tự và tối đa 72 byte UTF-8.");
+    if (!IS_API) return mockAuthService.register({ email, password, role, name, companyName });
+    return httpClient.post("/v1/auth/register", { email: normalize(email), password, role: role.toUpperCase() }, { auth: false });
+  },
+  login(email, requestedRole = "candidate", password = "") {
+    return this.loginWithCredentials(email, requestedRole, password);
+  },
   logout() {
     storage.setUser(null);
-    localStorage.removeItem("matchajob_access_token");
-    localStorage.removeItem("matchajob_active_user_id");
-    localStorage.removeItem("matchajob_active_candidate_id");
-
-    window.dispatchEvent(
-      new Event("matchajob:auth-changed")
-    );
+    [TOKEN_KEY, "matchajob_active_user_id", "matchajob_active_candidate_id"].forEach(key => localStorage.removeItem(key));
+    window.dispatchEvent(new Event("matchajob:auth-changed"));
   },
-
   subscribe(callback) {
-    const onStorage = (event) => {
-      if (
-        event.key === null ||
-        [
-          "matchajob-demo-user",
-          "matchajob_store_users",
-          "matchajob_store_companies"
-        ].includes(event.key)
-      ) {
-        callback();
-      }
+    const onStorage = e => {
+      if (!e.key || ["matchajob-demo-user", TOKEN_KEY, "matchajob_store_users", "matchajob_store_companies"].includes(e.key)) callback();
     };
-
-    const onChange = () => callback();
-
     window.addEventListener("storage", onStorage);
-    window.addEventListener(
-      "matchajob:auth-changed",
-      onChange
-    );
-    window.addEventListener(
-      "matchajob:store-changed",
-      onChange
-    );
-
+    window.addEventListener("matchajob:auth-changed", callback);
+    if (!IS_API) window.addEventListener("matchajob:store-changed", callback);
     return () => {
       window.removeEventListener("storage", onStorage);
-      window.removeEventListener(
-        "matchajob:auth-changed",
-        onChange
-      );
-      window.removeEventListener(
-        "matchajob:store-changed",
-        onChange
-      );
+      window.removeEventListener("matchajob:auth-changed", callback);
+      window.removeEventListener("matchajob:store-changed", callback);
     };
   }
 };

@@ -1,124 +1,59 @@
-/**
- * MatchaJob HTTP Client
- * Triển khai native fetch gọn nhẹ, an toàn, hỗ trợ baseURL, timeout, và tự động đính kèm headers
- */
-
+import { TOKEN_KEY } from "./dataMode";
 export class HttpError extends Error {
   constructor(message, status, data = null) {
-    super(message);
-    this.name = "HttpError";
-    this.status = status;
-    this.data = data;
+    super(message); this.name = "HttpError"; this.status = status; this.data = data;
   }
 }
-
-// Cấu hình URL cơ sở: mặc định http://localhost:8080/api theo cấu hình Spring Boot
-const DEFAULT_BASE_URL = "http://localhost:8080/api";
-
-function getBaseUrl() {
-  const envUrl = import.meta.env.VITE_API_BASE_URL;
-  if (!envUrl) return DEFAULT_BASE_URL;
-  return envUrl.endsWith("/") ? envUrl.slice(0, -1) : envUrl;
-}
-
-/**
- * Ghép đường dẫn an toàn không bị trùng lặp dấu gạch chéo
- */
-function buildFullUrl(endpoint) {
+export function buildFullUrl(endpoint) {
   if (/^https?:\/\//i.test(endpoint)) return endpoint;
-  const base = getBaseUrl();
-  const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
-  return `${base}${cleanEndpoint}`;
+  const base = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api").replace(/\/+$/, "");
+  let path = "/" + endpoint.replace(/^\/+/, "");
+  if (base.endsWith("/api") && path.startsWith("/api/")) path = path.slice(4);
+  return base + path;
 }
-
-/**
- * Xử lý request cốt lõi
- */
-async function request(endpoint, options = {}) {
-  const url = buildFullUrl(endpoint);
-
-  const defaultHeaders = {
-    "Content-Type": "application/json",
-    Accept: "application/json"
-  };
-
-  // Đính kèm JWT Bearer token và các header định danh
-  const token =
-    localStorage.getItem("matchajob_access_token") ||
-    localStorage.getItem("token") ||
-    localStorage.getItem("access_token");
-  if (token) {
-    defaultHeaders["Authorization"] = `Bearer ${token}`;
+async function request(endpoint, { auth = true, timeout = 15000, ...options } = {}) {
+  const headers = new Headers(options.headers);
+  headers.set("Accept", "application/json, application/problem+json");
+  const token = auth ? localStorage.getItem(TOKEN_KEY) : null;
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  let body = options.body;
+  if (body != null && typeof body === "object" && !(body instanceof FormData)) {
+    headers.set("Content-Type", "application/json"); body = JSON.stringify(body);
   }
-
-  const candidateId = localStorage.getItem("matchajob_active_candidate_id");
-  const userId = localStorage.getItem("matchajob_active_user_id");
-  if (candidateId) defaultHeaders["X-Candidate-Id"] = candidateId;
-  if (userId) defaultHeaders["X-User-Id"] = userId;
-
-  const config = {
-    ...options,
-    headers: {
-      ...defaultHeaders,
-      ...options.headers
-    }
-  };
-
-  if (options.body && typeof options.body === "object" && !(options.body instanceof FormData)) {
-    config.body = JSON.stringify(options.body);
-  }
-
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  if (options.signal?.aborted) abort();
+  options.signal?.addEventListener("abort", abort, { once: true });
+  const timer = setTimeout(abort, timeout);
   try {
-    const response = await fetch(url, config);
-
-    // Xử lý 204 No Content
-    if (response.status === 204) {
-      return null;
+    const transport = fetch;
+    const response = await transport(buildFullUrl(endpoint), { ...options, headers, body, signal: controller.signal });
+    const raw = response.status === 204 ? "" : await response.text();
+    let data = raw || null;
+    if (raw && /json/i.test(response.headers.get("content-type") || "")) {
+      try { data = JSON.parse(raw); } catch { throw new HttpError("Máy chủ trả dữ liệu không hợp lệ.", response.status); }
     }
-
-    // Đọc payload phản hồi
-    const contentType = response.headers.get("content-type") || "";
-    let data = null;
-    if (contentType.includes("application/json")) {
-      data = await response.json();
-    } else {
-      data = await response.text();
-    }
-
     if (!response.ok) {
-      const errorMsg =
-        data?.message ||
-        data?.title ||
-        data?.detail ||
-        `HTTP Request Failed with status ${response.status} (${response.statusText})`;
-      throw new HttpError(errorMsg, response.status, data);
+      // Không xóa phiên mới nếu phản hồi thuộc token cũ.
+      if (response.status === 401 && token && localStorage.getItem(TOKEN_KEY) === token) {
+        window.dispatchEvent(new Event("matchajob:session-expired"));
+      }
+      const fields = data?.errors && typeof data.errors === "object" ? Object.values(data.errors).filter(value => typeof value === "string").join("; ") : "";
+      throw new HttpError(fields || data?.detail || data?.message || data?.title || `Yêu cầu thất bại (${response.status}).`, response.status, data);
     }
-
     return data;
-  } catch (err) {
-    if (err instanceof HttpError) throw err;
-    throw new HttpError(err.message || "Network Error / Failed to connect to server", 0, null);
+  } catch (error) {
+    if (error instanceof HttpError) throw error;
+    if (options.signal?.aborted) throw error;
+    throw new HttpError(controller.signal.aborted ? "Máy chủ phản hồi quá lâu. Hãy thử lại." : "Không kết nối được máy chủ. Kiểm tra backend và thử lại.", 0);
+  } finally {
+    clearTimeout(timer); options.signal?.removeEventListener("abort", abort);
   }
 }
-
 export const httpClient = {
-  get(endpoint, options = {}) {
-    return request(endpoint, { ...options, method: "GET" });
-  },
-
-  post(endpoint, body, options = {}) {
-    return request(endpoint, { ...options, method: "POST", body });
-  },
-
-  put(endpoint, body, options = {}) {
-    return request(endpoint, { ...options, method: "PUT", body });
-  },
-
-  patch(endpoint, body, options = {}) {
-    return request(endpoint, { ...options, method: "PATCH", body });
-  },
-
-  delete(endpoint, options = {}) {
-    return request(endpoint, { ...options, method: "DELETE" });
-  }
+  get: (url, options) => request(url, { ...options, method: "GET" }),
+  post: (url, body, options) => request(url, { ...options, method: "POST", body }),
+  put: (url, body, options) => request(url, { ...options, method: "PUT", body }),
+  patch: (url, body, options) => request(url, { ...options, method: "PATCH", body }),
+  delete: (url, options) => request(url, { ...options, method: "DELETE" })
 };
