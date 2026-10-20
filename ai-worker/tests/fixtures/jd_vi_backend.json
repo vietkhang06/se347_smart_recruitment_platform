@@ -1,0 +1,14 @@
+{
+  "job_id": "22222222-2222-4222-8222-222222222222",
+  "job_title": "Lập trình viên Backend Java (Senior)",
+  "job_description": "Tuyển dụng Lập trình viên Backend phát triển dịch vụ microservices.",
+  "job_requirements": "Yêu cầu: 3 năm kinh nghiệm với Java, Spring Boot, PostgreSQL, Docker, Microservices. Tốt nghiệp Đại học chuyên ngành CNTT.",
+  "expected_skills": [
+    "Docker",
+    "Java",
+    "Microservices",
+    "PostgreSQL",
+    "Spring Boot"
+  ],
+  "expected_experience_years": 3
+}
