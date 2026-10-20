@@ -71,18 +71,18 @@
       "kind": "target-contract",
       "module": "matching",
       "route": "POST /api/v1/applications/{applicationId}/match",
-      "implementation": "current-route-has-query-parameters",
-      "validation": "manual-shape-check",
-      "note": "Empty object illustrates proposed server-side lookup of Application/Job/CV snapshot; current MatchController requires cvVersionId as a query parameter and accepts job fields as query parameters."
+      "implementation": "implemented-with-server-side-source-lookup",
+      "validation": "backend-service-test-needed-and-openapi-generated",
+      "note": "Request body is empty by design; Backend derives Job and immutable CV version from the persisted Application and application_cv_snapshots."
     },
     {
       "file": "matching-response.json",
       "kind": "target-contract",
       "module": "matching",
       "route": "GET /api/v1/applications/{applicationId}/match",
-      "implementation": "entity-present-but-response-shape-differs",
-      "validation": "manual-shape-check",
-      "note": "Target contract uses breakdown as a JSON object; current MatchResult entity declares breakdown as String."
+      "implementation": "public-response-dto-added",
+      "validation": "matching-result-contract-test",
+      "note": "Public DTO uses camelCase, normalized skill lists, criteria scores and status. It is distinct from the MatchResult persistence entity."
     },
     {
       "file": "matching-response-current.json",
@@ -91,7 +91,7 @@
       "route": "GET /api/v1/applications/{applicationId}/match",
       "implementation": "present",
       "validation": "static-shape-test",
-      "note": "Shape inferred from MatchResult entity; breakdown serializes as a string unless DTO mapping is introduced."
+      "note": "Legacy entity shape retained only to document the persistence representation; API controller now maps it to MatchingResultResponse."
     },
     {
       "file": "ai-match-score-request.json",
@@ -173,6 +173,24 @@
       "implementation": "controller-and-JobDetailResponse-present-base-path/authz-not-verified",
       "validation": "manual-shape-check",
       "note": "Response keys follow JobDetailResponse DTO. Values are synthetic; owner must confirm lifecycle and createdBy should come from authenticated principal."
+    },
+    {
+      "file": "matching-result-completed.json",
+      "kind": "target-contract-fixture",
+      "module": "matching",
+      "route": "GET /api/v1/applications/{applicationId}/match",
+      "implementation": "MatchingResultResponse DTO added",
+      "validation": "cross-layer-contract-test",
+      "note": "Synthetic completed result. Mirrored by frontend/src/fixtures/matching-result.fixture.json; fixture is not a live evaluation."
+    },
+    {
+      "file": "matching-result-pending.json",
+      "kind": "target-contract-fixture",
+      "module": "matching",
+      "route": "GET /api/v1/applications/{applicationId}/match",
+      "implementation": "Processing state mapping added",
+      "validation": "cross-layer-contract-test",
+      "note": "Synthetic pending result; score values are null until status becomes COMPLETED."
     }
   ]
 }

@@ -172,7 +172,7 @@ export default function JobDetailPage() {
                 Kinh nghiệm: {job.exp || "Chưa cập nhật"}
               </span>
 
-              {Number.isFinite(Number(job.match)) && job.match !== "" && (
+              {job.match != null && String(job.match).trim() !== "" && Number.isFinite(Number(job.match)) && (
                 <span className="job-highlight-badge badge-match">
                   <i className="bi bi-stars me-1 text-success" />
                   {job.match}% Phù hợp

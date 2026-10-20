@@ -1,0 +1,39 @@
+{
+  "applicationId": "77777777-7777-4777-8777-777777777777",
+  "jobId": "22222222-2222-4222-8222-222222222222",
+  "cvVersionId": "55555555-5555-4555-8555-555555555555",
+  "status": "COMPLETED",
+  "overallScore": 78,
+  "skillsScore": 82,
+  "experienceScore": 72,
+  "criteriaScores": {
+    "skills": 82,
+    "experience": 72
+  },
+  "matchedSkills": [
+    "Java",
+    "Spring Boot"
+  ],
+  "missingSkills": [
+    "Kubernetes"
+  ],
+  "breakdown": {
+    "requiredSkills": [
+      "Java",
+      "Spring Boot",
+      "Kubernetes"
+    ],
+    "matchedSkills": [
+      "Java",
+      "Spring Boot"
+    ],
+    "missingSkills": [
+      "Kubernetes"
+    ],
+    "candidate_experience_years": 3
+  },
+  "explanation": "Fixture minh họa: hồ sơ thể hiện Java và Spring Boot; cần xác minh thêm Kubernetes và mức kinh nghiệm phù hợp với vị trí.",
+  "processingJobId": null,
+  "evaluatedAt": "2026-10-18T10:00:00Z",
+  "message": "Fixture demo only; this is not a live AI evaluation."
+}

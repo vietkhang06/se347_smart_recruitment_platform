@@ -56,6 +56,8 @@ $RECYCLE.BIN/
 # docs/ - exclude documentation files per project config
 docs/**
 !docs/.gitkeep
+!docs/MATCHING_RESULT_API_AND_CV_JD_UI.md
+!docs/MATCHING_RESULT_IMPLEMENTATION_NOTES.md
 !docs/contracts/
 !docs/contracts/**
 !docs/weekly/

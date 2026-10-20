@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
-import { exportCandidatesCSV } from "./views/CandidatesView";
 import Container from "react-bootstrap/Container";
 import Badge from "react-bootstrap/Badge";
 import Button from "react-bootstrap/Button";
+import { IS_API } from "../../services/dataMode";
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
 import { mockStore } from "../../services/mockStore";
-import { jobService, interviewService, applicationService } from "../../services";
+import { companyService, jobService, interviewService, applicationService } from "../../services";
 
 import OverviewView from "./views/OverviewView";
 import JobsView from "./views/JobsView";
@@ -23,42 +23,39 @@ import JobComposerModal from "./components/JobComposerModal";
 import CandidateDetailModal from "./components/CandidateDetailModal";
 import InterviewModal from "./components/InterviewModal";
 
+function exportCandidatesCSV(candidates) {
+  const cell = value => {
+    let text = String(value ?? "");
+    if (/^\s*[=+@-]/.test(text)) text = "'" + text;
+    return '"' + text.replace(/"/g, '""') + '"';
+  };
+  const rows = [
+    ["Mã hồ sơ", "Họ tên", "Vị trí", "Email", "Điện thoại", "Giai đoạn"],
+    ...candidates.map(c => [c.id, c.name || c.candidateName, c.appliedJobTitle || c.role || c.candidateRole,
+      c.email || c.candidateEmail, c.phone || c.candidatePhone, c.stage || "Mới"])
+  ];
+  const url = URL.createObjectURL(new Blob(["\uFEFF" + rows.map(row => row.map(cell).join(",")).join("\r\n")], { type: "text/csv;charset=utf-8" }));
+  const link = document.createElement("a");
+  link.href = url; link.download = "matchajob-candidates.csv";
+  document.body.appendChild(link); link.click(); link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 export default function EmployerPortal() {
   const { user } = useAuth();
-
   let companyId = user?.companyId || "";
   let error = "";
-
-  try {
-    const hrCompanyId = mockStore.getHRCompanyId();
-    if (hrCompanyId) companyId = hrCompanyId;
-  } catch (err) {
-    if (user?.role === "employer" || user?.role === "Nhà tuyển dụng") {
-      companyId = companyId || "COMP-01";
-    } else {
-      error = err.message;
-    }
+  if (!IS_API) {
+    try { companyId = mockStore.getHRCompanyId(); }
+    catch (err) { error = err.message; }
   }
-
-  if ((error && !companyId) || (user && user.role !== "employer" && user.role !== "Nhà tuyển dụng")) {
-    return (
-      <Container className="py-5">
-        <div className="alert alert-warning">
-          {error || "Đăng nhập bằng tài khoản HR."}
-        </div>
-        <Link to="/login">Đến trang đăng nhập</Link>
-      </Container>
-    );
+  if (!user || !["employer", "Nhà tuyển dụng"].includes(user.role) || !companyId || error) {
+    return <Container className="py-5">
+      <div className="alert alert-warning">{error || "Tài khoản HR chưa liên kết với doanh nghiệp hợp lệ."}</div>
+      <Link to="/login?role=employer">Đến trang đăng nhập</Link>
+    </Container>;
   }
-
-  const activeCompanyId = companyId || user?.companyId || "COMP-01";
-
-  return (
-    <EmployerWorkspace
-      key={`${user?.email || "employer"}:${activeCompanyId}`}
-      companyId={activeCompanyId}
-    />
-  );
+  return <EmployerWorkspace key={`${user.id || user.email}:${companyId}`} companyId={companyId} />;
 }
 
 function EmployerWorkspace({ companyId }) {
@@ -86,67 +83,48 @@ function EmployerWorkspace({ companyId }) {
   };
 
   const [company, setCompany] = useState(
-    () => mockStore.getCompanies().find(item => String(item.id) === String(companyId)) || mockStore.getCompanies()[0]
+    () => IS_API ? null : mockStore.getCompanies().find(item => String(item.id) === String(companyId)) || null
   );
 
   const [jobs, setJobs] = useState(
-    () => mockStore.getEmployerJobs(companyId)
+    () => IS_API ? [] : mockStore.getEmployerJobs(companyId)
   );
 
   const [candidates, setCandidates] = useState(
-    () => mockStore.getCandidates()
+    () => IS_API ? [] : mockStore.getCandidates()
   );
 
   const [interviews, setInterviews] = useState(
-    () => mockStore.getInterviews()
+    () => IS_API ? [] : mockStore.getInterviews()
   );
 
   const [plans, setPlans] = useState(
     () => mockStore.getPlans()
   );
 
+  const [loadError, setLoadError] = useState("");
+  const [loading, setLoading] = useState(true);
   const refreshStoreData = useCallback(async () => {
-    try {
-      const liveCompany = await companyService.getCompany(companyId);
-      if (liveCompany && liveCompany.name) {
-        setCompany(liveCompany);
+    setLoadError("");
+    const results = await Promise.allSettled([
+      companyService.getCompany(companyId),
+      jobService.getEmployerJobs(companyId),
+      applicationService.getApplications(companyId),
+      interviewService.getInterviews(companyId)
+    ]);
+    const setters = [setCompany, setJobs, setCandidates, setInterviews];
+    const labels = ["doanh nghiệp", "tin tuyển dụng", "ứng viên", "lịch phỏng vấn"];
+    const errors = [];
+    results.forEach((result, index) => {
+      if (result.status === "fulfilled" && (index === 0 ? result.value?.name : Array.isArray(result.value))) {
+        setters[index](result.value);
       } else {
-        setCompany(mockStore.getCompanies().find(item => String(item.id) === String(companyId)) || mockStore.getCompanies()[0]);
+        errors.push(`Không tải được ${labels[index]}: ${result.status === "rejected" ? result.reason?.message || "Lỗi tải dữ liệu" : "Dữ liệu không hợp lệ"}`);
       }
-    } catch {
-      setCompany(mockStore.getCompanies().find(item => String(item.id) === String(companyId)) || mockStore.getCompanies()[0]);
-    }
-    try {
-      const liveJobs = await jobService.getEmployerJobs(companyId);
-      if (Array.isArray(liveJobs)) {
-        setJobs(liveJobs);
-      } else {
-        setJobs(mockStore.getEmployerJobs(companyId));
-      }
-    } catch {
-      setJobs(mockStore.getEmployerJobs(companyId));
-    }
-    try {
-      const liveCandidates = await applicationService.getApplications(companyId);
-      if (Array.isArray(liveCandidates)) {
-        setCandidates(liveCandidates);
-      } else {
-        setCandidates(mockStore.getCandidates());
-      }
-    } catch {
-      setCandidates(mockStore.getCandidates());
-    }
-    try {
-      const liveInterviews = await interviewService.getInterviews(companyId);
-      if (Array.isArray(liveInterviews)) {
-        setInterviews(liveInterviews);
-      } else {
-        setInterviews(mockStore.getInterviews());
-      }
-    } catch {
-      setInterviews(mockStore.getInterviews());
-    }
+    });
     setPlans(mockStore.getPlans());
+    setLoadError(errors.join(". "));
+    setLoading(false);
   }, [companyId]);
 
   useEffect(() => {
@@ -259,10 +237,16 @@ function EmployerWorkspace({ companyId }) {
       candidate.stage === "Sàng lọc"
   ).length;
 
-  if (!company) return <Container className="py-5"><div className="alert alert-warning">Không tìm thấy doanh nghiệp của tài khoản.</div></Container>;
+  if (!company) return <Container className="py-5">
+    <div className={loading ? "text-muted" : "alert alert-warning"} role={loading ? "status" : "alert"}>
+      {loading ? "Đang tải doanh nghiệp…" : loadError || "Không tìm thấy doanh nghiệp của tài khoản."}
+    </div>
+    {!loading && <Button variant="outline-success" onClick={refreshStoreData}>Thử lại</Button>}
+  </Container>;
 
   return (
     <Container fluid className="py-4 px-lg-5">
+      {loadError && <div className="alert alert-warning" role="alert">{loadError} <Button size="sm" variant="outline-dark" onClick={refreshStoreData}>Thử lại</Button></div>}
       <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 pb-3 border-bottom gap-3">
         <div>
           <div className="d-flex align-items-center gap-2 mb-1 flex-wrap">
@@ -301,7 +285,7 @@ function EmployerWorkspace({ companyId }) {
             variant="success"
             size="sm"
             className="fw-bold"
-            onClick={() => setShowComposer(true)}
+            onClick={handleOpenCreateJob}
           >
             <i className="bi bi-plus-lg me-1" />
             Tạo tin tuyển dụng
@@ -458,7 +442,7 @@ function EmployerWorkspace({ companyId }) {
       {activeTab === "company" && (
         <CompanyView
           companyData={company}
-          onCompanyUpdated={() => refreshStoreData()}
+          onCompanyUpdated={updated => { if (updated?.name) setCompany(updated); refreshStoreData(); }}
         />
       )}
 

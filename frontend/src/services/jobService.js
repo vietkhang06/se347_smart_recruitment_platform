@@ -55,6 +55,10 @@ export function isJobOpen(job, now = Date.now()) {
 }
 
 const salaryNumber = value => Number(String(value ?? "").replace(/[^\d.-]/g, "")) || 0;
+const matchValue = job => {
+  const value = job.matchScore ?? job.match;
+  return value != null && String(value).trim() !== "" && Number.isFinite(Number(value)) ? Number(value) : -1;
+};
 const postedTime = job => {
   const iso = Date.parse(job.postedAt);
   if (Number.isFinite(iso)) return iso;
@@ -82,12 +86,14 @@ export const jobService = {
     }
     const q = String(filters.keyword || "").trim().toLowerCase();
     const jobs = mockStore.getJobs().filter(job => isJobOpen(job)
-      && (!q || [job.title, job.company, job.location, ...(job.specTags || []), ...(job.reqTags || [])].join(" ").toLowerCase().includes(q))
+      && (!q || [job.title, job.company, job.location, job.category, job.team, ...(job.skills || []), ...(job.specTags || []), ...(job.reqTags || [])].join(" ").toLowerCase().includes(q))
       && (!filters.location || String(job.location).toLowerCase().includes(filters.location.toLowerCase()))
       && (!filters.categoryId || (job.category || job.team) === filters.categoryId)
       && (!filters.workType || job.type === filters.workType || job.workType === filters.workType)
-      && (!filters.level || job.level === filters.level || job.exp === filters.level));
+      && (!filters.level || job.level === filters.level || job.exp === filters.level)
+      && (!filters.experience || (job.experience || job.exp) === filters.experience));
     jobs.sort((a, b) => filters.sortBy === "salary_desc" ? salaryNumber(b.salaryMax || b.salaryMin) - salaryNumber(a.salaryMax || a.salaryMin)
+      : filters.sortBy === "match_desc" ? matchValue(b) - matchValue(a)
       : filters.sortBy === "title_asc" ? a.title.localeCompare(b.title, "vi") : postedTime(b) - postedTime(a));
     return { content: jobs.slice(page * size, (page + 1) * size), page, size, totalElements: jobs.length, totalPages: Math.ceil(jobs.length / size) };
   },

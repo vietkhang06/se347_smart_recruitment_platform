@@ -14,6 +14,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -26,6 +27,9 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -86,6 +90,37 @@ class CvControllerTest {
         assertThat(response.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION)).contains("attachment");
         assertThat(response.getHeaders().getCacheControl()).isEqualTo("no-store");
         verify(resourceOwnershipService).checkCvVersionAccess(userId, candidateId, cvId);
+    }
+
+    @Test
+    void getCvVersion_unauthorized_throwsAccessDenied_withoutAccessingRepository() {
+        UUID candidateId = UUID.randomUUID();
+        UUID cvId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+
+        doThrow(new AccessDeniedException("Access is denied"))
+                .when(resourceOwnershipService).checkCvVersionAccess(userId, candidateId, cvId);
+
+        assertThatThrownBy(() -> controller().getCvVersion(candidateId, cvId, authentication(userId)))
+                .isInstanceOf(AccessDeniedException.class);
+
+        verify(cvVersionRepository, never()).findByIdAndCandidateId(any(), any());
+    }
+
+    @Test
+    void downloadCv_unauthorized_throwsAccessDenied_withoutAccessingStorage() throws Exception {
+        UUID candidateId = UUID.randomUUID();
+        UUID cvId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+
+        doThrow(new AccessDeniedException("Access is denied"))
+                .when(resourceOwnershipService).checkCvVersionAccess(userId, candidateId, cvId);
+
+        assertThatThrownBy(() -> controller().downloadCv(candidateId, cvId, authentication(userId), "attachment"))
+                .isInstanceOf(AccessDeniedException.class);
+
+        verify(storageService, never()).readFile(any());
+        verify(cvVersionRepository, never()).findByIdAndCandidateId(any(), any());
     }
 
     private CvController controller() {

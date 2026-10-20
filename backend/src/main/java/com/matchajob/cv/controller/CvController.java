@@ -95,9 +95,9 @@ public class CvController {
             @PathVariable UUID candidateId,
             @PathVariable UUID cvVersionId,
             Authentication authentication) {
-        CvVersion cv = findCandidateCv(candidateId, cvVersionId);
         UUID userId = SecurityUtils.extractUserId(authentication);
         resourceOwnershipService.checkCvVersionAccess(userId, candidateId, cvVersionId);
+        CvVersion cv = findCandidateCv(candidateId, cvVersionId);
         return CvVersionResponse.from(cv);
     }
 
@@ -125,9 +125,9 @@ public class CvController {
             throw new IllegalArgumentException("Disposition must be either 'attachment' or 'inline'.");
         }
 
-        CvVersion cv = findCandidateCv(candidateId, cvVersionId);
         UUID userId = SecurityUtils.extractUserId(authentication);
         resourceOwnershipService.checkCvVersionAccess(userId, candidateId, cvVersionId);
+        CvVersion cv = findCandidateCv(candidateId, cvVersionId);
         byte[] content = storageService.readFile(cv.getFilePath());
 
         ContentDisposition contentDisposition = (inline

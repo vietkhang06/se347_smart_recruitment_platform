@@ -3,6 +3,62 @@ import { toApplicationViewModel, toApplicationStageUpdateRequest, STAGE_TEXT_TO_
 import { toRankingListViewModel } from "../../mappers/rankingMapper";
 import { mockApplicationService } from "../mock/mockApplicationService";
 import { mockStore } from "../mockStore";
+import MATCHING_RESULT_FIXTURE from "../../fixtures/matching-result.fixture.json";
+
+function normalizeMatchingResult(response, applicationId, source = "API") {
+  return {
+    applicationId: response?.applicationId || applicationId,
+    jobId: response?.jobId ?? null,
+    cvVersionId: response?.cvVersionId ?? null,
+    status: response?.status || "NOT_STARTED",
+    overallScore: response?.overallScore ?? null,
+    skillsScore: response?.skillsScore ?? null,
+    experienceScore: response?.experienceScore ?? null,
+    criteriaScores: response?.criteriaScores || {},
+    matchedSkills: Array.isArray(response?.matchedSkills) ? response.matchedSkills : [],
+    missingSkills: Array.isArray(response?.missingSkills) ? response.missingSkills : [],
+    breakdown: response?.breakdown || {},
+    explanation: response?.explanation || null,
+    processingJobId: response?.processingJobId ?? null,
+    evaluatedAt: response?.evaluatedAt ?? null,
+    message: response?.message || "",
+    source
+  };
+}
+
+function shouldUseMatchingFixture(applicationId, error) {
+  const fixtureEnabled = import.meta.env.DEV
+    && import.meta.env.VITE_MATCHING_FIXTURE_FALLBACK !== "false";
+  const looksLikeUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    .test(String(applicationId || ""));
+  return fixtureEnabled && (!looksLikeUuid || error?.status === 0);
+}
+
+function fixtureMatchingResult(applicationId, message) {
+  return {
+    ...MATCHING_RESULT_FIXTURE,
+    applicationId,
+    source: "FIXTURE",
+    message
+  };
+}
+
+function matchingErrorResult(applicationId, error) {
+  return {
+    applicationId,
+    status: "ERROR",
+    overallScore: null,
+    skillsScore: null,
+    experienceScore: null,
+    criteriaScores: {},
+    matchedSkills: [],
+    missingSkills: [],
+    breakdown: {},
+    explanation: null,
+    source: "API",
+    message: error?.message || "Không thể tải kết quả đối sánh CV–JD."
+  };
+}
 
 export const apiApplicationService = {
   /**
@@ -116,19 +172,56 @@ export const apiApplicationService = {
   /**
    * Gọi API điểm phù hợp AI: GET /v1/applications/{applicationId}/match
    */
-  async getApplicationMatchScore(applicationId) {
+  async getMatchingResult(applicationId) {
     try {
       const response = await httpClient.get(`/v1/applications/${applicationId}/match`);
-      return {
-        applicationId,
-        overallScore: response?.overallScore ?? 0,
-        skillsScore: response?.skillsScore ?? 0,
-        experienceScore: response?.experienceScore ?? 0,
-        rationale: response?.rationale || "Đánh giá từ AI Matching Service."
-      };
+      return normalizeMatchingResult(response, applicationId);
     } catch (err) {
-      console.warn(`[apiApplicationService] Lỗi lấy match score app ${applicationId}, fallback sang mock:`, err.message);
-      return mockApplicationService.getApplicationMatchScore(applicationId);
+      if (shouldUseMatchingFixture(applicationId, err)) {
+        console.warn(`[apiApplicationService] Matching API unavailable; displaying a labelled fixture: ${err.message}`);
+        return fixtureMatchingResult(
+          applicationId,
+          "Đang hiển thị fixture minh họa vì API matching chưa khả dụng. Đây không phải kết quả AI của hồ sơ hiện tại."
+        );
+      }
+      return matchingErrorResult(applicationId, err);
     }
+  },
+
+  /** Trigger synchronous matching using the persisted Application, CV snapshot, and Job. */
+  async triggerMatchingEvaluation(applicationId) {
+    try {
+      const response = await httpClient.post(`/v1/applications/${applicationId}/match`);
+      return normalizeMatchingResult(response, applicationId);
+    } catch (err) {
+      if (shouldUseMatchingFixture(applicationId, err)) {
+        console.warn(`[apiApplicationService] Matching trigger failed; displaying a labelled fixture: ${err.message}`);
+        return fixtureMatchingResult(
+          applicationId,
+          "Không thể chạy matching trên API; đang hiển thị fixture minh họa, không phải kết quả AI của hồ sơ hiện tại."
+        );
+      }
+      return matchingErrorResult(applicationId, err);
+    }
+  },
+
+  /**
+   * Backward-compatible score helper. Missing scores remain null instead of becoming zero.
+   */
+  async getApplicationMatchScore(applicationId) {
+    const result = await this.getMatchingResult(applicationId);
+    return {
+      applicationId,
+      status: result.status,
+      overallScore: result.overallScore,
+      skillsScore: result.skillsScore,
+      experienceScore: result.experienceScore,
+      rationale: result.explanation,
+      explanation: result.explanation,
+      matchedSkills: result.matchedSkills,
+      missingSkills: result.missingSkills,
+      source: result.source,
+      message: result.message
+    };
   }
 };

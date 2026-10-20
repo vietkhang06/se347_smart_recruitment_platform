@@ -71,6 +71,9 @@ public class RecruitmentRouteSecurityIT {
     @MockBean
     private SkillService skillService;
 
+    @MockBean
+    private com.matchajob.api.recruitment.service.TaxonomyService taxonomyService;
+
     private String createTokenForRole(String role) {
         UUID userId = UUID.randomUUID();
         User user = User.builder()
@@ -143,6 +146,22 @@ public class RecruitmentRouteSecurityIT {
                     .andExpect(result -> assertThat(result.getResponse().getStatus()).isNotEqualTo(403));
 
             verify(skillService, times(1)).getSkills(any(), any());
+        }
+
+        @Test
+        @DisplayName("GET /api/v1/recruitment/taxonomies/categories without authentication is permitted (200 OK)")
+        void getTaxonomies_anonymous_permitted() throws Exception {
+            when(taxonomyService.getAllCategories()).thenReturn(List.of(
+                    CategoryResponse.builder().id(UUID.randomUUID()).name("Engineering").build()
+            ));
+
+            mockMvc.perform(get("/api/v1/recruitment/taxonomies/categories"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$[0].name").value("Engineering"))
+                    .andExpect(result -> assertThat(result.getResponse().getStatus()).isNotEqualTo(401))
+                    .andExpect(result -> assertThat(result.getResponse().getStatus()).isNotEqualTo(403));
+
+            verify(taxonomyService, times(1)).getAllCategories();
         }
     }
 

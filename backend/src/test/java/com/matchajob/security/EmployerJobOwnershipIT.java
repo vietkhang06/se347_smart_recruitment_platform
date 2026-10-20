@@ -20,6 +20,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -247,6 +248,7 @@ public class EmployerJobOwnershipIT {
                     .location("Ho Chi Minh City")
                     .salaryMode("negotiable")
                     .status("active")
+                    .deadline(LocalDate.now().plusDays(30))
                     .build();
 
             String responseJson = mockMvc.perform(post("/v1/employer/jobs")

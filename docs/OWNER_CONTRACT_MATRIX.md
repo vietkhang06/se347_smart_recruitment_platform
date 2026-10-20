@@ -17,9 +17,9 @@
 
 | Domain | Endpoint | Hiện trạng source | Contract / fixture cần chốt | Owner đề xuất từ workbook | Reviewer đề xuất | Trạng thái owner |
 |---|---|---|---|---|---|---|
-| Auth | `POST /api/v1/auth/register` | Chưa tìm thấy Auth Controller | `auth-register-request.json`, cần response + validation/error fixtures | Phúc Khang | Việt Khang; PN Thông; Khanh | Pending |
-| Auth | `POST /api/v1/auth/login` | Chưa tìm thấy Auth Controller | `auth-login-response.json`, cần login request + 401/validation fixtures | Phúc Khang | Việt Khang; PN Thông; Khanh | Pending |
-| Auth | `GET /api/v1/auth/me` | Chưa tìm thấy Auth Controller | Target current-user DTO và role/claims | Phúc Khang | Việt Khang; FE owners | Pending |
+| Auth | `POST /api/v1/auth/register` | Có trong source (`AuthController.java`) | Đã chốt theo `Auth_API_Contract_v2.md`; mã hóa BCrypt, validate role (chỉ `CANDIDATE`/`EMPLOYER`), tự động tạo `CandidateProfile` | Phúc Khang | Việt Khang; PN Thông; Khanh | Agree [CONFIRMED] |
+| Auth | `POST /api/v1/auth/login` | Có trong source (`AuthController.java`) | Đã chốt theo `Auth_API_Contract_v2.md`; trả `access_token`, `token_type`, `expires_in: 3600`, và object `user` | Phúc Khang | Việt Khang; PN Thông; Khanh | Agree [CONFIRMED] |
+| User | `GET /api/v1/users/me` | Có trong source (`UserController.java`) | Đã chốt theo `Auth_API_Contract_v2.md` Section 4; trả profile principal và mảng `companies: []` (thay thế đường dẫn draft cũ `/auth/me`) | Phúc Khang | Việt Khang; FE owners | Agree [CONFIRMED] |
 | Job | `GET /api/v1/jobs` | Có `JobController` + `PageResponse<JobSummaryResponse>`; mapping source hiện có khả năng lặp `/api` khi cộng context path | `job-search-response.json`; chốt query, sort whitelist, page/size, error behavior | Vua Thanh Hóa – Aka HGK | Việt Khang; PN Thông; Khanh | Pending |
 | Job | `GET /api/v1/jobs/{jobId}` | Có `JobController` | Detail DTO; 404; trường nào được công khai | Vua Thanh Hóa – Aka HGK | Việt Khang; Khanh; PN Thông | Pending |
 | Job | `GET /api/v1/categories`, `GET /api/v1/skills` | Có controller; cùng vấn đề prefix mapping | Fixture list; query `categoryId`, `q`; active/filter behavior | Vua Thanh Hóa – Aka HGK | Việt Khang; FE owners | Pending |
