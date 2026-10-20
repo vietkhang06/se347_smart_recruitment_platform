@@ -77,7 +77,7 @@ def test_current_cv_upload_shape_and_target_shape_difference_are_explicit() -> N
     target = load_fixture("cv-upload-accepted-response.json")
     assert set(current) == {
         "cv_version_id", "candidate_id", "file_name", "file_size_bytes",
-        "status", "processing_job_id", "message"
+        "mime_type", "status", "processing_job_id", "message", "is_active"
     }
     assert set(target) == {
         "cvVersionId", "candidateId", "fileName", "fileSizeBytes",

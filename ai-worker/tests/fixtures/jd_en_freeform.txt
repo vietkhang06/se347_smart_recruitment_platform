@@ -1,0 +1,15 @@
+Title: Senior Backend Developer
+Company: Fintech Solutions
+Overview:
+We are looking for a Senior Backend Developer to join our core platform engineering group.
+You will architect and build microservices handling millions of daily transactions.
+
+Requirements:
+- At least 4 years of experience in backend development.
+- Deep proficiency with Java, Spring Boot, PostgreSQL, and Docker.
+- Hands-on experience with AWS cloud services and Kubernetes.
+- Solid understanding of REST APIs and CI/CD pipelines.
+
+Preferred Qualifications:
+- Familiarity with Kafka or event-driven systems.
+- Bachelor's degree in Computer Science or equivalent.
