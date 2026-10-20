@@ -5,10 +5,10 @@
 - Browser base URL: `http://localhost:8081/api`
 - CV API prefix: `/api/v1/candidates/{candidateId}/cv`
 - Accepted files: PDF and DOCX
-- Default maximum file size: 10 MB
+- Default maximum file size: 10 MiB (10,485,760 bytes; configured as Spring `10MB`).
 - Error media type: `application/problem+json`
 
-Authentication is implemented with Bearer JWT. The controller derives the user ID from the authenticated principal and applies resource-ownership checks; the `candidateId` in the route is never trusted as identity by itself. Candidate upload/list is limited to the owning profile. Metadata/download is allowed to the candidate owner or to an employer who manages a job receiving an application from that candidate.
+Authentication uses Bearer JWT. The controller derives the user ID from the authenticated principal; route IDs are never accepted as identity. Candidate upload/list/active selection is limited to the owning profile. Metadata/download is allowed to the candidate owner, an employer managing a job whose application snapshot references that exact version, or an admin under the read-only audit policy below.
 
 ## Data model
 
@@ -24,7 +24,8 @@ Public CV metadata:
   "sha256_hash": "64-character-lowercase-hex",
   "status": "uploaded",
   "created_at": "2026-10-12T02:00:00Z",
-  "updated_at": "2026-10-12T02:00:00Z"
+  "updated_at": "2026-10-12T02:00:00Z",
+  "is_active": true
 }
 ```
 
@@ -48,9 +49,13 @@ CV status:
 |---|---|
 | `uploaded` | File and metadata are stored; extraction is pending or processing. |
 | `extracted` | Text extraction completed and results were persisted. |
-| `failed` | Contract target for a permanently failed CV. The current orchestrator does not set this value yet; clients must inspect the processing-job status until the state machine is completed. |
+| `failed` | Non-retryable processing failure, exhausted retries, or an expired lease with no attempts left. |
 
 Processing-job status remains separate: `PENDING`, `PROCESSING`, `COMPLETED`, `FAILED`.
+
+The CV-only scheduler polls every 2000 ms by default and claims only `CV_TEXT_EXTRACTION` jobs. Retryable failures return the job to `PENDING` with backoff, leaving CV `uploaded`; terminal failures set job `FAILED` and CV `failed` in one transaction. Success persists extraction, embedding and job completion in one transaction. Leases last 120 seconds and use tokens to prevent a stale worker from overwriting a newer attempt. Configure `MATCHAJOB_CV_PROCESSING_ENABLED` and `MATCHAJOB_CV_PROCESSING_POLL_DELAY_MS` when needed; normal uploads use `sync=false`.
+
+File validation checks extension/MIME and signature; DOCX must be a readable ZIP package with `[Content_Types].xml`, `_rels/.rels`, and `word/document.xml`. The archive is inspected without extracting files, with at most 2048 entries and total expanded content at most the smaller of ten times the upload limit and 100 MiB. These checks do not replace complete document parsing or malware scanning. Filenames over 255 sanitized characters are rejected.
 
 ## 1. Upload a CV
 
@@ -84,7 +89,8 @@ curl -X POST "http://localhost:8081/api/v1/candidates/CANDIDATE_UUID/cv" \
   "mime_type": "application/pdf",
   "status": "uploaded",
   "processing_job_id": "2b60e47e-e31f-4336-84ba-e074d199e462",
-  "message": "CV uploaded successfully. Processing queued."
+  "message": "CV uploaded successfully. Processing queued.",
+  "is_active": true
 }
 ```
 
@@ -139,7 +145,8 @@ curl -H "Authorization: Bearer JWT_TOKEN" \
     "sha256_hash": "64-character-lowercase-hex",
     "status": "uploaded",
     "created_at": "2026-10-12T02:00:00Z",
-    "updated_at": "2026-10-12T02:00:00Z"
+    "updated_at": "2026-10-12T02:00:00Z",
+    "is_active": true
   }
 ]
 ```
@@ -251,14 +258,62 @@ Unexpected server errors use a generic detail and do not expose stack traces or 
 2. Previous CV objects are not overwritten.
 3. Applications should reference a selected CV version through `application_cv_snapshots`.
 4. Duplicate SHA-256 values are recorded but are not rejected during Week 1; product rules for duplicate versions remain a later decision.
-5. Deletion and active-version selection are not part of the Week 1 contract.
+5. Week 2 adds `is_active` without changing existing routes or removing response fields. The latest accepted upload becomes active. Candidates may select an earlier version using the endpoint below. Changing the selection never changes a stored file or an application snapshot. Activation is independent of processing state, so a candidate may still download an active CV whose AI processing failed.
+6. Migration `V6__cv_active_version.sql` selects the newest existing version for each candidate. A partial unique index permits at most one active row; per-candidate row locking serializes uploads and active changes. UUIDs are the version identifiers; no numeric version label is required.
 
 ## Authorization rules
 
 - Candidate: upload/list/view/download only their own versions.
 - Employer: view/download only through an application for a job owned by their company.
-- Admin: no CV-specific bypass is implemented; an audited administrative use case must be designed separately.
+- Admin: read metadata or download/preview a specific candidate/version only. Each authorization is recorded in `audit_logs` (`VIEW_CV_METADATA`, `DOWNLOAD_CV`, or `PREVIEW_CV`) before returning content; audit persistence failure denies the response. The log means access was authorized, not that a stream finished transferring. Admin cannot upload, list a candidate's versions, or change active selection through these APIs.
 - A path `candidateId` must never be trusted as identity by itself.
 - Unauthorized identity returns `401`; authenticated but disallowed access returns `403`.
 
-These checks cover route-level authentication and current ownership rules. Production readiness still requires runtime integration tests, audit logging and an explicit administrative-access policy.
+These checks cover the defined application-level policy. Production readiness also requires deployment/integration evidence, limits on concurrent uploads, and operational controls.
+
+## 5. Get the active version (Week 2)
+
+- Method: `GET`
+- Route: `/api/v1/candidates/{candidateId}/cv/active`
+- Path parameter: candidate profile UUID; query/body: none.
+- Response: `200 application/json`, the public metadata shape with `is_active: true`.
+- Errors: `401` missing/invalid JWT, `403` non-owning candidate or other role, `404` no active CV.
+- Authorization: candidate owner only. Implemented; database migration V6 is required.
+
+```bash
+curl -H "Authorization: Bearer JWT_TOKEN" "http://localhost:8081/api/v1/candidates/CANDIDATE_UUID/cv/active"
+```
+
+Success example: the metadata JSON in **Data model**. Missing selection example:
+
+```json
+{"type":"https://matchajob.com/errors/not-found","title":"Resource not found","status":404,"detail":"No active CV was found for this candidate."}
+```
+
+## 6. Select an active version (Week 2)
+
+- Method: `PUT`
+- Route: `/api/v1/candidates/{candidateId}/cv/{cvVersionId}/active`
+- Path parameters: candidate profile UUID and CV version UUID; query/body: none (request content type not required).
+- Response: `200 application/json`, metadata of the selected version with `is_active: true`.
+- Errors: `401` missing/invalid JWT, `403` non-owner/other role, `404` unknown version or version outside the candidate.
+- Authorization: candidate owner only; selecting an already active version is idempotent.
+- Implemented; uses a transaction and the candidate row lock. No file is rewritten or deleted.
+
+```bash
+curl -X PUT -H "Authorization: Bearer JWT_TOKEN" "http://localhost:8081/api/v1/candidates/CANDIDATE_UUID/cv/CV_VERSION_UUID/active"
+```
+
+Success example: the metadata JSON in **Data model**. Unknown version example:
+
+```json
+{"type":"https://matchajob.com/errors/not-found","title":"Resource not found","status":404,"detail":"CV version was not found for this candidate."}
+```
+
+Application submission still requires an explicit `cvVersionId` in the current application API. A frontend may preselect the ID returned by `/cv/active`; the Backend does not silently replace an application's chosen snapshot.
+
+## Processing progress and download compatibility
+
+`GET /api/v1/processing-jobs/{id}` keeps its existing progress fields and ownership rules but returns a DTO. Internal `leaseToken`, `leaseExpiresAt`, and `idempotencyKey` are excluded; `lastError`, when present, is a generic public message. HTTP response field names remain camelCase for this pre-existing endpoint; CV metadata retains snake_case.
+
+Download now returns a Spring file resource to stream bytes with the same public URL/status/MIME/content-disposition. `Cache-Control: no-store` and `X-Content-Type-Options: nosniff` apply. Missing objects return `404`; storage/audit failures return a generic `500`. DOCX inline rendering depends on browser support.
