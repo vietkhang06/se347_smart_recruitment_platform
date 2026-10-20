@@ -89,10 +89,14 @@ public class CvController {
         }
 
         CvVersion cv = registration.cv();
+        if (sync) {
+            cv = findCandidateCv(candidateId, cv.getId());
+        }
         CvUploadResponse response = new CvUploadResponse(
                 cv.getId(), candidateId, cv.getFileName(), cv.getFileSizeBytes(), cv.getMimeType(),
                 cv.getStatus(), registration.job().getId(),
-                "CV uploaded successfully. Processing queued.", cv.isActive());
+                sync ? "CV uploaded. Processing attempted; inspect status for the result."
+                        : "CV uploaded successfully. Processing queued.", cv.isActive());
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
     }
 

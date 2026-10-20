@@ -3,6 +3,11 @@ server:
   servlet:
     context-path: /api
 
+matchajob:
+  cv:
+    processing:
+      enabled: false
+
 spring:
   application:
     name: matchajob-backend-test
