@@ -265,61 +265,36 @@ class ApplicationServiceTest {
 
         @Test
         @DisplayName("getJobRankings sorts candidates by overall score descending and assigns 1-based ranks")
+        @SuppressWarnings("unchecked")
         void getJobRankings_ordersAndRanks() {
             UUID jobId = UUID.randomUUID();
-            UUID cand1 = UUID.randomUUID();
-            UUID cand2 = UUID.randomUUID();
             UUID app1Id = UUID.randomUUID();
             UUID app2Id = UUID.randomUUID();
 
-            ApplicationEntity app1 = ApplicationEntity.builder()
-                    .id(app1Id)
-                    .candidateId(cand1)
-                    .jobId(jobId)
-                    .stage("interview")
-                    .appliedAt(Instant.now())
-                    .build();
+            JdbcClient.StatementSpec mockSpec = mock(JdbcClient.StatementSpec.class);
+            JdbcClient.MappedQuerySpec<ApplicationRankingItem> mockQuerySpec = mock(JdbcClient.MappedQuerySpec.class);
 
-            ApplicationEntity app2 = ApplicationEntity.builder()
-                    .id(app2Id)
-                    .candidateId(cand2)
-                    .jobId(jobId)
-                    .stage("screening")
-                    .appliedAt(Instant.now())
-                    .build();
-
-            when(applicationRepository.findByJobIdOrderByAppliedAtDesc(jobId)).thenReturn(List.of(app1, app2));
-
-            // Candidate 1 score: 75
-            MatchResult mr1 = MatchResult.builder()
-                    .applicationId(app1Id)
-                    .overallScore((short) 75)
-                    .skillsScore((short) 80)
-                    .experienceScore((short) 70)
-                    .rationale("Good fit")
-                    .breakdown("{}")
-                    .build();
-
-            // Candidate 2 score: 92 (should be ranked #1)
-            MatchResult mr2 = MatchResult.builder()
-                    .applicationId(app2Id)
-                    .overallScore((short) 92)
-                    .skillsScore((short) 95)
-                    .experienceScore((short) 88)
-                    .rationale("Excellent fit")
-                    .breakdown("{}")
-                    .build();
-
-            when(matchResultRepository.findByApplicationId(app1Id)).thenReturn(Optional.of(mr1));
-            when(matchResultRepository.findByApplicationId(app2Id)).thenReturn(Optional.of(mr2));
-
-            // Stub candidate name lookup
-            var mockSpec = mock(JdbcClient.StatementSpec.class);
-            var mockQuerySpec = mock(JdbcClient.MappedQuerySpec.class);
             when(jdbcClient.sql(anyString())).thenReturn(mockSpec);
-            when(mockSpec.param(any(UUID.class))).thenReturn(mockSpec);
-            when(mockSpec.query(any(Class.class))).thenReturn(mockQuerySpec);
-            when(mockQuerySpec.optional()).thenReturn(Optional.of("Candidate Name"));
+            when(mockSpec.param(any())).thenReturn(mockSpec);
+            when(mockSpec.query(any(org.springframework.jdbc.core.RowMapper.class))).thenReturn(mockQuerySpec);
+
+            ApplicationRankingItem item1 = ApplicationRankingItem.builder()
+                    .ranking(1)
+                    .applicationId(app2Id)
+                    .candidateName("Top Candidate")
+                    .stage("screening")
+                    .overallScore(92)
+                    .build();
+
+            ApplicationRankingItem item2 = ApplicationRankingItem.builder()
+                    .ranking(2)
+                    .applicationId(app1Id)
+                    .candidateName("Second Candidate")
+                    .stage("interview")
+                    .overallScore(75)
+                    .build();
+
+            when(mockQuerySpec.list()).thenReturn(List.of(item1, item2));
 
             ApplicationRankingResponse response = applicationService.getJobRankings(jobId, null, null);
 
@@ -336,6 +311,68 @@ class ApplicationServiceTest {
             assertThat(response.getItems().get(1).getRanking()).isEqualTo(2);
             assertThat(response.getItems().get(1).getApplicationId()).isEqualTo(app1Id);
             assertThat(response.getItems().get(1).getOverallScore()).isEqualTo(75);
+        }
+
+        @Test
+        @DisplayName("getJobRankings applies stage filter and minScore query parameters")
+        @SuppressWarnings("unchecked")
+        void getJobRankings_withFilters_passesParameters() {
+            UUID jobId = UUID.randomUUID();
+            UUID userId = UUID.randomUUID();
+
+            JdbcClient.StatementSpec mockSpec = mock(JdbcClient.StatementSpec.class);
+            JdbcClient.MappedQuerySpec<ApplicationRankingItem> mockQuerySpec = mock(JdbcClient.MappedQuerySpec.class);
+
+            when(jdbcClient.sql(anyString())).thenReturn(mockSpec);
+            when(mockSpec.param(any())).thenReturn(mockSpec);
+            when(mockSpec.query(any(org.springframework.jdbc.core.RowMapper.class))).thenReturn(mockQuerySpec);
+            when(mockQuerySpec.list()).thenReturn(List.of());
+
+            ApplicationRankingResponse response = applicationService.getJobRankings(jobId, userId, "interview", 80);
+
+            assertThat(response).isNotNull();
+            assertThat(response.getItems()).isEmpty();
+            verify(jdbcClient).sql(org.mockito.ArgumentMatchers.contains("LOWER(a.stage) = ?"));
+        }
+
+        @Test
+        @DisplayName("getJobRankings places candidates with null score at the end")
+        @SuppressWarnings("unchecked")
+        void getJobRankings_withNullScore_placesAtEnd() {
+            UUID jobId = UUID.randomUUID();
+            UUID app1Id = UUID.randomUUID();
+            UUID app2Id = UUID.randomUUID();
+
+            JdbcClient.StatementSpec mockSpec = mock(JdbcClient.StatementSpec.class);
+            JdbcClient.MappedQuerySpec<ApplicationRankingItem> mockQuerySpec = mock(JdbcClient.MappedQuerySpec.class);
+
+            when(jdbcClient.sql(anyString())).thenReturn(mockSpec);
+            when(mockSpec.param(any())).thenReturn(mockSpec);
+            when(mockSpec.query(any(org.springframework.jdbc.core.RowMapper.class))).thenReturn(mockQuerySpec);
+
+            ApplicationRankingItem scored = ApplicationRankingItem.builder()
+                    .ranking(1)
+                    .applicationId(app1Id)
+                    .candidateName("Scored Candidate")
+                    .overallScore(80)
+                    .build();
+
+            ApplicationRankingItem unscored = ApplicationRankingItem.builder()
+                    .ranking(2)
+                    .applicationId(app2Id)
+                    .candidateName("Unscored Candidate")
+                    .overallScore(null)
+                    .build();
+
+            when(mockQuerySpec.list()).thenReturn(List.of(scored, unscored));
+
+            ApplicationRankingResponse response = applicationService.getJobRankings(jobId, null, null);
+
+            assertThat(response.getItems()).hasSize(2);
+            assertThat(response.getItems().get(0).getRanking()).isEqualTo(1);
+            assertThat(response.getItems().get(0).getOverallScore()).isEqualTo(80);
+            assertThat(response.getItems().get(1).getRanking()).isEqualTo(2);
+            assertThat(response.getItems().get(1).getOverallScore()).isNull();
         }
     }
 
