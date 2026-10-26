@@ -142,6 +142,24 @@ public class ProcessingJobService {
     }
 
     @Transactional
+    public Optional<ProcessingJob> claimNextMatchingJob() {
+        Instant now = Instant.now();
+        return jobRepository.claimNextMatchingJob(now).map(job -> {
+            startCvLease(job, now);
+            return jobRepository.save(job);
+        });
+    }
+
+    @Transactional
+    public int recoverExpiredMatchingLeases() {
+        int count = jobRepository.recoverExpiredMatchingLeases(Instant.now());
+        if (count > 0) {
+            log.info("Recovered {} expired matching job lease(s)", count);
+        }
+        return count;
+    }
+
+    @Transactional
     public Optional<ProcessingJob> startCvJob(ProcessingJob submitted) {
         return jobRepository.findByIdForUpdate(submitted.getId()).flatMap(job -> {
             if ("PROCESSING".equals(job.getStatus())) {

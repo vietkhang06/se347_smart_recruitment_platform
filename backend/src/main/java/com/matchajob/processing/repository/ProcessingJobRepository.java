@@ -66,4 +66,24 @@ public interface ProcessingJobRepository extends JpaRepository<ProcessingJob, UU
           AND status = 'PROCESSING' AND lease_expires_at < :now
         """, nativeQuery = true)
     int recoverExpiredCvLeases(@Param("now") Instant now);
+
+    @Query(value = """
+        SELECT * FROM processing_jobs
+        WHERE job_type = 'APPLICATION_MATCHING' AND entity_type = 'application'
+          AND (status = 'PENDING' OR (status = 'FAILED' AND attempt_count < max_attempts))
+          AND retry_after <= :now
+        ORDER BY retry_after ASC LIMIT 1 FOR UPDATE SKIP LOCKED
+        """, nativeQuery = true)
+    Optional<ProcessingJob> claimNextMatchingJob(@Param("now") Instant now);
+
+    @Modifying
+    @Query(value = """
+        UPDATE processing_jobs
+        SET status = CASE WHEN attempt_count < max_attempts THEN 'PENDING' ELSE 'FAILED' END,
+            lease_token = NULL, lease_expires_at = NULL, retry_after = :now,
+            last_error = 'Matching processing lease expired.', updated_at = :now
+        WHERE job_type = 'APPLICATION_MATCHING' AND entity_type = 'application'
+          AND status = 'PROCESSING' AND lease_expires_at < :now
+        """, nativeQuery = true)
+    int recoverExpiredMatchingLeases(@Param("now") Instant now);
 }
