@@ -78,6 +78,13 @@ public class MatchingService {
      * Client-supplied job title/requirements/CV IDs are deliberately not trusted as source data.
      */
     public MatchResult evaluateApplicationMatch(UUID applicationId) {
+        return evaluateApplicationMatch(applicationId, null);
+    }
+
+    /**
+     * Overload supporting background schedulers holding an active lease token.
+     */
+    public MatchResult evaluateApplicationMatch(UUID applicationId, String leaseToken) {
         Optional<ProcessingJob> processingJob = findMatchingProcessingJob(applicationId);
         MatchResult existing = matchResultRepository.findByApplicationId(applicationId).orElse(null);
         if (existing != null) {
@@ -94,7 +101,9 @@ public class MatchingService {
                 throw new IllegalStateException("Matching job is completed but has no saved result.");
             }
             if ("PROCESSING".equals(currentStatus)) {
-                throw new MatchNotReadyException("Matching is already being processed for this application.");
+                if (leaseToken == null || !leaseToken.equals(currentJob.getLeaseToken())) {
+                    throw new MatchNotReadyException("Matching is already being processed for this application.");
+                }
             }
             if ("PENDING".equals(currentStatus) || "FAILED".equals(currentStatus)) {
                 if (currentJob.getAttemptCount() != null && currentJob.getMaxAttempts() != null
@@ -104,7 +113,7 @@ public class MatchingService {
                 if (currentJob.getRetryAfter() != null && currentJob.getRetryAfter().isAfter(Instant.now())) {
                     throw new MatchNotReadyException("Matching retry is waiting for its configured backoff period.");
                 }
-            } else {
+            } else if (!"PROCESSING".equals(currentStatus)) {
                 throw new IllegalStateException("Matching job has an unsupported processing state.");
             }
         }
@@ -128,9 +137,10 @@ public class MatchingService {
         String jobDescription = joinNonBlank(job.getDescription(), job.getSummaryIndustry());
         List<String> candidateSkills = extractCandidateSkills(cv.getParsedData());
 
-        // This endpoint executes matching synchronously. Keep the ProcessingJob state aligned
-        // with the actual operation rather than leaving the application's queued job as PENDING.
-        processingJob.ifPresent(processingRecord -> processingJobService.startJob(processingRecord.getId()));
+        // When not already leased by a background worker, transition the ProcessingJob to PROCESSING
+        if (leaseToken == null) {
+            processingJob.ifPresent(processingRecord -> processingJobService.startJob(processingRecord.getId()));
+        }
         try {
             MatchResult result = evaluateMatch(
                     application.getId(),

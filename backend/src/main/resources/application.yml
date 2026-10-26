@@ -22,6 +22,10 @@ matchajob:
     processing:
       enabled: ${MATCHAJOB_CV_PROCESSING_ENABLED:true}
       poll-delay-ms: ${MATCHAJOB_CV_PROCESSING_POLL_DELAY_MS:2000}
+  matching:
+    processing:
+      enabled: ${MATCHAJOB_MATCHING_PROCESSING_ENABLED:true}
+      poll-delay-ms: ${MATCHAJOB_MATCHING_PROCESSING_POLL_DELAY_MS:3000}
 
 management:
   endpoints:
