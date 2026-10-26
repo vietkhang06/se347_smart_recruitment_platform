@@ -278,58 +278,64 @@ public class ApplicationService {
             resourceOwnershipService.checkEmployerJobOwnership(userId, jobId);
         }
 
-        List<ApplicationEntity> applications = applicationRepository.findByJobIdOrderByAppliedAtDesc(jobId);
+        StringBuilder sql = new StringBuilder("""
+                SELECT 
+                    a.id AS application_id,
+                    a.candidate_id,
+                    a.stage,
+                    a.applied_at,
+                    u.full_name AS candidate_name,
+                    mr.overall_score,
+                    mr.skills_score,
+                    mr.experience_score,
+                    mr.rationale
+                FROM applications a
+                JOIN candidate_profiles cp ON a.candidate_id = cp.id
+                JOIN users u ON cp.user_id = u.id
+                LEFT JOIN match_results mr ON mr.application_id = a.id
+                WHERE a.job_id = ?
+                """);
 
-        // Build ranking items with match result data
-        List<ApplicationRankingItem> items = new ArrayList<>();
-        for (ApplicationEntity app : applications) {
-            // Apply stage filter if provided
-            if (stageFilter != null && !stageFilter.isEmpty()
-                    && !app.getStage().equalsIgnoreCase(stageFilter)) {
-                continue;
-            }
+        List<Object> params = new ArrayList<>();
+        params.add(jobId);
 
-            Optional<MatchResult> matchOpt = matchResultRepository.findByApplicationId(app.getId());
-
-            Integer overallScore = matchOpt.map(m -> (int) m.getOverallScore()).orElse(null);
-            Integer skillsScore = matchOpt.map(m -> m.getSkillsScore() != null ? (int) m.getSkillsScore() : null).orElse(null);
-            Integer experienceScore = matchOpt.map(m -> m.getExperienceScore() != null ? (int) m.getExperienceScore() : null).orElse(null);
-            String rationale = matchOpt.map(MatchResult::getRationale).orElse(null);
-
-            // Apply minimum score filter if provided
-            if (minScore != null && (overallScore == null || overallScore < minScore)) {
-                continue;
-            }
-
-            // Look up candidate name via JdbcClient
-            String candidateName = lookupCandidateName(app.getCandidateId());
-
-            items.add(ApplicationRankingItem.builder()
-                    .applicationId(app.getId())
-                    .candidateId(app.getCandidateId())
-                    .candidateName(candidateName)
-                    .stage(app.getStage())
-                    .overallScore(overallScore)
-                    .skillsScore(skillsScore)
-                    .experienceScore(experienceScore)
-                    .rationale(rationale)
-                    .appliedAt(app.getAppliedAt())
-                    .build());
+        if (stageFilter != null && !stageFilter.isBlank() && !stageFilter.equalsIgnoreCase("all")) {
+            sql.append(" AND LOWER(a.stage) = ?");
+            params.add(stageFilter.trim().toLowerCase());
         }
 
-        // Sort by overall score descending (nulls last)
-        items.sort((a, b) -> {
-            Integer scoreA = a.getOverallScore();
-            Integer scoreB = b.getOverallScore();
-            if (scoreA == null && scoreB == null) return 0;
-            if (scoreA == null) return 1;
-            if (scoreB == null) return -1;
-            return scoreB.compareTo(scoreA);
-        });
+        if (minScore != null) {
+            sql.append(" AND mr.overall_score >= ?");
+            params.add(minScore);
+        }
 
-        // Assign ranking numbers
+        sql.append(" ORDER BY mr.overall_score DESC NULLS LAST, a.applied_at ASC");
+
+        var query = jdbcClient.sql(sql.toString());
+        for (Object param : params) {
+            query.param(param);
+        }
+
         AtomicInteger rank = new AtomicInteger(1);
-        items.forEach(item -> item.setRanking(rank.getAndIncrement()));
+        List<ApplicationRankingItem> items = query.query((rs, rowNum) -> {
+            Integer overallScore = rs.getObject("overall_score") != null ? rs.getInt("overall_score") : null;
+            Integer skillsScore = rs.getObject("skills_score") != null ? rs.getInt("skills_score") : null;
+            Integer expScore = rs.getObject("experience_score") != null ? rs.getInt("experience_score") : null;
+            java.sql.Timestamp appliedTs = rs.getTimestamp("applied_at");
+
+            return ApplicationRankingItem.builder()
+                    .ranking(rank.getAndIncrement())
+                    .applicationId(rs.getObject("application_id", UUID.class))
+                    .candidateId(rs.getObject("candidate_id", UUID.class))
+                    .candidateName(rs.getString("candidate_name"))
+                    .stage(rs.getString("stage"))
+                    .overallScore(overallScore)
+                    .skillsScore(skillsScore)
+                    .experienceScore(expScore)
+                    .rationale(rs.getString("rationale"))
+                    .appliedAt(appliedTs != null ? appliedTs.toInstant() : null)
+                    .build();
+        }).list();
 
         return ApplicationRankingResponse.builder()
                 .jobId(jobId)
