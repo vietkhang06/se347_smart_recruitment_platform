@@ -90,7 +90,7 @@ export default function ProfileView() {
               >
                 {getInitials(name)}
               </div>
-              <div>
+              <div className="hr-profile-identity-text">
                 <h5 className="fw-bold mb-0">{name}</h5>
                 <div className="text-muted small">{roleTitle} · FPT Digital Talent</div>
                 <Badge bg="success" className="bg-opacity-10 text-success border mt-1">

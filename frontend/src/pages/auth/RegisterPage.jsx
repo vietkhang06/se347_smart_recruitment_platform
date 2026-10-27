@@ -1,35 +1,38 @@
+import { IS_API } from "../../services/dataMode";
+import { authService } from "../../services/authService";
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import Container from "react-bootstrap/Container";
 import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 import Card from "react-bootstrap/Card";
 import Form from "react-bootstrap/Form";
 import Button from "react-bootstrap/Button";
-import { useAuth } from "../../context/AuthContext";
-import { useToast } from "../../context/ToastContext";
 
 export default function RegisterPage() {
-  const navigate = useNavigate();
-  const { login } = useAuth();
-  const { showToast } = useToast();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
-  const [role, setRole] = useState("candidate");
   const [name, setName] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [role, setRole] = useState("candidate");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [company, setCompany] = useState("");
   const [terms, setTerms] = useState(false);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!terms) {
-      showToast("Vui lòng đồng ý với Điều khoản dịch vụ", "warning");
-      return;
-    }
-    login(email, role, name);
-    showToast("Đăng ký tài khoản thành công!");
-    navigate(role === "employer" ? "/employer" : "/");
+  const handleSubmit = async event => {
+    event.preventDefault();
+    if (busy || success) return;
+    setError("");
+    if (!terms) { setError("Vui lòng đồng ý với Điều khoản dịch vụ."); return; }
+    setBusy(true);
+    try {
+      const result = await authService.register({ email, password, role, name, companyName });
+      setSuccess(result.message || "Đăng ký thành công. Hãy đăng nhập; nếu tài khoản chờ xác minh, cần hoàn tất xác minh trước.");
+      setPassword("");
+    } catch (err) { setError(err.message || "Không đăng ký được."); }
+    finally { setBusy(false); }
   };
 
   return (
@@ -43,6 +46,10 @@ export default function RegisterPage() {
             </div>
 
             <Form onSubmit={handleSubmit}>
+              {!IS_API && <p className="text-muted small">Tài khoản demo được lưu trên trình duyệt này; không dùng mật khẩu thật.</p>}
+              <fieldset disabled={busy || Boolean(success)}>
+              {error && <div className="alert alert-danger" role="alert">{error}</div>}
+              {success && <div className="alert alert-success" role="status">{success} <Link to={`/login?role=${role}`}>Đến đăng nhập</Link></div>}
               <Form.Group className="mb-3">
                 <Form.Label className="small fw-semibold">Bạn là ai?</Form.Label>
                 <div className="d-flex gap-3">
@@ -65,33 +72,15 @@ export default function RegisterPage() {
                 </div>
               </Form.Group>
 
-              <Form.Group className="mb-3">
-                <Form.Label className="small fw-semibold">Họ và tên của bạn</Form.Label>
-                <Form.Control 
-                  type="text" 
-                  required 
-                  placeholder="Ví dụ: Nguyễn An Khang"
-                  value={name} 
-                  onChange={(e) => setName(e.target.value)} 
-                />
-              </Form.Group>
-
-              {role === "employer" && (
-                <Form.Group className="mb-3">
-                  <Form.Label className="small fw-semibold">Tên doanh nghiệp</Form.Label>
-                  <Form.Control 
-                    type="text" 
-                    required 
-                    placeholder="Ví dụ: FPT Software, Tiki..."
-                    value={company} 
-                    onChange={(e) => setCompany(e.target.value)} 
-                  />
-                </Form.Group>
-              )}
-
+              {!IS_API && <Form.Group className="mb-3" controlId="register-name">
+                <Form.Label>Họ và tên</Form.Label><Form.Control maxLength={100} value={name} onChange={e => setName(e.target.value)} />
+              </Form.Group>}
+              {!IS_API && role === "employer" && <Form.Group className="mb-3" controlId="register-company">
+                <Form.Label>Tên doanh nghiệp</Form.Label><Form.Control required maxLength={150} value={companyName} onChange={e => setCompanyName(e.target.value)} />
+              </Form.Group>}
               <Form.Group className="mb-3">
                 <Form.Label className="small fw-semibold">Địa chỉ Email</Form.Label>
-                <Form.Control 
+                <Form.Control aria-label="Email" autoComplete="email" maxLength={255} disabled={busy || Boolean(success)}
                   type="email" 
                   required 
                   placeholder="name@example.com"
@@ -101,11 +90,11 @@ export default function RegisterPage() {
               </Form.Group>
 
               <Form.Group className="mb-3">
-                <Form.Label className="small fw-semibold">Mật khẩu (tối thiểu 6 ký tự)</Form.Label>
-                <Form.Control 
+                <Form.Label className="small fw-semibold">Mật khẩu (tối thiểu 8 ký tự)</Form.Label>
+                <Form.Control aria-label="Mật khẩu" autoComplete="new-password" disabled={busy || Boolean(success)}
                   type="password" 
                   required 
-                  minLength={6}
+                  minLength={8}
                   placeholder="••••••••"
                   value={password} 
                   onChange={(e) => setPassword(e.target.value)} 
@@ -123,8 +112,8 @@ export default function RegisterPage() {
                 />
               </Form.Group>
 
-              <Button type="submit" variant="success" className="w-100 py-2 fw-bold mb-3">
-                Hoàn tất đăng ký
+              <Button disabled={busy || Boolean(success)} type="submit" variant="success" className="w-100 py-2 fw-bold mb-3">
+                {busy ? "Đang đăng ký…" : "Hoàn tất đăng ký"}
               </Button>
 
               <div className="text-center text-muted small">
@@ -133,6 +122,7 @@ export default function RegisterPage() {
                   Đăng nhập
                 </Link>
               </div>
+              </fieldset>
             </Form>
           </Card>
         </Col>

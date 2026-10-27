@@ -1,0 +1,11 @@
+{
+  "cv_version_id": "55555555-5555-4555-8555-555555555555",
+  "candidate_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  "file_name": "candidate-cv.pdf",
+  "file_size_bytes": 245760,
+  "mime_type": "application/pdf",
+  "status": "uploaded",
+  "processing_job_id": "66666666-6666-4666-8666-666666666666",
+  "message": "CV uploaded successfully. Processing queued.",
+  "is_active": true
+}

@@ -1,5 +1,6 @@
+import { IS_API } from "../../services/dataMode";
 import { useState, useEffect } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import Container from "react-bootstrap/Container";
 import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
@@ -12,28 +13,56 @@ import { useAuth } from "../../context/AuthContext";
 export default function LoginPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { login } = useAuth();
 
-  const [role, setRole] = useState(searchParams.get("role") || "candidate");
-  const [email, setEmail] = useState("ankhang@example.com");
-  const [password, setPassword] = useState("password123");
+  const [role, setRole] = useState(["candidate", "employer", "admin"].includes(searchParams.get("role")) ? searchParams.get("role") : "candidate");
+  const [email, setEmail] = useState(IS_API ? "" : "ankhang@example.com");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     const roleParam = searchParams.get("role");
-    if (roleParam) setRole(roleParam);
+    if (["candidate", "employer", "admin"].includes(roleParam)) setRole(roleParam);
   }, [searchParams]);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    login(email, role);
-    if (role === "employer") {
-      navigate("/employer");
-    } else if (role === "admin") {
-      navigate("/admin");
-    } else {
-      navigate("/");
-    }
+    const handleSubmit = async (event) => {
+    event.preventDefault();
+    if (busy) return;
+    setBusy(true); setError("");
+
+    try {
+      const user = await login(email, role, password);
+
+      const home =
+        user.role === "employer"
+          ? "/employer"
+          : user.role === "admin"
+            ? "/admin"
+            : "/";
+
+      const prefix =
+        user.role === "candidate" ? "/candidate" : home;
+
+      const from = location.state?.from;
+
+      const canReturn =
+        typeof from === "string" &&
+        (
+          from === prefix ||
+          ["/", "?", "#"].some((suffix) =>
+            from.startsWith(prefix + suffix)
+          )
+        );
+
+      navigate(canReturn ? from : home, {
+        replace: true
+      });
+    } catch (error) {
+      setError(error?.message || "Không đăng nhập được.");
+    } finally { setBusy(false); }
   };
 
   const roleImages = {
@@ -109,9 +138,14 @@ export default function LoginPage() {
                 </div>
 
                 <Form onSubmit={handleSubmit}>
+              {!IS_API && <div className="alert alert-info small">
+                <strong>Tài khoản demo</strong><br />Ứng viên: ankhang@example.com<br />HR: talent@fpt.com<br />Admin: admin@matchajob.vn<br />
+                Mật khẩu mẫu: <strong>Demo123!</strong>. Tài khoản tự đăng ký dùng mật khẩu bạn đã đặt.
+              </div>}
+                  {error && <div className="alert alert-danger" role="alert">{error}</div>}
                   <Form.Group className="mb-3">
                     <Form.Label className="small fw-semibold">Địa chỉ Email</Form.Label>
-                    <Form.Control 
+                    <Form.Control aria-label="Email" autoComplete="username" disabled={busy}
                       type="email" 
                       required 
                       value={email} 
@@ -127,9 +161,9 @@ export default function LoginPage() {
                       </Link>
                     </div>
                     <div className="position-relative">
-                      <Form.Control 
+                      <Form.Control aria-label="Mật khẩu" autoComplete="current-password" disabled={busy}
                         type={showPassword ? "text" : "password"} 
-                        required 
+                        required
                         value={password} 
                         onChange={(e) => setPassword(e.target.value)}
                       />
@@ -143,8 +177,8 @@ export default function LoginPage() {
                     </div>
                   </Form.Group>
 
-                  <Button type="submit" variant="success" className="w-100 py-2 fw-bold mb-3">
-                    Đăng nhập ({roleNames[role]})
+                  <Button disabled={busy} type="submit" variant="success" className="w-100 py-2 fw-bold mb-3">
+                    {busy ? "Đang đăng nhập…" : `Đăng nhập (${roleNames[role]})`}
                   </Button>
 
                   <div className="text-center text-muted small">

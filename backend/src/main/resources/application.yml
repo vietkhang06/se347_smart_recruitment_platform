@@ -1,8 +1,31 @@
+server:
+  port: ${BACKEND_CONTAINER_PORT:8080}
+  servlet:
+    context-path: /api
+  error:
+    include-message: always
+
 spring:
   application:
     name: matchajob-backend
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
+  servlet:
+    multipart:
+      max-file-size: ${MATCHAJOB_CV_MAX_FILE_SIZE:10MB}
+      max-request-size: ${MATCHAJOB_CV_MAX_REQUEST_SIZE:11MB}
+
+matchajob:
+  upload-dir: ${MATCHAJOB_UPLOAD_DIR:target/uploads/cv}
+  cv:
+    max-file-size: ${MATCHAJOB_CV_MAX_FILE_SIZE:10MB}
+    processing:
+      enabled: ${MATCHAJOB_CV_PROCESSING_ENABLED:true}
+      poll-delay-ms: ${MATCHAJOB_CV_PROCESSING_POLL_DELAY_MS:2000}
+  matching:
+    processing:
+      enabled: ${MATCHAJOB_MATCHING_PROCESSING_ENABLED:true}
+      poll-delay-ms: ${MATCHAJOB_MATCHING_PROCESSING_POLL_DELAY_MS:3000}
 
 management:
   endpoints:
@@ -14,21 +37,14 @@ management:
       show-details: when_authorized
       probes:
         enabled: true
-  datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5433/matchajob_db}
-    username: ${SPRING_DATASOURCE_USERNAME:postgres}
-    password: ${SPRING_DATASOURCE_PASSWORD:root}
-    driver-class-name: org.postgresql.Driver
-  jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: true
-    properties:
-      hibernate:
-        format_sql: true
-        dialect: org.hibernate.dialect.PostgreSQLDialect
+      group:
+        readiness:
+          include: readinessState,db,pgVector
 
-server:
-  port: ${BACKEND_CONTAINER_PORT:8081}
-  error:
-    include-message: always
+security:
+  jwt:
+    expiration-ms: ${JWT_EXPIRATION_MS:3600000}
+
+app:
+  auth:
+    require-email-verification: ${REQUIRE_EMAIL_VERIFICATION:true}

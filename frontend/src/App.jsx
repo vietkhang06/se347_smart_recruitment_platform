@@ -1,3 +1,4 @@
+import DataModeNotice from "./components/common/DataModeNotice";
 import { Routes, Route, useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import Header from "./components/common/Header";
@@ -16,6 +17,8 @@ import SavedJobsPage from "./pages/candidate/SavedJobsPage";
 import ApplicationsPage from "./pages/candidate/ApplicationsPage";
 import EmployerPortal from "./pages/employer/EmployerPortal";
 import AdminPortal from "./pages/admin/AdminPortal";
+import RequireRole from "./components/auth/RequireRole";
+import NotFoundPage from "./pages/public/NotFoundPage";
 import { useAOS } from "./hooks/useAOS";
 
 export default function App() {
@@ -30,6 +33,7 @@ export default function App() {
   return (
     <div className="d-flex flex-column min-vh-100">
       <Header />
+      <DataModeNotice />
       <main className="flex-grow-1">
         <Routes>
           {/* Public Routes */}
@@ -46,16 +50,19 @@ export default function App() {
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
           {/* Candidate Routes */}
+          <Route element={<RequireRole role="candidate" />}>
           <Route path="/candidate/profile" element={<ProfilePage />} />
           <Route path="/candidate/saved" element={<SavedJobsPage />} />
           <Route path="/candidate/applications" element={<ApplicationsPage />} />
 
+          </Route>
+
           {/* Employer & Admin Portals */}
-          <Route path="/employer/*" element={<EmployerPortal />} />
-          <Route path="/admin/*" element={<AdminPortal />} />
+          <Route element={<RequireRole role="employer" />}><Route path="/employer/*" element={<EmployerPortal />} /></Route>
+          <Route element={<RequireRole role="admin" />}><Route path="/admin/*" element={<AdminPortal />} /></Route>
 
           {/* Fallback */}
-          <Route path="*" element={<HomePage />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>
       <Footer />

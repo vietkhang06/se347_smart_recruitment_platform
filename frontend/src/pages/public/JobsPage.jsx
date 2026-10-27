@@ -1,180 +1,98 @@
-import { useState, useMemo, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import Container from "react-bootstrap/Container";
-import Row from "react-bootstrap/Row";
-import Col from "react-bootstrap/Col";
-import Form from "react-bootstrap/Form";
-import Button from "react-bootstrap/Button";
-import Card from "react-bootstrap/Card";
-import { MATCHAJOB_DATA } from "../../services/data";
+import { Container, Row, Col, Card, Form, Button } from "react-bootstrap";
+import { jobService } from "../../services/jobService";
+import { IS_API } from "../../services/dataMode";
 import JobCard from "../../components/jobs/JobCard";
 
 export default function JobsPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
-
-  const [keyword, setKeyword] = useState(searchParams.get("q") || "");
-  const [location, setLocation] = useState(searchParams.get("location") || "");
-  const [jobType, setJobType] = useState("");
-  const [category, setCategory] = useState("");
-  const [sortBy, setSortBy] = useState("match");
-
-  // Sync params with URL if change
-  useEffect(() => {
-    const q = searchParams.get("q");
-    const loc = searchParams.get("location");
-    if (q !== null) setKeyword(q);
-    if (loc !== null) setLocation(loc);
-  }, [searchParams]);
-
-  const handleReset = () => {
-    setKeyword("");
-    setLocation("");
-    setJobType("");
-    setCategory("");
-    setSortBy("match");
-    setSearchParams({});
+  const [params, setParams] = useSearchParams();
+  const [result, setResult] = useState(null);
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [categoryError, setCategoryError] = useState("");
+  const [retry, setRetry] = useState(0);
+  const query = params.toString();
+  const rawPage = Number(params.get("page"));
+  const page = Number.isSafeInteger(rawPage) && rawPage >= 0 ? rawPage : 0;
+  const update = (key, value) => {
+    const next = new URLSearchParams(params);
+    if (value) next.set(key, value); else next.delete(key);
+    if (key !== "page") next.delete("page");
+    setParams(next);
   };
-
-  const filteredJobs = useMemo(() => {
-    return MATCHAJOB_DATA.jobs.filter(job => {
-      const q = keyword.toLowerCase().trim();
-      const matchKeyword = !q || 
-        job.title.toLowerCase().includes(q) || 
-        job.company.toLowerCase().includes(q) ||
-        job.category.toLowerCase().includes(q);
-
-      const matchLocation = !location || job.location.includes(location);
-      const matchType = !jobType || job.type === jobType;
-      const matchCat = !category || job.category === category;
-
-      return matchKeyword && matchLocation && matchType && matchCat;
-    }).sort((a, b) => {
-      if (sortBy === "match") return b.match - a.match;
-      if (sortBy === "salary") return parseInt(b.salary) - parseInt(a.salary);
-      return b.id - a.id;
-    });
-  }, [keyword, location, jobType, category, sortBy]);
-
-  return (
-    <Container className="py-5">
-      <div className="mb-4">
-        <h1 className="fw-bold mb-1">Khám phá cơ hội việc làm</h1>
-        <p className="text-muted">Tìm kiếm trong {MATCHAJOB_DATA.jobs.length} việc làm công nghệ & sản phẩm chọn lọc</p>
-      </div>
-
-      <Row className="g-4">
-        {/* Sidebar Filters */}
-        <Col lg={3} md={4}>
-          <Card className="matcha-card p-3 shadow-sm border-0 sticky-top" style={{ top: "80px" }}>
-            <div className="d-flex justify-content-between align-items-center mb-3">
-              <h6 className="fw-bold mb-0">Bộ lọc tìm kiếm</h6>
-              <Button variant="link" size="sm" className="p-0 text-muted text-decoration-none" onClick={handleReset}>
-                Đặt lại
-              </Button>
-            </div>
-
-            {/* Keyword Input */}
-            <Form.Group className="mb-3">
-              <Form.Label className="small fw-semibold">Từ khóa</Form.Label>
-              <Form.Control
-                type="text"
-                size="sm"
-                placeholder="Vị trí, kỹ năng..."
-                value={keyword}
-                onChange={(e) => setKeyword(e.target.value)}
-              />
-            </Form.Group>
-
-            {/* Location Select */}
-            <Form.Group className="mb-3">
-              <Form.Label className="small fw-semibold">Địa điểm</Form.Label>
-              <Form.Select 
-                size="sm" 
-                value={location} 
-                onChange={(e) => setLocation(e.target.value)}
-              >
-                <option value="">Tất cả địa điểm</option>
-                <option value="TP.HCM">TP. Hồ Chí Minh</option>
-                <option value="Hà Nội">Hà Nội</option>
-                <option value="Đà Nẵng">Đà Nẵng</option>
-              </Form.Select>
-            </Form.Group>
-
-            {/* Job Type Select */}
-            <Form.Group className="mb-3">
-              <Form.Label className="small fw-semibold">Hình thức làm việc</Form.Label>
-              <Form.Select 
-                size="sm" 
-                value={jobType} 
-                onChange={(e) => setJobType(e.target.value)}
-              >
-                <option value="">Tất cả hình thức</option>
-                <option value="Toàn thời gian">Toàn thời gian</option>
-                <option value="Hybrid">Hybrid</option>
-              </Form.Select>
-            </Form.Group>
-
-            {/* Category Select */}
-            <Form.Group className="mb-2">
-              <Form.Label className="small fw-semibold">Ngành nghề</Form.Label>
-              <Form.Select 
-                size="sm" 
-                value={category} 
-                onChange={(e) => setCategory(e.target.value)}
-              >
-                <option value="">Tất cả ngành nghề</option>
-                <option value="Công nghệ">Công nghệ thông tin</option>
-                <option value="Thiết kế">Thiết kế / Sáng tạo</option>
-                <option value="Dữ liệu">Dữ liệu & Phân tích</option>
-                <option value="Kinh doanh">Kinh doanh / BA</option>
-              </Form.Select>
-            </Form.Group>
-          </Card>
-        </Col>
-
-        {/* Job Listings Area */}
-        <Col lg={9} md={8}>
-          <div className="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
-            <div className="text-muted small">
-              Tìm thấy <strong className="text-body">{filteredJobs.length}</strong> việc làm phù hợp
-            </div>
-            <div className="d-flex align-items-center gap-2">
-              <span className="small text-muted text-nowrap">Sắp xếp:</span>
-              <Form.Select 
-                size="sm" 
-                className="w-auto"
-                value={sortBy} 
-                onChange={(e) => setSortBy(e.target.value)}
-              >
-                <option value="match">Độ phù hợp cao nhất</option>
-                <option value="salary">Mức lương cao nhất</option>
-                <option value="new">Mới đăng gần đây</option>
-              </Form.Select>
-            </div>
-          </div>
-
-          {filteredJobs.length === 0 ? (
-            <Card className="matcha-card p-5 text-center border-0 shadow-sm">
-              <div className="fs-1 text-muted mb-2"><i className="bi bi-search"></i></div>
-              <h5 className="fw-bold">Không tìm thấy việc làm phù hợp</h5>
-              <p className="text-muted small">Vui lòng thử tìm kiếm bằng từ khóa khác hoặc bỏ bớt các bộ lọc đang chọn.</p>
-              <div>
-                <Button variant="outline-success" size="sm" onClick={handleReset}>
-                  Xóa bộ lọc
-                </Button>
-              </div>
-            </Card>
-          ) : (
-            <Row className="g-3">
-              {filteredJobs.map((job, idx) => (
-                <Col lg={6} sm={12} key={job.id}>
-                  <JobCard job={job} aosDelay={(idx % 4) * 80} />
-                </Col>
-              ))}
-            </Row>
-          )}
-        </Col>
-      </Row>
-    </Container>
-  );
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true); setError("");
+    const values = Object.fromEntries(new URLSearchParams(query));
+    jobService.search({ ...values, keyword: values.q || "", page, size: 8 }, { signal: controller.signal })
+      .then(data => { if (!controller.signal.aborted) setResult(data); })
+      .catch(err => { if (!controller.signal.aborted) { setResult(null); setError(err.message); } })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [query, page, retry]);
+  useEffect(() => {
+    const controller = new AbortController();
+    setCategoryError("");
+    jobService.categories({ signal: controller.signal }).then(data => { if (!controller.signal.aborted) setCategories(data); })
+      .catch(err => { if (!controller.signal.aborted) setCategoryError(err.message); });
+    return () => controller.abort();
+  }, [retry]);
+  useEffect(() => {
+    if (IS_API) return;
+    const refresh = () => setRetry(value => value + 1);
+    window.addEventListener("matchajob:store-changed", refresh);
+    window.addEventListener("storage", refresh);
+    return () => {
+      window.removeEventListener("matchajob:store-changed", refresh);
+      window.removeEventListener("storage", refresh);
+    };
+  }, []);
+  const mockJobs = IS_API ? [] : jobService.getJobsSnapshot();
+  const workTypes = IS_API ? ["full_time", "part_time", "hybrid", "remote", "contract"] : [...new Set(mockJobs.map(j => j.workType || j.type).filter(Boolean))];
+  const levels = IS_API ? ["intern", "fresher", "junior", "middle", "senior", "lead", "director"] : [...new Set(mockJobs.map(j => j.level || j.exp).filter(Boolean))];
+  const locations = [...new Set(mockJobs.map(job => job.location).filter(Boolean))].sort();
+  const experiences = [...new Set(mockJobs.map(job => job.experience || job.exp).filter(Boolean))].sort();
+  const select = (label, key, items) => <Form.Group className="mb-3" controlId={`search-${key}`}>
+    <Form.Label className="small fw-semibold">{label}</Form.Label>
+    <Form.Select size="sm" value={params.get(key) || ""} onChange={e => update(key, e.target.value)}>
+      <option value="">Tất cả</option>
+      {params.get(key) && !items.some(item => String(item.id) === params.get(key)) && <option value={params.get(key)}>{params.get(key)}</option>}
+      {items.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+    </Form.Select>
+  </Form.Group>;
+  return <Container className="py-5">
+    <h1 className="fw-bold mb-1">Khám phá cơ hội việc làm</h1>
+    <p className="text-muted mb-4">Tìm công việc phù hợp với bạn</p>
+    <Row className="g-4">
+      <Col lg={3} md={4}><Card className="matcha-card p-3 shadow-sm border-0">
+        <div className="d-flex justify-content-between mb-3"><h2 className="h6">Bộ lọc tìm kiếm</h2><Button variant="link" size="sm" onClick={() => setParams({})}>Đặt lại</Button></div>
+        <Form.Group className="mb-3" controlId="search-keyword"><Form.Label>Từ khóa</Form.Label><Form.Control size="sm" value={params.get("q") || ""} onChange={e => update("q", e.target.value)} placeholder={IS_API ? "Vị trí, địa điểm…" : "Vị trí, kỹ năng…"} /></Form.Group>
+        {IS_API ? <Form.Group className="mb-3" controlId="search-location"><Form.Label>Địa điểm</Form.Label><Form.Control size="sm" value={params.get("location") || ""} onChange={e => update("location", e.target.value)} placeholder="Thành phố…" /></Form.Group>
+          : select("Địa điểm", "location", locations.map(id => ({ id, name: id })))}
+        {select("Hình thức làm việc", "workType", workTypes.map(id => ({ id, name: ({ full_time: "Toàn thời gian", part_time: "Bán thời gian", contract: "Hợp đồng", hybrid: "Kết hợp", remote: "Từ xa" })[id] || id })))}
+        {select("Ngành nghề", "categoryId", categories)}
+        {categoryError && <div className="text-danger small" role="alert">Không tải được ngành nghề. <button className="btn btn-link btn-sm" onClick={() => setRetry(v => v + 1)}>Thử lại</button></div>}
+        {select("Cấp bậc", "level", levels.map(id => ({ id, name: id })))}
+        {!IS_API && select("Kinh nghiệm", "experience", experiences.map(id => ({ id, name: id })))}
+      </Card></Col>
+      <Col lg={9} md={8}>
+        <div className="d-flex flex-wrap justify-content-between gap-2 mb-3">
+          <span>{!loading && !error && `${result?.totalElements || 0} việc làm phù hợp`}</span>
+          <Form.Select aria-label="Sắp xếp" className="w-auto" value={params.get("sortBy") || "postedAt_desc"} onChange={e => update("sortBy", e.target.value)}>
+            <option value="postedAt_desc">Mới nhất</option><option value="salary_desc">Mức lương cao nhất</option><option value="title_asc">Tên A–Z</option>{!IS_API && <option value="match_desc">Độ phù hợp cao nhất</option>}
+          </Form.Select>
+        </div>
+        {loading ? <div className="py-5 text-center" role="status">Đang tải việc làm…</div> : error ? <div className="alert alert-danger" role="alert">{error} <Button variant="outline-danger" onClick={() => setRetry(v => v + 1)}>Thử lại</Button></div>
+          : !result?.content.length ? <Card className="matcha-card p-5 text-center"><h2 className="h5">Không tìm thấy việc làm phù hợp</h2><p>Thử thay đổi bộ lọc hoặc quay về trang đầu.</p><Button variant="outline-success" onClick={() => page ? update("page", "") : setParams({})}>{page ? "Về trang đầu" : "Xóa bộ lọc"}</Button></Card>
+          : <Row className="g-3">{result.content.map(job => <Col lg={6} key={job.id}><JobCard job={job} /></Col>)}</Row>}
+        {!loading && !error && (result?.totalPages > 1 || page > 0) && <nav className="d-flex align-items-center justify-content-between gap-2 mt-4" aria-label="Phân trang việc làm">
+          <Button variant="outline-success" disabled={page === 0} onClick={() => update("page", String(page - 1))}>Trước</Button>
+          <span>Trang {page + 1} / {Math.max(1, result?.totalPages || 0)}</span>
+          <Button variant="outline-success" disabled={page + 1 >= (result?.totalPages || 0)} onClick={() => update("page", String(page + 1))}>Sau</Button>
+        </nav>}
+      </Col>
+    </Row>
+  </Container>;
 }

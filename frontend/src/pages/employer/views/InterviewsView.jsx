@@ -1,395 +1,588 @@
 import { useState, forwardRef } from "react";
 import Card from "react-bootstrap/Card";
-import Button from "react-bootstrap/Button";
 import Table from "react-bootstrap/Table";
+import Button from "react-bootstrap/Button";
 import Badge from "react-bootstrap/Badge";
-import Dropdown from "react-bootstrap/Dropdown";
+import Modal from "react-bootstrap/Modal";
 import Form from "react-bootstrap/Form";
 import InputGroup from "react-bootstrap/InputGroup";
+import Dropdown from "react-bootstrap/Dropdown";
+import Alert from "react-bootstrap/Alert";
 import { useToast } from "../../../context/ToastContext";
-import { mockStore } from "../../../services/mockStore";
+import {
+  interviewTime,
+  interviewClosed,
+  safeMeetingLink
+} from "../../../services/mockStore";
+import { interviewService } from "../../../services";
+import MatchaDatePicker from "../../../components/common/MatchaDatePicker";
 
-// Custom Dropdown Toggle without default Bootstrap arrow/caret
-const CustomThreeDotsToggle = forwardRef(({ onClick }, ref) => (
+// Nút 3 chấm thao tác tùy biến đồng bộ với JobsView và CandidatesView
+const CustomThreeDotsToggle = forwardRef(({ onClick, disabled }, ref) => (
   <button
     ref={ref}
     type="button"
+    disabled={disabled}
+    aria-label="Thao tác với lịch phỏng vấn"
     className="btn btn-sm border-0 rounded-circle p-0 d-inline-flex align-items-center justify-content-center"
-    style={{ width: "32px", height: "32px", backgroundColor: "var(--surface-2)", color: "var(--text)" }}
-    onClick={(e) => {
-      e.preventDefault();
-      onClick(e);
+    style={{
+      width: 32,
+      height: 32,
+      backgroundColor: "var(--surface-2)",
+      color: "var(--text)"
+    }}
+    onClick={(event) => {
+      event.preventDefault();
+      onClick?.(event);
     }}
   >
-    <i className="bi bi-three-dots-vertical fs-6"></i>
+    <i className="bi bi-three-dots-vertical" />
   </button>
 ));
+
 CustomThreeDotsToggle.displayName = "CustomThreeDotsToggle";
 
-export default function InterviewsView({ interviews, setInterviews, onOpenInterviewModal }) {
+// Helper xác định màu sắc trạng thái lịch phỏng vấn đồng bộ hệ thống design token
+function getInterviewBadgeClass(status) {
+  switch (status) {
+    case "Sắp diễn ra":
+      return "status-badge-primary";
+    case "Đã xác nhận":
+      return "status-badge-success";
+    case "Chờ xác nhận":
+      return "status-badge-warning";
+    case "Đề nghị đổi lịch":
+      return "status-badge-warning text-dark border border-warning";
+    case "Hoàn tất":
+      return "status-badge-secondary";
+    case "Đã hủy":
+      return "status-badge-danger";
+    default:
+      return "status-badge-secondary";
+  }
+}
+
+// Xuất danh sách lịch phỏng vấn dạng CSV chuẩn UTF-8
+function exportInterviewsCSV(interviews) {
+  const sanitizeCell = (value) => {
+    let text = String(value ?? "");
+    if (/^\s*[=+@-]/.test(text)) {
+      text = "'" + text;
+    }
+    return '"' + text.replace(/"/g, '""') + '"';
+  };
+
+  const rows = [
+    [
+      "Mã lịch",
+      "Giờ phỏng vấn",
+      "Ngày phỏng vấn",
+      "Ứng viên",
+      "Vị trí tuyển dụng",
+      "Hình thức",
+      "Link phòng họp",
+      "Hội đồng phỏng vấn",
+      "Trạng thái",
+      "Phản hồi từ ứng viên",
+      "Ghi chú / Lý do hủy"
+    ],
+    ...interviews.map((item) => [
+      item.id,
+      item.time,
+      item.date,
+      item.candidate,
+      item.role,
+      item.type,
+      item.meetingLink || "",
+      item.people || "",
+      item.status,
+      item.candidateResponse ? item.candidateResponse.note || item.candidateResponse.type : "",
+      item.cancelReason || item.note || ""
+    ])
+  ];
+
+  const csvContent =
+    "\uFEFF" + rows.map((row) => row.map(sanitizeCell).join(",")).join("\r\n");
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `matchajob-interviews-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export default function InterviewsView({
+  interviews = [],
+  setInterviews,
+  onOpenInterviewModal
+}) {
   const { showToast } = useToast();
 
-  // Status & Date Filters
+  const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [selectedDate, setSelectedDate] = useState(null); // { day, month, year } or null
-  const [showCalendarDropdown, setShowCalendarDropdown] = useState(false);
+  const [dateFilters, setDateFilters] = useState([]);
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
 
-  // Calendar Navigation State (Month 0-indexed: 8 is September)
-  const [calYear, setCalYear] = useState(2026);
-  const [calMonth, setCalMonth] = useState(8);
-
-  // Multi-row Selection
+  // Multi-row selection
   const [selectedIds, setSelectedIds] = useState([]);
 
-  const pad = (n) => String(n).padStart(2, "0");
+  // Modals state
+  const [editing, setEditing] = useState(null);
+  const [cancelTarget, setCancelTarget] = useState(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [modalError, setModalError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Check if an interview matches a specific date
-  const isInterviewOnDate = (iv, d, m, y) => {
-    const dm = `${pad(d)}/${pad(m + 1)}`;
-    const dmy = `${pad(d)}/${pad(m + 1)}/${y}`;
-    const iso = `${y}-${pad(m + 1)}-${pad(d)}`;
-    const dateStr = String(iv.date || "");
-    return (
-      dateStr === dm ||
-      dateStr.startsWith(`${d}/${m + 1}`) ||
-      dateStr.startsWith(`${pad(d)}/${m + 1}`) ||
-      dateStr.includes(dm) ||
-      dateStr.includes(dmy) ||
-      dateStr === iso
-    );
-  };
+  // Lọc danh sách lịch
+  const filteredInterviews = interviews.filter((item) => {
+    const matchStatus = statusFilter === "all" ? true : item.status === statusFilter;
+    
+    // So khớp nhiều ngày được chọn cùng lúc (OR logic: lịch trùng bất kỳ ngày nào trong dateFilters)
+    let matchDate = true;
+    if (dateFilters.length > 0) {
+      const rawItem = String(item.date || "").trim();
+      matchDate = dateFilters.some((df) => {
+        const rawFilter = String(df).trim();
+        if (rawItem === rawFilter || rawItem.includes(rawFilter)) return true;
 
-  // Filtered interviews list
-  const filteredInterviews = interviews.filter((iv) => {
-    const matchStatus = statusFilter === "all" ? true : iv.status === statusFilter;
-    const matchDate = selectedDate
-      ? isInterviewOnDate(iv, selectedDate.day, selectedDate.month, selectedDate.year)
-      : true;
-    return matchStatus && matchDate;
+        const filterIso = rawFilter.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+        const filterVn = rawFilter.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        const parts = filterIso
+          ? { y: filterIso[1], m: filterIso[2], d: filterIso[3] }
+          : filterVn
+          ? { d: filterVn[1], m: filterVn[2], y: filterVn[3] }
+          : null;
+
+        if (parts) {
+          const pad2 = (n) => String(n).padStart(2, "0");
+          const dm = `${pad2(parts.d)}/${pad2(parts.m)}`;
+          const dmy = `${pad2(parts.d)}/${pad2(parts.m)}/${parts.y}`;
+          const iso = `${parts.y}-${pad2(parts.m)}-${pad2(parts.d)}`;
+          return (
+            rawItem === dm ||
+            rawItem === dmy ||
+            rawItem === iso ||
+            rawItem.includes(dm) ||
+            rawItem.includes(dmy)
+          );
+        }
+        return false;
+      });
+    }
+
+    const query = searchQuery.trim().toLowerCase();
+    const matchQuery =
+      !query ||
+      `${item.candidate} ${item.role} ${item.people} ${item.type}`
+        .toLowerCase()
+        .includes(query);
+
+    return matchStatus && matchDate && matchQuery;
   });
 
-  // Calendar Date calculations
-  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
-  const firstDayIndex = (new Date(calYear, calMonth, 1).getDay() + 6) % 7; // Monday = 0, Sunday = 6
-
-  const handlePrevMonth = () => {
-    if (calMonth === 0) {
-      setCalMonth(11);
-      setCalYear((prev) => prev - 1);
-    } else {
-      setCalMonth((prev) => prev - 1);
-    }
-  };
-
-  const handleNextMonth = () => {
-    if (calMonth === 11) {
-      setCalMonth(0);
-      setCalYear((prev) => prev + 1);
-    } else {
-      setCalMonth((prev) => prev + 1);
-    }
-  };
-
-  const handleSelectDay = (day) => {
-    const newDate = { day, month: calMonth, year: calYear };
-    setSelectedDate(newDate);
-    setShowCalendarDropdown(false);
-    showToast(`Đang lọc lịch phỏng vấn ngày ${pad(day)}/${pad(calMonth + 1)}/${calYear}`);
-  };
-
-  const handleClearDateFilter = () => {
-    setSelectedDate(null);
-    showToast("Đã hiển thị tất cả các ngày");
-  };
-
-  // Status updates & cancel single
-  const handleCancelInterview = (id, candidateName) => {
-    mockStore.cancelInterview(id);
-    setInterviews((prev) => prev.filter((iv) => iv.id !== id));
-    setSelectedIds((prev) => prev.filter((item) => item !== id));
-    showToast(`Đã hủy lịch phỏng vấn với ${candidateName}`);
-  };
-
-  const handleUpdateStatus = (id, newStatus) => {
-    mockStore.updateInterview(id, { status: newStatus });
-    setInterviews((prev) =>
-      prev.map((iv) => (iv.id === id ? { ...iv, status: newStatus } : iv))
-    );
-    showToast(`Đã cập nhật trạng thái buổi phỏng vấn sang: ${newStatus}`);
-  };
+  const pages = Math.max(1, Math.ceil(filteredInterviews.length / pageSize));
+  const current = Math.min(page, pages);
+  const paginatedList = filteredInterviews.slice(
+    (current - 1) * pageSize,
+    current * pageSize
+  );
 
   // Multi-selection Handlers
+  const isAllSelected =
+    paginatedList.length > 0 &&
+    paginatedList.every((item) => selectedIds.includes(item.id));
+  const isPartiallySelected =
+    paginatedList.some((item) => selectedIds.includes(item.id)) && !isAllSelected;
+
   const handleSelectAll = (e) => {
     if (e.target.checked) {
-      setSelectedIds(filteredInterviews.map((iv) => iv.id));
+      const pageIds = paginatedList.map((item) => item.id);
+      setSelectedIds((prev) => Array.from(new Set([...prev, ...pageIds])));
     } else {
-      setSelectedIds([]);
+      const pageIds = new Set(paginatedList.map((item) => item.id));
+      setSelectedIds((prev) => prev.filter((id) => !pageIds.has(id)));
     }
   };
 
-  const handleToggleSelectRow = (id) => {
+  const handleToggleRow = (id) => {
     setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
     );
   };
 
-  const handleBulkUpdateStatus = (newStatus) => {
-    selectedIds.forEach((id) => mockStore.updateInterview(id, { status: newStatus }));
-    setInterviews(mockStore.getInterviews());
-    showToast(`Đã cập nhật trạng thái ${selectedIds.length} cuộc phỏng vấn sang "${newStatus}"`);
-    setSelectedIds([]);
-  };
-
-  const handleBulkCancel = () => {
-    if (window.confirm(`Xác nhận hủy ${selectedIds.length} lịch phỏng vấn đã chọn?`)) {
-      selectedIds.forEach((id) => mockStore.cancelInterview(id));
-      setInterviews(mockStore.getInterviews());
-      showToast(`Đã hủy ${selectedIds.length} lịch phỏng vấn`);
+  // Bulk status update
+  const handleBulkUpdateStatus = async (newStatus) => {
+    try {
+      setIsSubmitting(true);
+      for (const id of selectedIds) {
+        await interviewService.updateInterviewStatus(id, newStatus);
+      }
+      const refreshed = await interviewService.getInterviews();
+      setInterviews(refreshed);
+      showToast(`Đã cập nhật trạng thái ${selectedIds.length} lịch phỏng vấn sang "${newStatus}".`);
       setSelectedIds([]);
+    } catch (err) {
+      showToast(err.message || "Không thể cập nhật hàng loạt.", "danger");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  // Filter count options
+  const handleBulkCancel = async () => {
+    if (
+      window.confirm(
+        `Xác nhận hủy ${selectedIds.length} lịch phỏng vấn đã chọn?`
+      )
+    ) {
+      try {
+        setIsSubmitting(true);
+        for (const id of selectedIds) {
+          await interviewService.cancelInterview(id, "Hủy hàng loạt bởi Nhà tuyển dụng");
+        }
+        const refreshed = await interviewService.getInterviews();
+        setInterviews(refreshed);
+        showToast(`Đã hủy ${selectedIds.length} lịch phỏng vấn đã chọn.`);
+        setSelectedIds([]);
+      } catch (err) {
+        showToast(err.message || "Không thể hủy lịch.", "danger");
+      } finally {
+        setIsSubmitting(false);
+      }
+    }
+  };
+
+  // Đánh dấu hoàn tất một lịch
+  const handleMarkCompleted = async (item) => {
+    try {
+      await interviewService.updateInterviewStatus(item.id, "Hoàn tất");
+      const refreshed = await interviewService.getInterviews();
+      setInterviews(refreshed);
+      showToast(`Đã cập nhật trạng thái hoàn tất cho buổi phỏng vấn với ${item.candidate}.`);
+    } catch (err) {
+      showToast(err.message || "Không thể hoàn tất lịch phỏng vấn.", "danger");
+    }
+  };
+
+  // Mở modal điều chỉnh
+  const openEditModal = (item) => {
+    setEditing({
+      ...item,
+      date: /^\d{4}-\d{2}-\d{2}$/.test(item.date) ? item.date : item.date || "",
+      meetingLink: item.meetingLink || "",
+      note: item.note || "",
+      people: item.people || "",
+      type: item.type || "Google Meet (Trực tuyến)"
+    });
+    setModalError("");
+  };
+
+  // Lưu chỉnh sửa lịch
+  const handleSaveEdit = async (event) => {
+    event.preventDefault();
+    setModalError("");
+    setIsSubmitting(true);
+
+    try {
+      await interviewService.updateInterview(
+        editing.id,
+        {
+          date: editing.date,
+          time: editing.time,
+          type: editing.type,
+          people: editing.people,
+          meetingLink: editing.meetingLink,
+          note: editing.note
+        }
+      );
+
+      const refreshed = await interviewService.getInterviews();
+      setInterviews(refreshed);
+      showToast(`Đã cập nhật lịch phỏng vấn với ${editing.candidate}.`);
+      setEditing(null);
+    } catch (err) {
+      setModalError(err.message || "Không thể lưu thay đổi lịch.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Mở modal hủy
+  const openCancelModal = (item) => {
+    setCancelTarget(item);
+    setCancelReason("Ứng viên bận việc đột xuất");
+    setModalError("");
+  };
+
+  // Xác nhận hủy lịch
+  const handleConfirmCancel = async (event) => {
+    event.preventDefault();
+    setModalError("");
+    setIsSubmitting(true);
+
+    try {
+      await interviewService.cancelInterview(
+        cancelTarget.id,
+        cancelReason || "Nhà tuyển dụng hủy lịch"
+      );
+      const refreshed = await interviewService.getInterviews();
+      setInterviews(refreshed);
+      showToast(`Đã hủy lịch phỏng vấn với ${cancelTarget.candidate}.`);
+      setCancelTarget(null);
+      setSelectedIds((prev) => prev.filter((id) => id !== cancelTarget.id));
+    } catch (err) {
+      setModalError(err.message || "Không thể hủy lịch phỏng vấn.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Danh mục filter pills
   const filterOptions = [
     { key: "all", label: "Tất cả", count: interviews.length },
-    { key: "Sắp diễn ra", label: "Sắp diễn ra", count: interviews.filter((iv) => iv.status === "Sắp diễn ra").length },
-    { key: "Đã xác nhận", label: "Đã xác nhận", count: interviews.filter((iv) => iv.status === "Đã xác nhận").length },
-    { key: "Hoàn tất", label: "Hoàn tất", count: interviews.filter((iv) => iv.status === "Hoàn tất").length }
+    {
+      key: "Sắp diễn ra",
+      label: "Sắp diễn ra",
+      count: interviews.filter((i) => i.status === "Sắp diễn ra").length
+    },
+    {
+      key: "Chờ xác nhận",
+      label: "Chờ xác nhận",
+      count: interviews.filter((i) => i.status === "Chờ xác nhận").length
+    },
+    {
+      key: "Đã xác nhận",
+      label: "Đã xác nhận",
+      count: interviews.filter((i) => i.status === "Đã xác nhận").length
+    },
+    {
+      key: "Đề nghị đổi lịch",
+      label: "Đề nghị đổi lịch",
+      count: interviews.filter((i) => i.status === "Đề nghị đổi lịch").length
+    },
+    {
+      key: "Hoàn tất",
+      label: "Hoàn tất",
+      count: interviews.filter((i) => i.status === "Hoàn tất").length
+    },
+    {
+      key: "Đã hủy",
+      label: "Đã hủy",
+      count: interviews.filter((i) => i.status === "Đã hủy").length
+    }
   ];
 
-  const isAllSelected = filteredInterviews.length > 0 && selectedIds.length === filteredInterviews.length;
-  const isPartiallySelected = selectedIds.length > 0 && !isAllSelected;
+  // Bỏ lọc 1 ngày cụ thể
+  const handleRemoveDateFilter = (dateToRemove) => {
+    setDateFilters((prev) => prev.filter((d) => d !== dateToRemove));
+    setPage(1);
+  };
+
+  // Xóa nhanh tất cả các ngày đang lọc thay vì phải bỏ lọc từng ngày
+  const handleClearAllDateFilters = () => {
+    setDateFilters([]);
+    setPage(1);
+  };
+
+  // Xóa toàn bộ bộ lọc
+  const clearAllFilters = () => {
+    setSearchQuery("");
+    setStatusFilter("all");
+    setDateFilters([]);
+    setPage(1);
+  };
+
+  // Format ngày hiển thị trên chip tag (DD/MM/YYYY)
+  const formatChipDate = (dateStr) => {
+    if (!dateStr) return "";
+    const str = String(dateStr).trim();
+    const isoMatch = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (isoMatch) {
+      return `${String(isoMatch[3]).padStart(2, "0")}/${String(isoMatch[2]).padStart(2, "0")}/${isoMatch[1]}`;
+    }
+    return str;
+  };
 
   return (
     <div data-aos="fade-up">
-      {/* Top Header */}
-      <div className="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
-        <div>
-          <h5 className="fw-bold mb-0">Quản lý lịch phỏng vấn ({interviews.length})</h5>
-          <p className="text-muted small mb-0">Điều phối phòng họp, link trực tuyến và hội đồng phỏng vấn</p>
-        </div>
-        <div className="d-flex gap-2">
-          <Button
-            variant="outline-success"
-            size="sm"
-            onClick={() => showToast("Đã đồng bộ thành công với Google Calendar")}
-          >
-            <i className="bi bi-calendar2-check me-1"></i>Đồng bộ Google Calendar
-          </Button>
-          <Button variant="success" size="sm" className="fw-bold" onClick={onOpenInterviewModal}>
-            <i className="bi bi-plus-lg me-1"></i>Tạo lịch phỏng vấn
-          </Button>
-        </div>
-      </div>
-
-      {/* Main Full-Width Card */}
       <Card className="matcha-card p-4 border-0 shadow-sm">
-        {/* Controls Toolbar: Status Pills (Left) & Date Filter with Calendar Dropdown (Right) */}
-        <div className="d-flex flex-wrap justify-content-between align-items-center mb-3 pb-3 border-bottom gap-3">
-          {/* Status Filter Pills */}
-          <div className="d-flex flex-wrap gap-2 align-items-center">
-            {filterOptions.map((item) => {
-              const isActive = statusFilter === item.key;
-              return (
-                <button
-                  key={item.key}
-                  type="button"
-                  className={`filter-pill ${isActive ? "active" : ""}`}
-                  onClick={() => setStatusFilter(item.key)}
-                >
-                  <span>{item.label}</span>
-                  <span className="badge">
-                    {item.count}
-                  </span>
-                </button>
-              );
-            })}
+        {/* Header toolbar: Đồng bộ kích thước với JobsView & CandidatesView */}
+        <div className="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-3">
+          <div>
+            <h5 className="fw-bold mb-0">
+              Quản lý lịch phỏng vấn ({interviews.length})
+            </h5>
+            <p className="text-muted small mb-0">
+              Điều phối phòng họp trực tuyến, theo dõi phản hồi ứng viên và hội đồng tuyển dụng
+            </p>
           </div>
 
-          {/* Date Filter & Interactive Mini Calendar Popover with Year & Month Navigation */}
-          <div className="d-flex flex-wrap align-items-center gap-2">
-            <Dropdown
-              show={showCalendarDropdown}
-              onToggle={(isOpen) => setShowCalendarDropdown(isOpen)}
-              align="end"
+          <div className="d-flex gap-2 align-items-center flex-wrap">
+            <Button
+              variant="outline-secondary"
+              size="sm"
+              disabled={!filteredInterviews.length}
+              onClick={() => {
+                try {
+                  exportInterviewsCSV(filteredInterviews);
+                  showToast("Đã xuất danh sách lịch phỏng vấn theo bộ lọc.");
+                } catch {
+                  showToast("Không thể xuất danh sách CSV.", "danger");
+                }
+              }}
             >
-              <Dropdown.Toggle
-                as="button"
-                type="button"
-                className={`filter-pill ${selectedDate ? "active" : ""}`}
-              >
-                <i className="bi bi-calendar3"></i>
-                <span>
-                  {selectedDate
-                    ? `Ngày ${pad(selectedDate.day)}/${pad(selectedDate.month + 1)}/${selectedDate.year}`
-                    : "Mở bảng lịch"}
-                </span>
-                <i className="bi bi-chevron-down small ms-1" style={{ fontSize: "10px" }}></i>
-              </Dropdown.Toggle>
+              <i className="bi bi-download me-1" />
+              Xuất danh sách
+            </Button>
 
-              <Dropdown.Menu
-                className="p-3 matcha-calendar-popover shadow border mt-2"
-                style={{ width: "320px", zIndex: 1050 }}
-              >
-                {/* Calendar Header with Month and Year Navigation */}
-                <div className="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
-                  {/* Month Navigation */}
-                  <div className="d-flex align-items-center gap-1">
-                    <button
-                      type="button"
-                      className="cal-nav-btn"
-                      onClick={handlePrevMonth}
-                      title="Tháng trước"
-                    >
-                      <i className="bi bi-chevron-left"></i>
-                    </button>
-                    <span className="fw-semibold small mx-1" style={{ minWidth: "64px", textAlign: "center" }}>
-                      Tháng {pad(calMonth + 1)}
-                    </span>
-                    <button
-                      type="button"
-                      className="cal-nav-btn"
-                      onClick={handleNextMonth}
-                      title="Tháng sau"
-                    >
-                      <i className="bi bi-chevron-right"></i>
-                    </button>
-                  </div>
+            {/* Nút Tạo lịch phỏng vấn thu nhỏ kích thước (size="sm") đồng bộ hoàn hảo với bố cục toàn trang */}
+            <Button
+              variant="success"
+              size="sm"
+              className="fw-bold d-inline-flex align-items-center"
+              onClick={onOpenInterviewModal}
+            >
+              <i className="bi bi-plus-lg me-1" />
+              Tạo lịch phỏng vấn
+            </Button>
+          </div>
+        </div>
 
-                  {/* Year Navigation */}
-                  <div className="d-flex align-items-center gap-1">
-                    <button
-                      type="button"
-                      className="cal-nav-btn"
-                      onClick={() => setCalYear((prev) => prev - 1)}
-                      title="Năm trước"
-                    >
-                      <i className="bi bi-chevron-left"></i>
-                    </button>
-                    <span className="fw-bold small text-success mx-1" style={{ minWidth: "42px", textAlign: "center" }}>
-                      {calYear}
-                    </span>
-                    <button
-                      type="button"
-                      className="cal-nav-btn"
-                      onClick={() => setCalYear((prev) => prev + 1)}
-                      title="Năm sau"
-                    >
-                      <i className="bi bi-chevron-right"></i>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Day of Week Headers */}
-                <div
-                  className="d-grid mb-1 text-center"
-                  style={{ gridTemplateColumns: "repeat(7, 1fr)", gap: "2px" }}
-                >
-                  {["T2", "T3", "T4", "T5", "T6", "T7", "CN"].map((day) => (
-                    <div key={day} className="text-muted fw-bold" style={{ fontSize: "11px" }}>
-                      {day}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Days Grid */}
-                <div
-                  className="d-grid text-center"
-                  style={{ gridTemplateColumns: "repeat(7, 1fr)", gap: "2px" }}
-                >
-                  {/* Empty Offset cells */}
-                  {Array.from({ length: firstDayIndex }).map((_, i) => (
-                    <div key={`empty-${i}`}></div>
-                  ))}
-
-                  {/* Month Days */}
-                  {Array.from({ length: daysInMonth }).map((_, i) => {
-                    const day = i + 1;
-                    const isSelected =
-                      selectedDate &&
-                      selectedDate.day === day &&
-                      selectedDate.month === calMonth &&
-                      selectedDate.year === calYear;
-
-                    const hasEvent = interviews.some((iv) =>
-                      isInterviewOnDate(iv, day, calMonth, calYear)
-                    );
-
-                    return (
-                      <button
-                        key={day}
-                        type="button"
-                        className={`cal-day-btn ${isSelected ? "selected" : ""}`}
-                        onClick={() => handleSelectDay(day)}
-                      >
-                        <span>{day}</span>
-                        {hasEvent && (
-                          <span className="cal-event-dot"></span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Calendar Footer */}
-                <div className="border-top pt-2 mt-2 d-flex justify-content-between align-items-center" style={{ fontSize: "11px" }}>
-                  <span className="text-muted d-flex align-items-center gap-1">
-                    <span className="rounded-circle bg-success d-inline-block" style={{ width: "6px", height: "6px" }}></span>
-                    Có lịch hẹn
-                  </span>
-                  <div className="d-flex gap-1">
-                    <button
-                      type="button"
-                      className="btn btn-link p-0 text-success text-decoration-none"
-                      style={{ fontSize: "11px" }}
-                      onClick={() => {
-                        const now = new Date();
-                        setCalYear(now.getFullYear());
-                        setCalMonth(now.getMonth());
-                        handleSelectDay(now.getDate());
-                      }}
-                    >
-                      Hôm nay
-                    </button>
-                    <span className="text-muted">·</span>
-                    <button
-                      type="button"
-                      className="btn btn-link p-0 text-secondary text-decoration-none"
-                      style={{ fontSize: "11px" }}
-                      onClick={handleClearDateFilter}
-                    >
-                      Tất cả
-                    </button>
-                  </div>
-                </div>
-              </Dropdown.Menu>
-            </Dropdown>
-
-            {/* Clear date filter button if active */}
-            {selectedDate && (
+        {/* Hàng 1: Thanh Filter Pills phân loại trạng thái */}
+        <div className="d-flex flex-wrap gap-2 align-items-center mb-3">
+          {filterOptions.map((opt) => {
+            const isActive = statusFilter === opt.key;
+            return (
               <button
+                key={opt.key}
                 type="button"
-                className="btn btn-sm btn-outline-danger rounded-pill px-2.5 py-1 text-nowrap"
-                onClick={handleClearDateFilter}
-                title="Xóa bộ lọc ngày"
-                style={{ fontSize: "12px" }}
+                className={`filter-pill ${isActive ? "active" : ""}`}
+                onClick={() => {
+                  setStatusFilter(opt.key);
+                  setPage(1);
+                }}
               >
-                <i className="bi bi-x-circle me-1"></i>Xóa lọc
+                <span>{opt.label}</span>
+                <span className="badge">{opt.count}</span>
               </button>
+            );
+          })}
+        </div>
+
+        {/* Hàng 2: Thanh tìm kiếm ứng viên & Hộp chọn ngày tùy biến cao cấp, không bị gãy dòng */}
+        <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 pb-3 border-bottom">
+          {/* Ô tìm kiếm: Linh hoạt co giãn */}
+          <div style={{ flex: "1 1 260px", maxWidth: "420px" }}>
+            <InputGroup size="sm">
+              <InputGroup.Text
+                style={{
+                  backgroundColor: "var(--surface-2)",
+                  borderColor: "var(--border)",
+                  color: "var(--muted)"
+                }}
+              >
+                <i className="bi bi-search" />
+              </InputGroup.Text>
+              <Form.Control
+                placeholder="Tìm theo tên ứng viên, vị trí, hội đồng..."
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setPage(1);
+                }}
+                style={{
+                  backgroundColor: "var(--surface-2)",
+                  borderColor: "var(--border)",
+                  color: "var(--text)"
+                }}
+              />
+            </InputGroup>
+          </div>
+
+          {/* Cụm hộp chọn lịch MatchaDatePicker & Nút Xóa tất cả lọc: Dùng flex-nowrap để không bị rớt dòng */}
+          <div className="d-flex align-items-center flex-nowrap gap-2">
+            <MatchaDatePicker
+              multiple={true}
+              value={dateFilters}
+              onChange={(dates) => {
+                setDateFilters(dates);
+                setPage(1);
+              }}
+              placeholder="Lọc theo ngày"
+              showSelectedTag={false}
+              align="end"
+            />
+
+            {(searchQuery || statusFilter !== "all" || dateFilters.length > 0) && (
+              <Button
+                variant="outline-secondary"
+                size="sm"
+                className="rounded-pill d-inline-flex align-items-center text-nowrap"
+                onClick={clearAllFilters}
+                title="Xóa toàn bộ bộ lọc"
+              >
+                <i className="bi bi-x-circle me-1" />
+                Xóa tất cả lọc
+              </Button>
             )}
           </div>
         </div>
 
-        {/* Bulk Action Banner when multiple rows selected */}
-        {selectedIds.length > 0 && (
-          <div
-            className="alert d-flex flex-wrap justify-content-between align-items-center py-2 px-3 mb-3 rounded-3 border"
-            style={{ backgroundColor: "var(--primary-soft)", borderColor: "var(--primary)", color: "var(--text)" }}
-          >
-            <div className="d-flex align-items-center gap-2 small fw-semibold">
-              <i className="bi bi-check2-circle fs-5 text-success"></i>
-              <span>Đã chọn <strong className="text-success">{selectedIds.length}</strong> cuộc phỏng vấn</span>
+        {/* Hàng 3: Danh sách các ngày đang lọc nằm ở hàng bên dưới nút lọc theo yêu cầu */}
+        {dateFilters.length > 0 && (
+          <div className="d-flex flex-wrap align-items-center gap-2 mb-3 py-2 px-3 rounded-3 bg-surface-2 border animate__animated animate__fadeIn">
+            <span className="small text-muted fw-semibold d-inline-flex align-items-center me-1">
+              <i className="bi bi-funnel-fill text-primary me-1.5" />
+              Đang lọc {dateFilters.length} ngày:
+            </span>
+
+            <div className="d-flex flex-wrap align-items-center gap-2">
+              {[...dateFilters].sort().map((d) => (
+                <span
+                  key={d}
+                  className="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-2.5 py-1.5 d-inline-flex align-items-center small fw-semibold"
+                  style={{ fontSize: "12px", gap: "6px" }}
+                >
+                  <i className="bi bi-calendar-check" style={{ fontSize: "11px" }} />
+                  <span>{formatChipDate(d)}</span>
+                  <button
+                    type="button"
+                    className="btn btn-link p-0 text-primary border-0 d-inline-flex align-items-center"
+                    style={{ fontSize: "12px", lineHeight: 1 }}
+                    onClick={() => handleRemoveDateFilter(d)}
+                    title={`Bỏ lọc ngày ${formatChipDate(d)}`}
+                  >
+                    <i className="bi bi-x-lg" />
+                  </button>
+                </span>
+              ))}
             </div>
+
+            {/* Nút xóa nhanh tất cả các ngày đang lọc thay vì phải bỏ lọc từng ngày */}
+            <Button
+              variant="outline-danger"
+              size="sm"
+              className="py-1 px-2.5 rounded-pill small fw-semibold ms-auto d-inline-flex align-items-center"
+              style={{ fontSize: "11.5px" }}
+              onClick={handleClearAllDateFilters}
+              title="Xóa nhanh tất cả các ngày đang lọc"
+            >
+              <i className="bi bi-trash3 me-1" />
+              Xóa tất cả ngày lọc
+            </Button>
+          </div>
+        )}
+
+        {/* Bulk Action Banner khi chọn nhiều dòng */}
+        {selectedIds.length > 0 && (
+          <div className="p-3 mb-3 rounded-3 bg-surface-2 border d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <div className="small">
+              Đã chọn <strong>{selectedIds.length}</strong> cuộc phỏng vấn
+            </div>
+
             <div className="d-flex gap-2 align-items-center flex-wrap">
               <Button
                 variant="outline-success"
@@ -397,24 +590,30 @@ export default function InterviewsView({ interviews, setInterviews, onOpenInterv
                 className="rounded-pill"
                 onClick={() => handleBulkUpdateStatus("Đã xác nhận")}
               >
-                <i className="bi bi-check2 me-1"></i>Đã xác nhận
+                <i className="bi bi-check2 me-1" />
+                Đánh dấu Xác nhận
               </Button>
+
               <Button
                 variant="outline-info"
                 size="sm"
                 className="rounded-pill"
                 onClick={() => handleBulkUpdateStatus("Hoàn tất")}
               >
-                <i className="bi bi-check-all me-1"></i>Đã hoàn thành
+                <i className="bi bi-check-all me-1" />
+                Đánh dấu Hoàn tất
               </Button>
+
               <Button
                 variant="outline-danger"
                 size="sm"
                 className="rounded-pill"
                 onClick={handleBulkCancel}
               >
-                <i className="bi bi-trash me-1"></i>Hủy các lịch đã chọn
+                <i className="bi bi-trash me-1" />
+                Hủy đã chọn
               </Button>
+
               <Button
                 variant="link"
                 size="sm"
@@ -427,13 +626,12 @@ export default function InterviewsView({ interviews, setInterviews, onOpenInterv
           </div>
         )}
 
-        {/* Full-width Interview Table: Tiêu đề căn giữa text-nowrap, nội dung căn trái (Ứng viên, Vị trí, Hình thức, Hội đồng) & căn giữa (Thời gian, Trạng thái, Thao tác) */}
+        {/* Bảng dữ liệu phỏng vấn: Thiết kế đồng bộ hoàn toàn với JobsView và CandidatesView */}
         <div className="table-responsive">
           <Table hover className="matcha-table align-middle mb-0">
             <thead>
               <tr>
-                {/* Checkbox chọn tất cả: Cố định 48px, căn giữa */}
-                <th style={{ width: "48px", textAlign: "center" }}>
+                <th style={{ width: 48, textAlign: "center" }}>
                   <Form.Check
                     className="matcha-checkbox-wrap"
                     type="checkbox"
@@ -442,99 +640,190 @@ export default function InterviewsView({ interviews, setInterviews, onOpenInterv
                       if (input) input.indeterminate = isPartiallySelected;
                     }}
                     onChange={handleSelectAll}
-                    aria-label="Chọn tất cả cuộc phỏng vấn"
+                    aria-label="Chọn tất cả cuộc phỏng vấn trang này"
                   />
                 </th>
-                <th className="text-center text-nowrap">Thời gian</th>
-                <th className="text-center text-nowrap">Ứng viên</th>
-                <th className="text-center text-nowrap">Vị trí ứng tuyển</th>
-                <th className="text-center text-nowrap">Hình thức</th>
-                <th className="text-center text-nowrap">Hội đồng</th>
-                <th className="text-center text-nowrap">Trạng thái</th>
-                {/* Cột Thao tác: width 100px text-nowrap để chữ THAO TÁC không bị ngắt đôi xuống dòng */}
-                <th className="text-center text-nowrap" style={{ width: "100px", minWidth: "95px" }}>Thao tác</th>
+                <th className="text-center text-nowrap" style={{ minWidth: 110 }}>Thời gian</th>
+                <th className="text-start text-nowrap" style={{ minWidth: 160 }}>Ứng viên</th>
+                <th className="text-start text-nowrap" style={{ minWidth: 170 }}>Vị trí ứng tuyển</th>
+                <th className="text-start text-nowrap" style={{ minWidth: 150 }}>Hình thức</th>
+                <th className="text-start text-nowrap" style={{ minWidth: 150 }}>Hội đồng</th>
+                <th className="text-center text-nowrap" style={{ minWidth: 160 }}>Trạng thái & Phản hồi</th>
+                <th className="text-center text-nowrap" style={{ width: 85, minWidth: 80 }}>Thao tác</th>
               </tr>
             </thead>
+
             <tbody>
               {filteredInterviews.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="text-center py-5 text-muted">
-                    <i className="bi bi-calendar-x fs-2 d-block mb-2 text-secondary opacity-50"></i>
-                    Không có lịch phỏng vấn nào phù hợp với bộ lọc ngày hoặc trạng thái đã chọn.
+                  <td colSpan={8} className="text-center py-5 text-muted">
+                    <i className="bi bi-calendar-x fs-2 d-block mb-2 text-secondary opacity-50" />
+                    Không có lịch phỏng vấn nào phù hợp với bộ lọc hiện tại.
                   </td>
                 </tr>
               ) : (
-                filteredInterviews.map((iv) => {
-                  const isSelected = selectedIds.includes(iv.id);
+                paginatedList.map((item) => {
+                  const isSelected = selectedIds.includes(item.id);
+                  const isClosed = interviewClosed(item);
+
                   return (
-                    <tr key={iv.id || iv.candidate} className={isSelected ? "table-active" : ""}>
+                    <tr key={item.id} className={isSelected ? "table-active" : ""}>
+                      {/* Checkbox */}
                       <td className="text-center">
                         <Form.Check
                           className="matcha-checkbox-wrap"
                           type="checkbox"
                           checked={isSelected}
-                          onChange={() => handleToggleSelectRow(iv.id)}
-                          aria-label={`Chọn cuộc phỏng vấn với ${iv.candidate}`}
+                          onChange={() => handleToggleRow(item.id)}
+                          aria-label={`Chọn cuộc phỏng vấn với ${item.candidate}`}
                         />
                       </td>
+
+                      {/* Thời gian */}
                       <td className="text-center">
-                        <strong className="text-primary d-block">{iv.time}</strong>
-                        <span className="small text-muted">{iv.date}</span>
+                        <strong className="text-primary d-block">{item.time}</strong>
+                        <span className="small text-muted">{item.date}</span>
+                        {!Number.isFinite(interviewTime(item)) && (
+                          <div
+                            className="small text-warning"
+                            style={{ fontSize: "10px" }}
+                          >
+                            Cần kiểm tra ngày
+                          </div>
+                        )}
                       </td>
-                      <td className="text-start fw-semibold">{iv.candidate}</td>
-                      <td className="text-start small">{iv.role}</td>
+
+                      {/* Ứng viên */}
                       <td className="text-start">
-                        <span className="small badge bg-secondary bg-opacity-10 text-body">
-                          {iv.type}
+                        <div className="fw-semibold text-body">{item.candidate}</div>
+                        {item.email && (
+                          <div className="small text-muted">{item.email}</div>
+                        )}
+                      </td>
+
+                      {/* Vị trí */}
+                      <td className="text-start">
+                        <div className="small fw-medium text-body">
+                          {item.role || "Chưa xác định"}
+                        </div>
+                      </td>
+
+                      {/* Hình thức & link họp */}
+                      <td className="text-start">
+                        <span className="badge bg-secondary bg-opacity-10 text-body mb-1">
+                          <i
+                            className={`bi ${
+                              String(item.type || "").toLowerCase().includes("trực tuyến") ||
+                              String(item.type || "").toLowerCase().includes("meet") ||
+                              String(item.type || "").toLowerCase().includes("online")
+                                ? "bi-camera-video"
+                                : "bi-building"
+                            } me-1`}
+                          />
+                          {item.type || "Trực tuyến"}
                         </span>
-                        {iv.meetingLink && (
+
+                        {safeMeetingLink(item.meetingLink) && !isClosed && (
                           <a
-                            href={iv.meetingLink}
+                            href={safeMeetingLink(item.meetingLink)}
                             target="_blank"
                             rel="noreferrer"
                             className="d-block small text-success text-decoration-none mt-1"
                           >
-                            <i className="bi bi-camera-video me-1"></i>Vào phòng họp
+                            <i className="bi bi-box-arrow-up-right me-1" />
+                            Vào phòng họp
                           </a>
                         )}
                       </td>
-                      <td className="text-start text-muted small">{iv.people}</td>
-                      <td className="text-center">
-                        <span
-                          className={`status-badge ${
-                            iv.status === "Hoàn tất"
-                              ? "status-badge-secondary"
-                              : iv.status === "Sắp diễn ra"
-                              ? "status-badge-primary"
-                              : iv.status === "Chờ xác nhận"
-                              ? "status-badge-warning"
-                              : "status-badge-success"
-                          }`}
-                        >
-                          {iv.status}
-                        </span>
+
+                      {/* Hội đồng */}
+                      <td className="text-start">
+                        <div className="small text-body">
+                          {item.people || "Chưa phân công"}
+                        </div>
                       </td>
+
+                      {/* Trạng thái & Phản hồi */}
+                      <td className="text-center">
+                        <span className={`status-badge ${getInterviewBadgeClass(item.status)}`}>
+                          {item.status}
+                        </span>
+
+                        {item.candidateResponse && (
+                          <div
+                            className="small text-muted mt-1 fst-italic"
+                            style={{
+                              fontSize: "11px",
+                              maxWidth: 220,
+                              margin: "0 auto",
+                              overflowWrap: "anywhere"
+                            }}
+                            title={item.candidateResponse.note || ""}
+                          >
+                            {item.candidateResponse.type === "confirmed"
+                              ? "✓ Ứng viên xác nhận"
+                              : "⚠ Đề nghị đổi lịch"}
+                            {item.candidateResponse.note
+                              ? `: "${item.candidateResponse.note}"`
+                              : ""}
+                          </div>
+                        )}
+
+                        {item.cancelReason && (
+                          <div
+                            className="small text-danger mt-1"
+                            style={{ fontSize: "11px", maxWidth: 200, margin: "0 auto" }}
+                          >
+                            Lý do hủy: {item.cancelReason}
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Thao tác: CustomThreeDotsToggle Dropdown chuẩn */}
                       <td className="text-center">
                         <Dropdown align="end">
                           <Dropdown.Toggle as={CustomThreeDotsToggle} />
-                          <Dropdown.Menu className="matcha-dropdown-menu py-2">
-                            {iv.meetingLink && (
-                              <Dropdown.Item href={iv.meetingLink} target="_blank" className="small py-2">
-                                <i className="bi bi-box-arrow-up-right me-2 text-primary"></i>Mở link Meet
+
+                          <Dropdown.Menu className="matcha-dropdown-menu py-2 shadow-sm border">
+                            <Dropdown.Item
+                              disabled={isClosed}
+                              onClick={() => openEditModal(item)}
+                              className="small py-2"
+                            >
+                              <i className="bi bi-pencil-square me-2 text-primary" />
+                              Điều chỉnh lịch
+                            </Dropdown.Item>
+
+                            <Dropdown.Item
+                              disabled={isClosed}
+                              onClick={() => handleMarkCompleted(item)}
+                              className="small py-2"
+                            >
+                              <i className="bi bi-check-all me-2 text-success" />
+                              Đánh dấu Hoàn tất
+                            </Dropdown.Item>
+
+                            {safeMeetingLink(item.meetingLink) && !isClosed && (
+                              <Dropdown.Item
+                                href={safeMeetingLink(item.meetingLink)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="small py-2 text-success"
+                              >
+                                <i className="bi bi-camera-video me-2" />
+                                Mở phòng họp
                               </Dropdown.Item>
                             )}
-                            <Dropdown.Item onClick={() => handleUpdateStatus(iv.id, "Đã xác nhận")} className="small py-2">
-                              <i className="bi bi-check2-circle me-2 text-success"></i>Đánh dấu Đã xác nhận
-                            </Dropdown.Item>
-                            <Dropdown.Item onClick={() => handleUpdateStatus(iv.id, "Hoàn tất")} className="small py-2">
-                              <i className="bi bi-check-all me-2 text-info"></i>Đánh dấu Đã hoàn thành
-                            </Dropdown.Item>
+
                             <Dropdown.Divider />
+
                             <Dropdown.Item
+                              disabled={isClosed}
+                              onClick={() => openCancelModal(item)}
                               className="small py-2 text-danger"
-                              onClick={() => handleCancelInterview(iv.id, iv.candidate)}
                             >
-                              <i className="bi bi-x-circle me-2"></i>Hủy lịch hẹn
+                              <i className="bi bi-x-circle me-2" />
+                              Hủy lịch phỏng vấn
                             </Dropdown.Item>
                           </Dropdown.Menu>
                         </Dropdown>
@@ -546,8 +835,261 @@ export default function InterviewsView({ interviews, setInterviews, onOpenInterv
             </tbody>
           </Table>
         </div>
+
+        {/* Phân trang đồng bộ giao diện */}
+        <div className="d-flex flex-wrap justify-content-between align-items-center mt-3 pt-3 border-top gap-2">
+          <small className="text-muted">
+            Hiển thị {filteredInterviews.length > 0 ? (current - 1) * pageSize + 1 : 0} -{" "}
+            {Math.min(current * pageSize, filteredInterviews.length)} trên tổng số{" "}
+            <strong>{filteredInterviews.length}</strong> lịch phỏng vấn
+          </small>
+
+          <div className="d-flex gap-2 align-items-center">
+            <Button
+              size="sm"
+              variant="outline-secondary"
+              disabled={current <= 1}
+              onClick={() => setPage(current - 1)}
+            >
+              <i className="bi bi-chevron-left me-1" />
+              Trước
+            </Button>
+            <span className="small fw-semibold px-2 text-body">
+              {current} / {pages}
+            </span>
+            <Button
+              size="sm"
+              variant="outline-secondary"
+              disabled={current >= pages}
+              onClick={() => setPage(current + 1)}
+            >
+              Sau
+              <i className="bi bi-chevron-right ms-1" />
+            </Button>
+          </div>
+        </div>
       </Card>
+
+      {/* Modal Điều chỉnh lịch hẹn */}
+      <Modal
+        show={Boolean(editing)}
+        onHide={() => setEditing(null)}
+        centered
+        backdrop="static"
+      >
+        <Modal.Header closeButton>
+          <Modal.Title className="fs-5 fw-bold">
+            <i className="bi bi-pencil-square me-2 text-primary" />
+            Điều chỉnh lịch phỏng vấn
+          </Modal.Title>
+        </Modal.Header>
+
+        {editing && (
+          <Form onSubmit={handleSaveEdit}>
+            <Modal.Body>
+              {modalError && <Alert variant="danger">{modalError}</Alert>}
+
+              <div className="p-3 mb-3 rounded-3 bg-surface-2 border">
+                <div className="fw-bold">{editing.candidate}</div>
+                <div className="small text-muted">{editing.role}</div>
+                <div className="small text-warning mt-1">
+                  <i className="bi bi-info-circle me-1" />
+                  Khi thay đổi thời gian hoặc hình thức, hệ thống sẽ tự động gửi yêu cầu xác nhận lại đến ứng viên.
+                </div>
+              </div>
+
+              <div className="row g-2 mb-3">
+                <div className="col-md-6">
+                  <Form.Group>
+                    <Form.Label className="small fw-semibold">Ngày phỏng vấn *</Form.Label>
+                    <div>
+                      <MatchaDatePicker
+                        value={editing.date || ""}
+                        onChange={(d) => setEditing({ ...editing, date: d })}
+                        placeholder="Chọn ngày phỏng vấn"
+                        showSelectedTag={true}
+                        outputFormat="YYYY-MM-DD"
+                      />
+                    </div>
+                  </Form.Group>
+                </div>
+
+                <div className="col-md-6">
+                  <Form.Group>
+                    <Form.Label className="small fw-semibold">Giờ (Giờ VN) *</Form.Label>
+                    <Form.Control
+                      type="time"
+                      required
+                      value={editing.time || ""}
+                      onChange={(e) =>
+                        setEditing({ ...editing, time: e.target.value })
+                      }
+                    />
+                  </Form.Group>
+                </div>
+              </div>
+
+              <Form.Group className="mb-3">
+                <Form.Label className="small fw-semibold">Hình thức phỏng vấn</Form.Label>
+                <Form.Select
+                  value={editing.type || ""}
+                  onChange={(e) =>
+                    setEditing({ ...editing, type: e.target.value })
+                  }
+                >
+                  <option value="Google Meet (Trực tuyến)">Google Meet (Trực tuyến)</option>
+                  <option value="Zoom (Trực tuyến)">Zoom (Trực tuyến)</option>
+                  <option value="Microsoft Teams (Trực tuyến)">Microsoft Teams (Trực tuyến)</option>
+                  <option value="Trực tiếp tại văn phòng">Trực tiếp tại văn phòng</option>
+                  <option value="Phỏng vấn qua điện thoại">Phỏng vấn qua điện thoại</option>
+                </Form.Select>
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label className="small fw-semibold">Link phòng họp (nếu có)</Form.Label>
+                <Form.Control
+                  type="url"
+                  placeholder="https://meet.google.com/..."
+                  value={editing.meetingLink || ""}
+                  onChange={(e) =>
+                    setEditing({ ...editing, meetingLink: e.target.value })
+                  }
+                />
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label className="small fw-semibold">Hội đồng phỏng vấn</Form.Label>
+                <Form.Control
+                  type="text"
+                  placeholder="Ví dụ: Hoàng Long (Lead HR) + Minh Đức (Tech Lead)"
+                  value={editing.people || ""}
+                  onChange={(e) =>
+                    setEditing({ ...editing, people: e.target.value })
+                  }
+                />
+              </Form.Group>
+
+              <Form.Group className="mb-0">
+                <Form.Label className="small fw-semibold">Ghi chú / Hướng dẫn ứng viên</Form.Label>
+                <Form.Control
+                  as="textarea"
+                  rows={3}
+                  maxLength={1000}
+                  placeholder="Chuẩn bị CV, dự án mẫu hoặc thông tin gửi xe..."
+                  value={editing.note || ""}
+                  onChange={(e) =>
+                    setEditing({ ...editing, note: e.target.value })
+                  }
+                />
+              </Form.Group>
+            </Modal.Body>
+
+            <Modal.Footer>
+              <Button
+                variant="outline-secondary"
+                size="sm"
+                onClick={() => setEditing(null)}
+                disabled={isSubmitting}
+              >
+                Hủy bỏ
+              </Button>
+              <Button
+                variant="success"
+                size="sm"
+                type="submit"
+                className="fw-bold"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "Đang lưu..." : "Lưu thay đổi"}
+              </Button>
+            </Modal.Footer>
+          </Form>
+        )}
+      </Modal>
+
+      {/* Modal Hủy lịch hẹn */}
+      <Modal
+        show={Boolean(cancelTarget)}
+        onHide={() => setCancelTarget(null)}
+        centered
+        backdrop="static"
+      >
+        <Modal.Header closeButton>
+          <Modal.Title className="fs-5 fw-bold text-danger">
+            <i className="bi bi-exclamation-triangle me-2" />
+            Xác nhận hủy lịch phỏng vấn
+          </Modal.Title>
+        </Modal.Header>
+
+        {cancelTarget && (
+          <Form onSubmit={handleConfirmCancel}>
+            <Modal.Body>
+              {modalError && <Alert variant="danger">{modalError}</Alert>}
+
+              <p className="mb-2">
+                Bạn sắp hủy buổi phỏng vấn với ứng viên{" "}
+                <strong>{cancelTarget.candidate}</strong> vào ngày{" "}
+                <strong>{cancelTarget.date} ({cancelTarget.time})</strong>.
+              </p>
+
+              <Form.Group className="mb-3">
+                <Form.Label className="small fw-semibold">Lý do hủy lịch *</Form.Label>
+                <div className="d-flex flex-wrap gap-1 mb-2">
+                  {[
+                    "Ứng viên bận việc đột xuất",
+                    "Doanh nghiệp thay đổi kế hoạch",
+                    "Trùng lịch hội đồng tuyển dụng",
+                    "Đã chốt ứng viên cho vị trí này"
+                  ].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      className="btn btn-sm btn-outline-secondary py-0 px-2 small"
+                      style={{ fontSize: "11px" }}
+                      onClick={() => setCancelReason(preset)}
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+
+                <Form.Control
+                  as="textarea"
+                  rows={3}
+                  required
+                  placeholder="Nhập lý do cụ thể..."
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value)}
+                />
+              </Form.Group>
+
+              <div className="small text-muted">
+                Thông báo hủy lịch và lý do sẽ được cập nhật đến ứng viên qua hệ thống thông báo.
+              </div>
+            </Modal.Body>
+
+            <Modal.Footer>
+              <Button
+                variant="outline-secondary"
+                size="sm"
+                onClick={() => setCancelTarget(null)}
+                disabled={isSubmitting}
+              >
+                Đóng
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                type="submit"
+                className="fw-bold"
+                disabled={isSubmitting || !cancelReason.trim()}
+              >
+                {isSubmitting ? "Đang xử lý..." : "Xác nhận hủy lịch"}
+              </Button>
+            </Modal.Footer>
+          </Form>
+        )}
+      </Modal>
     </div>
   );
 }
-

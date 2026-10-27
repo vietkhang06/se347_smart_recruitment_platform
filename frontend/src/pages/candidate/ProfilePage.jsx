@@ -1,209 +1,290 @@
+import { IS_API } from "../../services/dataMode";
+import ApiProfileEditor from "../../components/candidate/ApiProfileEditor";
 import { useState } from "react";
-import Container from "react-bootstrap/Container";
-import Row from "react-bootstrap/Row";
-import Col from "react-bootstrap/Col";
-import Card from "react-bootstrap/Card";
-import Form from "react-bootstrap/Form";
-import Button from "react-bootstrap/Button";
-import ProgressBar from "react-bootstrap/ProgressBar";
-import Badge from "react-bootstrap/Badge";
-import { storage } from "../../services/storage";
-import { useToast } from "../../context/ToastContext";
+import { Link } from "react-router-dom";
+import {
+  Container,
+  Row,
+  Col,
+  Card,
+  ProgressBar,
+  Button
+} from "react-bootstrap";
+import { useAuth } from "../../context/AuthContext";
+import {
+  getProfile,
+  saveProfile
+} from "../../services/profileService";
+import CandidateAvatar from "../../components/candidate/CandidateAvatar";
+import CandidateCV from "../../components/candidate/CandidateCV";
 
-export default function ProfilePage() {
-  const { showToast } = useToast();
-  const [profile, setProfile] = useState(() => storage.getCandidateProfile());
-  const [showCVScore, setShowCVScore] = useState(false);
+function ProfileEditor() {
+  const [profile, setProfile] = useState(getProfile);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    storage.setCandidateProfile(profile);
-    showToast("Hồ sơ năng lực đã được cập nhật thành công!");
-  };
+  const [skills, setSkills] = useState(
+    () => (getProfile().skills || []).join(", ")
+  );
 
-  const handleCheckCV = () => {
-    setShowCVScore(true);
-    showToast("Hệ thống AI đã phân tích xong hồ sơ của bạn!");
-  };
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+
+  const checks = [
+    profile.name,
+    profile.role,
+    profile.phone,
+    profile.location,
+    profile.experience,
+    profile.bio,
+    skills.trim(),
+    profile.cvId
+  ];
+
+  const completion = Math.round(
+    checks.filter(value => String(value || "").trim()).length
+    / checks.length * 100
+  );
+
+  function save(event) {
+    event.preventDefault();
+    setError("");
+    setNotice("");
+
+    if (
+      !profile.name.trim() ||
+      !/^[+\d][\d\s().-]{7,19}$/.test(profile.phone.trim())
+    ) {
+      setError("Nhập họ tên và số điện thoại hợp lệ (8–20 ký tự).");
+      return;
+    }
+
+    try {
+      const next = {
+        ...profile,
+        skills: [
+          ...new Set(
+            skills.split(",").map(skill => skill.trim()).filter(Boolean)
+          )
+        ]
+      };
+
+      saveProfile(next);
+      setProfile(next);
+      setNotice(
+        "Đã lưu hồ sơ. Bạn có thể dùng thông tin này cho các đơn mới."
+      );
+    } catch {
+      setError(
+        "Không lưu được hồ sơ. Kiểm tra quyền/dung lượng lưu trữ trình duyệt."
+      );
+    }
+  }
 
   return (
     <Container className="py-5">
-      {/* Hero Profile Header */}
-      <Card className="matcha-card p-4 mb-4 border-0 shadow-sm" data-aos="fade-down">
+      <Card className="matcha-card p-4 mb-4 border-0 shadow-sm">
         <div className="d-flex flex-wrap align-items-center justify-content-between gap-3">
           <div className="d-flex align-items-center gap-3">
-            <div 
-              className="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white fs-3 shadow"
-              style={{ width: "72px", height: "72px", backgroundColor: "var(--primary)" }}
+            <div
+              className="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold fs-3"
+              style={{
+                width: 72,
+                height: 72,
+                background: "var(--primary)"
+              }}
             >
-              AK
+              {profile.avatar ? <img src={profile.avatar} alt="Ảnh đại diện" className="rounded-circle" width="72" height="72" style={{ objectFit: "cover" }} /> : (profile.name || "Ứng viên")
+                .trim()
+                .split(/\s+/)
+                .map(word => word[0])
+                .slice(-2)
+                .join("")}
             </div>
+
             <div>
-              <h2 className="fw-bold mb-1 fs-4">{profile.name}</h2>
-              <div className="text-muted small mb-2">{profile.role} · {profile.location}</div>
-              <div className="d-flex flex-wrap gap-2">
-                <Badge bg="success" className="bg-opacity-10 text-success border">Figma</Badge>
-                <Badge bg="success" className="bg-opacity-10 text-success border">Design System</Badge>
-                <Badge bg="success" className="bg-opacity-10 text-success border">UX Research</Badge>
+              <h1 className="h4 fw-bold mb-1">
+                {profile.name || "Hồ sơ của bạn"}
+              </h1>
+
+              <div className="text-muted small">
+                {profile.role || "Bổ sung chức danh mong muốn"}
+                {" · "}
+                {profile.location}
               </div>
             </div>
           </div>
 
-          <div className="text-md-end">
-            <div className="small text-muted mb-1">Mức độ hoàn thiện hồ sơ</div>
-            <div className="d-flex align-items-center gap-2">
-              <ProgressBar now={84} variant="success" style={{ width: "140px", height: "8px" }} />
-              <span className="fw-bold text-success small">84%</span>
+          <div>
+            <div className="small text-muted mb-2">
+              Hoàn thiện hồ sơ: {completion}%
             </div>
+
+            <ProgressBar
+              now={completion}
+              variant="success"
+              style={{ width: 180, height: 8 }}
+            />
           </div>
         </div>
       </Card>
 
+      {error && (
+        <div className="alert alert-danger" role="alert">{error}</div>
+      )}
+
+      {notice && (
+        <div className="alert alert-success" role="status">{notice}</div>
+      )}
+
       <Row className="g-4">
-        {/* Left Form */}
         <Col lg={7}>
-          <Card className="matcha-card p-4 border-0 shadow-sm" data-aos="fade-up">
-            <h5 className="fw-bold mb-3">Thông tin chuyên môn</h5>
-            <Form onSubmit={handleSubmit}>
+          <Card className="matcha-card p-4 border-0 shadow-sm">
+            <h2 className="h5 fw-bold mb-3">
+              Thông tin chuyên môn
+            </h2>
+
+            <form id="candidate-profile-form" onSubmit={save}>
+              <CandidateAvatar value={profile.avatar} onChange={avatar => setProfile(current => ({ ...current, avatar }))} />
               <Row className="g-3">
-                <Col md={6}>
-                  <Form.Group>
-                    <Form.Label className="small fw-semibold">Họ và tên</Form.Label>
-                    <Form.Control 
-                      type="text" 
-                      value={profile.name} 
-                      onChange={(e) => setProfile({ ...profile, name: e.target.value })} 
-                    />
-                  </Form.Group>
-                </Col>
-                <Col md={6}>
-                  <Form.Group>
-                    <Form.Label className="small fw-semibold">Chức danh mong muốn</Form.Label>
-                    <Form.Control 
-                      type="text" 
-                      value={profile.role} 
-                      onChange={(e) => setProfile({ ...profile, role: e.target.value })} 
-                    />
-                  </Form.Group>
-                </Col>
-                <Col md={6}>
-                  <Form.Group>
-                    <Form.Label className="small fw-semibold">Email liên hệ</Form.Label>
-                    <Form.Control 
-                      type="email" 
-                      value={profile.email} 
-                      onChange={(e) => setProfile({ ...profile, email: e.target.value })} 
-                    />
-                  </Form.Group>
-                </Col>
-                <Col md={6}>
-                  <Form.Group>
-                    <Form.Label className="small fw-semibold">Số điện thoại</Form.Label>
-                    <Form.Control 
-                      type="tel" 
-                      value={profile.phone} 
-                      onChange={(e) => setProfile({ ...profile, phone: e.target.value })} 
-                    />
-                  </Form.Group>
-                </Col>
-                <Col md={6}>
-                  <Form.Group>
-                    <Form.Label className="small fw-semibold">Số năm kinh nghiệm</Form.Label>
-                    <Form.Control 
-                      type="text" 
-                      value={profile.experience} 
-                      onChange={(e) => setProfile({ ...profile, experience: e.target.value })} 
-                    />
-                  </Form.Group>
-                </Col>
-                <Col md={6}>
-                  <Form.Group>
-                    <Form.Label className="small fw-semibold">Khu vực sinh sống</Form.Label>
-                    <Form.Control 
-                      type="text" 
-                      value={profile.location} 
-                      onChange={(e) => setProfile({ ...profile, location: e.target.value })} 
-                    />
-                  </Form.Group>
-                </Col>
+                {[
+                  ["name", "Họ và tên"],
+                  ["role", "Chức danh mong muốn"],
+                  ["email", "Email tài khoản"],
+                  ["phone", "Số điện thoại"],
+                  ["experience", "Kinh nghiệm"],
+                  ["location", "Khu vực sinh sống"]
+                ].map(([key, label]) => (
+                  <Col md={6} key={key}>
+                    <label className="small fw-semibold w-100">
+                      {label}
+
+                      <input
+                        className="form-control mt-1"
+                        value={profile[key] || ""}
+                        maxLength={150}
+                        type={
+                          key === "phone"
+                            ? "tel"
+                            : key === "email"
+                            ? "email"
+                            : "text"
+                        }
+                        required={["name", "phone", "email"].includes(key)}
+                        readOnly={key === "email"}
+                        onChange={event =>
+                          setProfile({
+                            ...profile,
+                            [key]: event.target.value
+                          })
+                        }
+                      />
+                    </label>
+                  </Col>
+                ))}
+
                 <Col xs={12}>
-                  <Form.Group>
-                    <Form.Label className="small fw-semibold">Giới thiệu bản thân & Mục tiêu</Form.Label>
-                    <Form.Control 
-                      as="textarea" 
-                      rows={3} 
-                      value={profile.bio} 
-                      onChange={(e) => setProfile({ ...profile, bio: e.target.value })} 
+                  <label className="small fw-semibold w-100">
+                    Kỹ năng (ngăn cách bằng dấu phẩy)
+
+                    <input
+                      className="form-control mt-1"
+                      value={skills}
+                      maxLength={500}
+                      onChange={event => setSkills(event.target.value)}
+                      placeholder="React, Figma, SQL"
                     />
-                  </Form.Group>
+                  </label>
                 </Col>
+
                 <Col xs={12}>
-                  <Button type="submit" variant="success" className="fw-medium">
+                  <label className="small fw-semibold w-100">
+                    Giới thiệu bản thân & mục tiêu
+
+                    <textarea
+                      className="form-control mt-1"
+                      rows={5}
+                      maxLength={2000}
+                      value={profile.bio || ""}
+                      onChange={event =>
+                        setProfile({
+                          ...profile,
+                          bio: event.target.value
+                        })
+                      }
+                    />
+                  </label>
+
+                  <div className="small text-muted text-end">
+                    {(profile.bio || "").length}/2000
+                  </div>
+                </Col>
+
+                <Col xs={12}>
+                  <Button
+                    type="submit"
+                    variant="success"
+                    disabled={busy}
+                  >
                     Lưu thay đổi hồ sơ
                   </Button>
                 </Col>
               </Row>
-            </Form>
+            </form>
           </Card>
         </Col>
 
-        {/* Right CV Review Card */}
         <Col lg={5}>
-          <Card className="matcha-card p-4 border-0 shadow-sm mb-4" data-aos="fade-left">
-            <h5 className="fw-bold mb-3">Tệp CV của bạn</h5>
-            <div className="border rounded p-3 text-center bg-surface-2 mb-3">
-              <i className="bi bi-file-earmark-pdf fs-1 text-danger"></i>
-              <div className="fw-bold mt-1">CV_NguyenAnKhang_2026.pdf</div>
-              <div className="text-muted small">Cập nhật 2 ngày trước · 2.4 MB</div>
-            </div>
+          <Card className="matcha-card p-4 border-0 shadow-sm mb-4">
+            <h2 className="h5 fw-bold mb-3">Tệp CV của bạn</h2>
 
-            <div className="d-grid gap-2">
-              <Button variant="outline-success" onClick={handleCheckCV}>
-                <i className="bi bi-stars me-2"></i>Chấm điểm CV bằng AI
-              </Button>
-            </div>
+            <CandidateCV
+              value={profile}
+              onBusy={setBusy}
+              onChange={cv =>
+                setProfile(current => ({ ...current, ...cv }))
+              }
+            />
 
-            {/* AI CV Score Results */}
-            {showCVScore && (
-              <div className="mt-4 pt-3 border-top" data-aos="fade-up">
-                <div className="d-flex justify-content-between align-items-center mb-3">
-                  <h6 className="fw-bold mb-0">Kết quả đánh giá AI</h6>
-                  <span className="badge bg-success fs-6">84 / 100</span>
-                </div>
+            <p className="small text-muted mt-3">
+              Sau khi chọn CV, bấm Lưu thay đổi hồ sơ.
+              Đơn đã gửi giữ nguyên CV và nội dung tại thời điểm nộp.
+            </p>
 
-                <div className="mb-2">
-                  <div className="d-flex justify-content-between small text-muted mb-1">
-                    <span>Cấu trúc & Bố cục</span>
-                    <strong className="text-body">92%</strong>
-                  </div>
-                  <ProgressBar now={92} variant="success" style={{ height: "6px" }} />
-                </div>
+            <Button
+              type="submit"
+              form="candidate-profile-form"
+              variant="success"
+              disabled={busy}
+            >
+              Lưu hồ sơ & CV
+            </Button>
 
-                <div className="mb-2">
-                  <div className="d-flex justify-content-between small text-muted mb-1">
-                    <span>Mức độ phù hợp từ khóa IT</span>
-                    <strong className="text-body">78%</strong>
-                  </div>
-                  <ProgressBar now={78} variant="warning" style={{ height: "6px" }} />
-                </div>
-
-                <div className="mb-3">
-                  <div className="d-flex justify-content-between small text-muted mb-1">
-                    <span>Tính súc tích & Dễ đọc</span>
-                    <strong className="text-body">88%</strong>
-                  </div>
-                  <ProgressBar now={88} variant="info" style={{ height: "6px" }} />
-                </div>
-
-                <div className="p-3 rounded bg-success bg-opacity-10 small text-success">
-                  <i className="bi bi-lightbulb-fill me-1"></i>
-                  <strong>Gợi ý cải thiện:</strong> Bổ sung thêm các số liệu định lượng (metrics) về mức độ tăng trưởng hoặc tối ưu thời gian trong các dự án gần đây.
-                </div>
-              </div>
-            )}
+            <Button
+              as={Link}
+              to="/candidate/applications"
+              variant="outline-success"
+              className="mt-2"
+            >
+              Đến đơn ứng tuyển
+            </Button>
           </Card>
         </Col>
       </Row>
     </Container>
   );
+}
+
+export default function ProfilePage() {
+  const { user } = useAuth();
+
+  if (user?.role !== "candidate") {
+    return (
+      <Container className="py-5">
+        <h1 className="h4">Đăng nhập để quản lý hồ sơ</h1>
+        <Link to="/login">Đến trang đăng nhập</Link>
+      </Container>
+    );
+  }
+
+  return IS_API ? <ApiProfileEditor key={user.id} user={user} /> : <ProfileEditor key={user.email} />;
 }

@@ -1,0 +1,9 @@
+{
+  "cvVersionId": "55555555-5555-4555-8555-555555555555",
+  "candidateId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  "fileName": "candidate-cv.pdf",
+  "fileSizeBytes": 245760,
+  "status": "uploaded",
+  "processingJobId": "66666666-6666-4666-8666-666666666666",
+  "message": "CV uploaded; processing has been queued."
+}

@@ -6,10 +6,12 @@ import com.matchajob.client.dto.CVExtractResponse;
 import com.matchajob.client.dto.EmbeddingsResponse;
 import com.matchajob.client.dto.MatchScoreResponse;
 import com.matchajob.cv.controller.CvController;
+import com.matchajob.cv.dto.CvUploadResponse;
 import com.matchajob.cv.model.CvVersion;
 import com.matchajob.cv.repository.CvVersionRepository;
 import com.matchajob.cv.service.CvProcessingOrchestrator;
 import com.matchajob.cv.service.CvStorageService;
+import com.matchajob.cv.service.CvProcessingPersistenceService;
 import com.matchajob.matching.model.MatchResult;
 import com.matchajob.matching.repository.EmbeddingRepository;
 import com.matchajob.matching.service.MatchingService;
@@ -24,6 +26,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.ResourceAccessException;
@@ -57,6 +62,9 @@ class CvProcessingIT {
     private CvStorageService storageService;
 
     @Autowired
+    private CvProcessingPersistenceService processingPersistence;
+
+    @Autowired
     private MatchingService matchingService;
 
     @Autowired
@@ -67,6 +75,11 @@ class CvProcessingIT {
 
     @MockBean
     private AiWorkerClient aiWorkerClient;
+
+    @org.junit.jupiter.api.BeforeEach
+    void setUp() {
+        jdbcClient.sql("DELETE FROM embeddings WHERE entity_type = 'cv_version'").update();
+    }
 
     private byte[] createSamplePdfBytes() {
         return "%PDF-1.4 Mock PDF content for test extraction".getBytes(StandardCharsets.UTF_8);
@@ -167,11 +180,15 @@ class CvProcessingIT {
         when(aiWorkerClient.generateEmbeddings(anyList())).thenReturn(embeddingsResponse);
 
         // Execute synchronous upload & processing
-        ResponseEntity<Map<String, Object>> response = cvController.uploadCv(candidateId, file, true);
+        ResponseEntity<CvUploadResponse> response = cvController.uploadCv(
+                candidateId,
+                authenticationForCandidate(candidateId),
+                file,
+                true);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
-        UUID cvVersionId = (UUID) response.getBody().get("cv_version_id");
-        UUID processingJobId = (UUID) response.getBody().get("processing_job_id");
+        UUID cvVersionId = Objects.requireNonNull(response.getBody()).cvVersionId();
+        UUID processingJobId = response.getBody().processingJobId();
 
         // Verify CvVersion persisted and updated to "extracted"
         Optional<CvVersion> cvOpt = cvVersionRepository.findById(cvVersionId);
@@ -195,14 +212,14 @@ class CvProcessingIT {
         UUID entityId = UUID.randomUUID();
         String idempotencyKey = "retry_test_" + entityId;
 
-        CvStorageService.StorageResult stored = storageService.store(
+        CvStorageService.StorageResult stored = storageService.store(candidateId,
                 new MockMultipartFile("file", "test.pdf", "application/pdf", createSamplePdfBytes())
         );
 
         // Create sample CvVersion
         CvVersion cv = cvVersionRepository.save(CvVersion.builder()
                 .candidateId(candidateId)
-                .filePath(stored.filePath())
+                .filePath(stored.objectKey())
                 .fileName(stored.fileName())
                 .fileSizeBytes(stored.fileSizeBytes())
                 .mimeType(stored.mimeType())
@@ -224,7 +241,8 @@ class CvProcessingIT {
         ProcessingJob updated = jobService.getJob(job.getId()).orElseThrow();
         assertThat(updated.getStatus()).isEqualTo("PENDING");
         assertThat(updated.getAttemptCount()).isEqualTo(1);
-        assertThat(updated.getLastError()).contains("Connection timed out");
+        assertThat(updated.getLastError()).contains("temporarily unavailable");
+        assertThat(cvVersionRepository.findById(cv.getId()).orElseThrow().getStatus()).isEqualTo("uploaded");
         assertThat(updated.getRetryAfter()).isAfter(updated.getCreatedAt());
     }
 
@@ -234,13 +252,13 @@ class CvProcessingIT {
         UUID entityId = UUID.randomUUID();
         String idempotencyKey = "perm_fail_" + entityId;
 
-        CvStorageService.StorageResult stored = storageService.store(
+        CvStorageService.StorageResult stored = storageService.store(candidateId,
                 new MockMultipartFile("file", "corrupt.pdf", "application/pdf", createSamplePdfBytes())
         );
 
         CvVersion cv = cvVersionRepository.save(CvVersion.builder()
                 .candidateId(candidateId)
-                .filePath(stored.filePath())
+                .filePath(stored.objectKey())
                 .fileName(stored.fileName())
                 .fileSizeBytes(stored.fileSizeBytes())
                 .mimeType(stored.mimeType())
@@ -259,7 +277,8 @@ class CvProcessingIT {
 
         ProcessingJob updated = jobService.getJob(job.getId()).orElseThrow();
         assertThat(updated.getStatus()).isEqualTo("FAILED");
-        assertThat(updated.getLastError()).contains("Corrupt PDF");
+        assertThat(updated.getLastError()).contains("HTTP 400");
+        assertThat(cvVersionRepository.findById(cv.getId()).orElseThrow().getStatus()).isEqualTo("failed");
     }
 
     @Test
@@ -271,6 +290,41 @@ class CvProcessingIT {
         ProcessingJob job2 = jobService.createJob("CV_TEXT_EXTRACTION", "cv_version", entityId, idempotencyKey);
 
         assertThat(job1.getId()).isEqualTo(job2.getId());
+    }
+
+    @Test
+    void invalidEmbeddingRollsBackExtractedDataBeforeMarkingFailure() throws Exception {
+        UUID candidateId = createTestCandidateProfile();
+        when(aiWorkerClient.extractCv(any(), any(), any())).thenReturn(CVExtractResponse.builder()
+                .rawText("Synthetic CV for rollback test").parsedData(Map.of("skills", List.of("Java"))).build());
+        when(aiWorkerClient.generateEmbeddings(anyList())).thenReturn(EmbeddingsResponse.builder()
+                .embeddings(List.of(List.of(0.1f))).dimension(1).build());
+        var response = cvController.uploadCv(candidateId, authenticationForCandidate(candidateId),
+                new MockMultipartFile("file", "rollback.pdf", "application/pdf", createSamplePdfBytes()), true).getBody();
+        CvVersion stored = cvVersionRepository.findById(response.cvVersionId()).orElseThrow();
+        assertThat(stored.getStatus()).isEqualTo("failed");
+        assertThat(stored.getRawText()).isNull();
+        assertThat(stored.getParsedData()).isNull();
+        assertThat(jobService.getJob(response.processingJobId()).orElseThrow().getStatus()).isEqualTo("FAILED");
+    }
+
+    @Test
+    void expiredCvLeaseRetriesUntilAttemptsAreExhausted() throws Exception {
+        UUID candidateId = createTestCandidateProfile();
+        var response = cvController.uploadCv(candidateId, authenticationForCandidate(candidateId),
+                new MockMultipartFile("file", "lease.pdf", "application/pdf", createSamplePdfBytes()), false).getBody();
+        ProcessingJob lease = jobService.startCvJob(jobService.getJob(response.processingJobId()).orElseThrow()).orElseThrow();
+        jdbcClient.sql("UPDATE processing_jobs SET lease_expires_at = now() - interval '1 minute' WHERE id = ?")
+                .param(lease.getId()).update();
+        processingPersistence.recoverExpiredLeases();
+        assertThat(jobService.getJob(lease.getId()).orElseThrow().getStatus()).isEqualTo("PENDING");
+        assertThat(cvVersionRepository.findById(response.cvVersionId()).orElseThrow().getStatus()).isEqualTo("uploaded");
+
+        jdbcClient.sql("UPDATE processing_jobs SET status = 'PROCESSING', attempt_count = max_attempts, lease_expires_at = now() - interval '1 minute' WHERE id = ?")
+                .param(lease.getId()).update();
+        processingPersistence.recoverExpiredLeases();
+        assertThat(jobService.getJob(lease.getId()).orElseThrow().getStatus()).isEqualTo("FAILED");
+        assertThat(cvVersionRepository.findById(response.cvVersionId()).orElseThrow().getStatus()).isEqualTo("failed");
     }
 
     @Test
@@ -325,5 +379,16 @@ class CvProcessingIT {
                 "Microservices backend"
         );
         assertThat(duplicateCall.getId()).isEqualTo(result.getId());
+    }
+
+    private Authentication authenticationForCandidate(UUID candidateId) {
+        UUID userId = jdbcClient.sql("SELECT user_id FROM candidate_profiles WHERE id = ?")
+                .param(candidateId)
+                .query(UUID.class)
+                .single();
+        return new UsernamePasswordAuthenticationToken(
+                userId,
+                null,
+                List.of(new SimpleGrantedAuthority("ROLE_CANDIDATE")));
     }
 }

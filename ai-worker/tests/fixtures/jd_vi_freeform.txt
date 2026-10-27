@@ -1,0 +1,16 @@
+Vị trí: Lập trình viên Backend Java (Senior)
+Công ty: Giải pháp Công nghệ MatchaJob
+
+Mô tả công việc:
+- Tham gia phát triển các dịch vụ microservices phục vụ nền tảng tuyển dụng thông minh.
+- Thiết kế cơ sở dữ liệu PostgreSQL tối ưu hóa truy vấn và mở rộng hệ thống.
+
+Yêu cầu ứng viên:
+- Tối thiểu 3 năm kinh nghiệm lập trình backend với Java và Spring Boot.
+- Thành thạo làm việc với cơ sở dữ liệu quan hệ PostgreSQL và Docker container.
+- Hiểu biết về kiến trúc Microservices và quy trình CI/CD.
+- Tốt nghiệp Đại học chuyên ngành Công nghệ Thông tin hoặc liên quan.
+- Tiếng Anh giao tiếp tốt trong công việc.
+
+Ưu tiên:
+- Có kinh nghiệm với Redis hoặc Kafka là một lợi thế lớn.

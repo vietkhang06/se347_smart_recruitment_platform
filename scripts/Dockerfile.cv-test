@@ -1,0 +1,13 @@
+# Runtime verification fallback when Maven downloads inside Docker are unavailable.
+# Build the tested JAR on the host first. This does not replace backend/Dockerfile.
+# docker build -f scripts/Dockerfile.cv-test -t matchajob-cv-week2-test-backend backend/target
+FROM eclipse-temurin:21-jre-alpine
+WORKDIR /app
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup \
+    && mkdir -p /data/cv && chown -R appuser:appgroup /app /data/cv
+COPY --chown=appuser:appgroup backend-1.0.0.jar app.jar
+USER appuser
+EXPOSE 8080
+HEALTHCHECK --interval=5s --timeout=5s --retries=12 --start-period=30s \
+    CMD wget -qO- http://127.0.0.1:8080/api/actuator/health/readiness > /dev/null || exit 1
+ENTRYPOINT ["java", "-jar", "app.jar"]

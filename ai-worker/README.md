@@ -62,3 +62,30 @@ uvicorn app.main:app --host 127.0.0.1 --port 8001 --reload
 ```bash
 pytest tests/ -v
 ```
+
+
+---
+
+## 6. Đo Lường & Bằng Chứng Thời Gian Xử Lý (Processing Time Benchmarks)
+
+* **Lệnh chạy đo:**
+  ```powershell
+  $env:PYTHONPATH="ai-worker"; uv run --with-requirements ai-worker/requirements.txt python ai-worker/benchmarks/benchmark_processing_time.py 5 50
+  ```
+* **Môi trường:** Python 3.12 LTS, Windows x86_64, `time.perf_counter()`.
+* **Cấu hình:** 5 lần warm-up, 50 lần lặp chính thức mỗi tác vụ.
+
+| Phân đoạn xử lý | Tệp / Đầu vào | Lần lặp | Mean (ms) | p50 (ms) | p95 (ms) |
+| :--- | :--- | :---: | :---: | :---: | :---: |
+| **Document Extraction** | `cv_en_backend.pdf` (873 B) | 50 | 0.729 | 0.698 | 0.806 |
+| **Document Extraction** | `cv_minimal.pdf` (598 B) | 50 | 0.449 | 0.435 | 0.552 |
+| **Document Extraction** | `cv_en_backend.docx` (36.9 KB) | 50 | 8.245 | 5.783 | 24.974 |
+| **Document Extraction** | `cv_vi_backend.docx` (36.9 KB) | 50 | 8.385 | 5.815 | 24.449 |
+| **Normalization** | Chuẩn hóa CV Tiếng Anh (`cv_en_backend`, ~1.2 KB) | 50 | 2.021 | 2.015 | 2.054 |
+| **Normalization** | Chuẩn hóa CV Tiếng Việt (`cv_vi_backend`, ~1.2 KB) | 50 | 1.384 | 1.376 | 1.411 |
+| **Normalization** | Chuẩn hóa JD Tiếng Anh (`jd_en_freeform.txt`, 633 B) | 50 | 1.899 | 1.894 | 1.928 |
+| **Normalization** | Chuẩn hóa JD Tiếng Việt (`jd_vi_freeform.txt`, 839 B) | 50 | 1.842 | 1.836 | 1.885 |
+| **Baseline Matching** | Tính điểm đối sánh Tiếng Anh (EN candidate & JD) | 50 | 2.315 | 2.304 | 2.368 |
+| **Baseline Matching** | Tính điểm đối sánh Tiếng Việt (VI candidate & JD) | 50 | 1.713 | 1.702 | 1.793 |
+| **End-to-End Pipeline** | Trọn gói Tiếng Anh (DOCX bóc tách → Chuẩn hóa → Chấm điểm) | 50 | 12.482 | 9.868 | 30.263 |
+| **End-to-End Pipeline** | Trọn gói Tiếng Việt (DOCX bóc tách → Chuẩn hóa → Chấm điểm) | 50 | 11.475 | 9.016 | 27.269 |
