@@ -184,6 +184,9 @@ export default function CompanyView({ companyData, onCompanyUpdated }) {
       if (onCompanyUpdated) onCompanyUpdated(result || updated);
       showToast("Đã lưu thông tin hồ sơ doanh nghiệp thành công vào CSDL!");
     } catch (err) {
+      if (err.fieldErrors && typeof err.fieldErrors === "object") {
+        setErrors((prev) => ({ ...prev, ...err.fieldErrors }));
+      }
       showToast(err.message || "Không thể cập nhật hồ sơ doanh nghiệp.", "danger");
     } finally {
       setIsSaving(false);

@@ -31,6 +31,13 @@
    - [4.1. Bối cảnh & Bản chất xung đột](#41-bối-cảnh--bản-chất-xung-đột)
    - [4.2. Chiến lược hợp nhất bảo toàn 100% tính năng](#42-chiến-lược-hợp-nhất-bảo-toàn-100-tính-năng-reconciliation-strategy)
    - [4.3. Bảng đối chiếu sau khi giải quyết xung đột](#43-bảng-đối-chiếu-sau-khi-giải-quyết-xung-đột)
+5. [PHẦN 5: Recruiter API Integration, Applicant Pipeline & Status Update](#phần-5-recruiter-api-integration-applicant-pipeline--status-update)
+   - [5.1. Bối cảnh & Yêu cầu kỹ thuật](#51-bối-cảnh--yêu-cầu-kỹ-thuật)
+   - [5.2. Sơ đồ kiến trúc & Luồng xử lý cập nhật Pipeline](#52-sơ-đồ-kiến-trúc--luồng-xử-lý-cập-nhật-pipeline)
+   - [5.3. Chi tiết thay đổi Backend (Spring Boot & PostgreSQL)](#53-chi-tiết-thay-đổi-backend-spring-boot--postgresql)
+   - [5.4. Chi tiết thay đổi Frontend (React & Services)](#54-chi-tiết-thay-đổi-frontend-react--services)
+   - [5.5. Kiểm thử tự động toàn diện (Testing & Verification)](#55-kiểm-thử-tự-động-toàn-diện-testing--verification)
+   - [5.6. Bảng đối chiếu nghiệm thu đầu ra](#56-bảng-đối-chiếu-nghiệm-thu-đầu-ra)
 
 ---
 
@@ -1285,5 +1292,234 @@ CONFLICT (content): Merge conflict in backend/src/test/java/com/matchajob/applic
 | `apiApplicationService.js` | Chỉ gọi 1 endpoint tĩnh | Ưu tiên `/v1/employer/applications/{id}` có fallback tự động sang `/v1/applications/{id}` |
 
 ---
+
+# PHẦN 5: RECRUITER API INTEGRATION, APPLICANT PIPELINE & STATUS UPDATE
+
+> **Chủ đề:** Tích hợp API Nhà tuyển dụng + Luồng quản lý hồ sơ ứng viên (Applicant Pipeline) + Cập nhật trạng thái tuyển dụng  
+> **Các tệp tin thay đổi:**
+> - Backend: `backend/src/main/java/com/matchajob/application/service/ApplicationService.java`, `ApplicationServiceTest.java`, `ApplicationWorkflowIT.java`
+> - Frontend API Services: `frontend/src/services/api/apiCompanyService.js`
+> - Frontend Views & Modals: `frontend/src/pages/employer/views/CompanyView.jsx`, `frontend/src/pages/employer/components/JobComposerModal.jsx`, `frontend/src/pages/employer/views/CandidatesView.jsx`, `frontend/src/pages/employer/views/PipelineView.jsx`, `frontend/src/pages/employer/EmployerPortal.jsx`
+> - Test Suites: `frontend/src/tests/recruiter-pipeline.test.jsx`, `backend/.../ApplicationWorkflowIT.java`
+
+---
+
+### 5.1. Bối cảnh & Yêu cầu kỹ thuật
+
+#### Bối cảnh đặt ra:
+Sau khi hợp nhất các tính năng cốt lõi giữa hai phía Ứng viên và Nhà tuyển dụng, hệ thống đối mặt với 3 thách thức lớn trong vận hành thực tế:
+1. **Validation & Đồng bộ dữ liệu Company / Job UI:** Khi gửi dữ liệu lưu công ty hoặc đăng tuyển job, backend trả về các lỗi chi tiết theo chuẩn RFC 7807 (Problem Details: `fieldErrors`, `detail`). Trước đây, frontend chỉ hiển thị một câu thông báo chung chung hoặc nuốt lỗi, khiến người dùng không biết ô nhập liệu nào (VD: `taxCode`, `email`, `salaryMin`) bị sai định dạng.
+2. **Trải nghiệm tìm kiếm & phân loại ứng viên:** Khi danh sách ứng viên có nhiều tin tuyển dụng khác nhau, recruiter không có công cụ sắp xếp đa tiêu chí (điểm AI match cao/thấp, ngày nộp mới/cũ, tên A-Z) và không có sự liên kết tự nhiên giữa mục xem Job ("Xem ứng viên") với màn hình ứng viên.
+3. **An toàn dữ liệu trong luồng Pipeline & Ràng buộc nghiệp vụ Tin tuyển dụng đã đóng:**
+   - Trước đây khi recruiter bấm chuyển cột stage trên Kanban, hệ thống đổi ngay không hỏi xác nhận, và nếu mạng chập chờn hay API backend trả lỗi, giao diện không có cơ chế hoàn tác (rollback) trạng thái cũ.
+   - Đặc biệt nghiêm trọng: Khi một tin tuyển dụng đã bị đóng (`status = 'closed'`), backend chỉ chặn nộp hồ sơ mới (`applyForJob`) nhưng lại **quên chặn cập nhật trạng thái (`updateStage`)**. Điều này cho phép recruiter vô tình hoặc cố ý can thiệp duyệt hồ sơ trên một vị trí đã ngừng tuyển.
+
+---
+
+### 5.2. Sơ đồ kiến trúc & Luồng xử lý cập nhật Pipeline
+
+```
+[ Recruiter trên Kanban Board (PipelineView.jsx) ]
+                      │
+                      │ (1) Bấm nút dịch chuyển cột (Prev / Next stage)
+                      ▼
+        [ Modal Xác nhận Thao tác (confirmModal) ]
+                      │
+                      ├─► [ Hủy ] ──► Đóng modal, giữ nguyên trạng thái
+                      │
+                      │ (2) Bấm "Xác nhận chuyển"
+                      ▼
+[ Optimistic UI Update + Đánh dấu Saving State ]
+  • Tạm thời chuyển thẻ sang cột mới ngay lập tức
+  • Bật cờ savingCandidateId: làm mờ thẻ (opacity: 0.7) & xoay spinner
+                      │
+                      │ (3) Gọi onStageChange(candidateId, nextStage) qua API
+                      ▼
+       [ Backend: ApplicationService.updateStage(...) ]
+                      │
+                      ├─► [ Kiểm tra quyền sở hữu Job/Company ] (Forbidden?)
+                      ├─► [ Kiểm tra Tin tuyển dụng đã đóng? ] (validateJobNotClosed)
+                      │     └─► NẾU closed: Ném IllegalStateException("Cannot update application stage because the job is closed.")
+                      ├─► [ Kiểm tra tính hợp lệ của Stage DTO ]
+                      │
+                      ├───────────────────────┬───────────────────────┐
+                      ▼                                               ▼
+              [ THÀNH CÔNG: HTTP 200 ]                       [ THẤT BẠI: HTTP 4xx / 5xx ]
+                      │                                               │
+      (4a) Cập nhật trạng thái DB thành công          (4b) Ném ngoại lệ, trả Problem Detail
+                      │                                               │
+                      ▼                                               ▼
+         [ Frontend: Giữ nguyên cột mới ]              [ Frontend: Kích hoạt ROLLBACK ]
+         Tắt saving indicator                          • Trả thẻ ứng viên về đúng cột ban đầu
+                                                       • Tắt saving indicator
+                                                       • Bật Toast thông báo lỗi chi tiết
+```
+
+---
+
+### 5.3. Chi tiết thay đổi Backend (Spring Boot & PostgreSQL)
+
+#### 1. Ràng buộc chặn cập nhật trạng thái khi tin tuyển dụng đã đóng (`ApplicationService.java`)
+* **Vị trí file:** `backend/src/main/java/com/matchajob/application/service/ApplicationService.java`
+* **Mã nguồn bổ sung:**
+```java
+// Trong phương thức updateStage(...)
+UUID jobId = (UUID) current.get("job_id");
+validateJobNotClosed(jobId);
+```
+```java
+private void validateJobNotClosed(UUID jobId) {
+    if (jobId == null) {
+        return;
+    }
+    String status = applicationRepository.findJobStatusById(jobId).orElse(null);
+    if ("closed".equalsIgnoreCase(status)) {
+        throw new IllegalStateException("Cannot update application stage because the job is closed.");
+    }
+}
+```
+* **Lý do kỹ thuật chi tiết:**
+  - `findJobStatusById(jobId)`: Truy vấn trực tiếp trạng thái hiện tại của job từ cơ sở dữ liệu để đảm bảo tính nhất quán (data consistency) theo thời gian thực, tránh hiện tượng stale data trong bộ nhớ đệm.
+  - Ngoại lệ `IllegalStateException`: Được cấu hình ánh xạ sang mã HTTP 400 Bad Request / 409 Conflict với Problem Details (RFC 7807), thông báo rõ ràng cho phía client lý do không thể tiếp tục xử lý đơn.
+* **Ví dụ đơn giản:** Giống như một **cửa hàng đã treo biển "Đóng cửa"**. Khách hàng không thể bước vào mua thêm đồ (không apply được), và nhân viên thu ngân cũng không được phép xuất thêm hóa đơn xử lý cho các giỏ hàng cũ (không chuyển stage được nữa). Muốn tiếp tục, quản lý phải mở lại cửa hàng (reopen job).
+
+#### 2. Kiểm thử bảo vệ logic Closed Job (`ApplicationServiceTest.java` & `ApplicationWorkflowIT.java`)
+* **Unit Test:** `backend/src/test/java/com/matchajob/application/service/ApplicationServiceTest.java`
+  - Bổ sung test case `updateStage_closedJob_throwsIllegalStateException()`: Giả lập repository trả về `findJobStatusById` là `"closed"`, xác minh phương thức `updateStage` ném đúng `IllegalStateException` và **không bao giờ** gọi lệnh cập nhật `updateStage(...)` xuống cơ sở dữ liệu (`verify(..., never())`).
+* **Integration Test:** `backend/src/test/java/com/matchajob/application/ApplicationWorkflowIT.java`
+  - Bổ sung integration test `updateStage_closedJob_fails()`: Thực thi quy trình từ cơ sở dữ liệu thật H2/PostgreSQL: tạo job -> tạo application -> đóng job (`UPDATE jobs SET status = 'closed'`) -> gọi `updateStage` và kiểm tra ngoại lệ ném ra chuẩn xác.
+
+---
+
+### 5.4. Chi tiết thay đổi Frontend (React & Services)
+
+#### 1. Bóc tách và truyền dẫn RFC 7807 Problem Details: `apiCompanyService.js`
+* **Vị trí file:** `frontend/src/services/api/apiCompanyService.js`
+* **Mã nguồn:**
+```javascript
+if (!res.ok) {
+  const errorData = await res.json().catch(() => ({}));
+  const error = new Error(errorData.detail || errorData.message || `Lỗi cập nhật công ty (${res.status})`);
+  error.status = res.status;
+  error.fieldErrors = errorData.fieldErrors || null;
+  throw error;
+}
+```
+* **Lý do kỹ thuật chi tiết:**
+  - Chuẩn RFC 7807 của Spring Boot Problem Details trả về cấu trúc gồm `detail`, `title`, `status`, và `fieldErrors` (danh sách từng trường bị sai validation từ Hibernate Validator / Bean Validation).
+  - Trước đây, `apiCompanyService` chỉ ném `new Error(message)` thông thường, làm mất thuộc tính `fieldErrors`. Việc gán `error.fieldErrors = errorData.fieldErrors` giúp tầng View lấy được thông tin chi tiết để highlight đỏ từng ô input tương ứng.
+
+#### 2. Ánh xạ lỗi Validation trực tiếp lên giao diện: `CompanyView.jsx` & `JobComposerModal.jsx`
+* **Vị trí file:** `frontend/src/pages/employer/views/CompanyView.jsx`
+* **Mã nguồn:**
+```javascript
+} catch (err) {
+  if (err.fieldErrors && typeof err.fieldErrors === 'object') {
+    setErrors(prev => ({ ...prev, ...err.fieldErrors }));
+  }
+  toast.error(err.message || 'Không thể lưu thông tin công ty.');
+}
+```
+* **Vị trí file:** `frontend/src/pages/employer/components/JobComposerModal.jsx`
+* **Mã nguồn:**
+```javascript
+// Hiển thị Alert Banner lỗi server ngay trên đầu form
+{serverError && (
+  <Alert variant="danger" dismissible onClose={() => setServerError(null)} className="py-2 px-3 small">
+    <i className="bi bi-exclamation-triangle-fill me-2"></i>
+    {serverError}
+  </Alert>
+)}
+```
+* **Lý do kỹ thuật chi tiết:**
+  - Nếu người dùng đang ở tab Preview mà bấm Lưu tin gặp lỗi từ server, `JobComposerModal` tự động chuyển tab về `edit` (`setActiveTab('edit')`) đồng thời mở banner thông báo lỗi. Người dùng không bị bối rối vì sao form không lưu được.
+
+#### 3. Bộ lọc theo tin tuyển dụng & Đa tiêu chí sắp xếp: `CandidatesView.jsx`
+* **Vị trí file:** `frontend/src/pages/employer/views/CandidatesView.jsx`
+* **Mã nguồn các tính năng mới:**
+```javascript
+// 1. Quản lý bộ tiêu chí sắp xếp
+const [sortBy, setSortBy] = useState('score-desc');
+
+// 2. Danh sách Dropdown lọc Job kết hợp từ jobs props và danh sách candidates hiện có
+const jobOptions = useMemo(() => {
+  const map = new Map();
+  jobs.forEach(j => j?.id && map.set(j.id, j.title));
+  candidates.forEach(c => c?.jobId && !map.has(c.jobId) && map.set(c.jobId, c.jobTitle || 'Tin tuyển dụng'));
+  return Array.from(map.entries()).map(([id, title]) => ({ id, title }));
+}, [jobs, candidates]);
+
+// 3. Logic sắp xếp đa tiêu chí
+const sorted = [...filtered].sort((a, b) => {
+  if (sortBy === 'score-desc') return (b.matchScore || 0) - (a.matchScore || 0);
+  if (sortBy === 'score-asc') return (a.matchScore || 0) - (b.matchScore || 0);
+  if (sortBy === 'date-desc') return new Date(b.appliedAt || 0) - new Date(a.appliedAt || 0);
+  if (sortBy === 'date-asc') return new Date(a.appliedAt || 0) - new Date(b.appliedAt || 0);
+  if (sortBy === 'name-asc') return (a.name || '').localeCompare(b.name || '');
+  if (sortBy === 'name-desc') return (b.name || '').localeCompare(a.name || '');
+  return 0;
+});
+```
+* **Bổ sung Banner chỉ báo bộ lọc theo Job đang kích hoạt:**
+  - Khi nhà tuyển dụng bấm từ màn hình Jobs ("Xem ứng viên"), giao diện tự động bật Alert: *"Đang lọc theo tin tuyển dụng: [Tên Job]"* kèm nút *"Bỏ lọc theo tin"*.
+  - Thẻ ứng viên bổ sung nhãn thời gian nộp hồ sơ (`appliedAt`) định dạng ngày tháng tiếng Việt.
+
+#### 4. Quản lý Pipeline Kanban an toàn, Optimistic UI & Khóa tin đã đóng: `PipelineView.jsx`
+* **Vị trí file:** `frontend/src/pages/employer/views/PipelineView.jsx`
+* **Cơ chế hoạt động:**
+  1. **Modal xác nhận trước khi chuyển (`confirmModal`):** Người dùng bấm di chuyển thẻ -> hiển thị hộp thoại xác nhận gồm: Tên ứng viên, Giai đoạn hiện tại ➔ Giai đoạn đích.
+  2. **Trạng thái đang lưu (`savingCandidateId`):** Trong lúc API đang phản hồi, thẻ ứng viên giảm độ mờ (`opacity: 0.7`) và xuất hiện spinner xoay tròn *"Đang lưu..."*, ngăn chặn double click.
+  3. **Cơ chế Rollback khi có lỗi:** Nếu API ném ngoại lệ (lỗi mạng, hết session, job đóng...), hook tự động phục hồi `stage` của ứng viên về cột ban đầu và hiển thị toast lỗi chi tiết.
+  4. **Nhận diện tin tuyển dụng đã đóng (`isCandidateJobClosed`):** Kiểm tra trạng thái của job tương ứng (`status === 'closed'`). Nếu job đã đóng:
+     - Nút di chuyển bị vô hiệu hóa (`disabled`).
+     - Tooltip hiển thị: *"Tin tuyển dụng đã đóng - Không thể cập nhật trạng thái"*.
+     - Gắn thêm badge cảnh báo màu xám: `Tin đóng`.
+
+#### 5. Liên kết trạng thái xuyên suốt trong `EmployerPortal.jsx`
+* **Vị trí file:** `frontend/src/pages/employer/EmployerPortal.jsx`
+* Quản lý state dùng chung:
+```javascript
+const [selectedJobFilter, setSelectedJobFilter] = useState('');
+```
+* Khi ở `JobsView`, recruiter bấm nút `"Xem ứng viên"` trên một Job bất kỳ:
+```javascript
+onViewCandidates={(job) => {
+  setSelectedJobFilter(job.id);
+  setActiveTab('candidates');
+}}
+```
+* Cả `CandidatesView` và `PipelineView` đều nhận `selectedJobFilter` này để lọc đồng bộ, giúp luồng làm việc của recruiter liền mạch, không bị đứt quãng.
+
+---
+
+### 5.5. Kiểm thử tự động toàn diện (Testing & Verification)
+
+#### 1. Bộ kiểm thử Frontend: `recruiter-pipeline.test.jsx`
+* **Vị trí file:** `frontend/src/tests/recruiter-pipeline.test.jsx`
+* **Bao phủ các ca kiểm thử:**
+  1. `renders candidates list with job title and match score`: Kiểm tra hiển thị đầy đủ tên, chức danh job và điểm AI matching.
+  2. `filters candidates by selected job and clears filter`: Kiểm tra bộ lọc theo job và nút bỏ lọc.
+  3. `sorts candidates by match score and application date`: Kiểm tra thuật toán sắp xếp điểm số AI và ngày nộp.
+  4. `renders empty state when no candidates match filters`: Kiểm tra hiển thị thông báo thân thiện khi không có ứng viên nào khớp điều kiện tìm kiếm.
+  5. `shows confirmation modal before moving stage in pipeline`: Kiểm tra bật popup xác nhận bước chuyển trạng thái.
+  6. `calls onStageChange when confirmed in modal`: Kiểm tra việc gọi hàm API khi người dùng nhấn xác nhận.
+  7. `rolls back stage and displays error when onStageChange fails`: Giả lập lỗi API, xác minh thẻ ứng viên tự động rollback về cột ban đầu và không bị mất dữ liệu.
+  8. `disables stage move buttons for candidates of closed jobs`: Kiểm tra nút chuyển bị vô hiệu hóa và có tooltip tin đóng khi job có trạng thái `closed`.
+* **Kết quả thực thi:** **53/53 tests passed (100%)** trên 8 test suite của Frontend.
+
+#### 2. Bộ kiểm thử Backend: `ApplicationServiceTest` & `ApplicationWorkflowIT`
+* **Kết quả thực thi:** **323/323 tests passed (100%)** với Maven wrapper (`.\mvnw.cmd test`), thời gian chạy 14.5s.
+
+---
+
+### 5.6. Bảng đối chiếu nghiệm thu đầu ra
+
+| Yêu cầu đề bài | Thành phần đảm nhiệm | Kết quả sau khi triển khai | Trạng thái |
+| :--- | :--- | :--- | :--- |
+| **1. Company & Job UI dùng API thật + Validation** | `apiCompanyService.js`<br>`CompanyView.jsx`<br>`JobComposerModal.jsx` | Bóc tách RFC 7807 `fieldErrors`, highlight đỏ từng trường sai sót, banner cảnh báo lỗi máy chủ, tự chuyển tab Edit khi có lỗi. | **HOÀN THÀNH** |
+| **2. Danh sách ứng viên theo tin, lọc/sắp xếp, xem hồ sơ & matching** | `CandidatesView.jsx`<br>`EmployerPortal.jsx` | Lọc theo Job tự động liên kết từ JobsView, đa tiêu chí sắp xếp (Điểm AI, Ngày nộp, Tên A-Z), hiển thị điểm AI matching, ngày nộp hồ sơ, modal xem chi tiết. | **HOÀN THÀNH** |
+| **3. Cập nhật Pipeline có xác nhận, saving state, rollback khi lỗi** | `PipelineView.jsx` | Modal popup xác nhận thao tác, spinner và giảm opacity khi đang lưu, cơ chế Optimistic UI tự rollback về cột cũ khi API thất bại. | **HOÀN THÀNH** |
+| **4. Kiểm thử quyền, tin đã đóng, trạng thái không hợp lệ & dữ liệu rỗng** | `ApplicationService.java`<br>`ApplicationWorkflowIT.java`<br>`recruiter-pipeline.test.jsx` | Backend chặn tuyệt đối `updateStage` trên tin closed (ném `IllegalStateException`), giao diện vô hiệu hóa nút chuyển trên tin closed kèm nhãn & tooltip; xử lý UI rỗng chuẩn mực; 323 backend tests & 53 frontend tests pass 100%. | **HOÀN THÀNH** |
+
 
 

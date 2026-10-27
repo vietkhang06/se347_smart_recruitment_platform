@@ -43,6 +43,7 @@ export default function JobComposerModal({
   const [showRestoreConfirmModal, setShowRestoreConfirmModal] = useState(false);
   const [hasDraft, setHasDraft] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [serverError, setServerError] = useState("");
 
   // HR Profile state synced with mockStore
   const [hrProfile, setHrProfile] = useState(() => mockStore.getEmployerProfile());
@@ -770,6 +771,7 @@ export default function JobComposerModal({
       statusCode: finalStatusCode
     };
 
+    setServerError("");
     setIsSubmitting(true);
     try {
       if (mode === "edit" && jobToEdit?.id) {
@@ -785,7 +787,10 @@ export default function JobComposerModal({
       }
       onHide();
     } catch (err) {
-      showToast(err?.message || "Có lỗi xảy ra khi lưu tin tuyển dụng.", "danger");
+      const msg = err?.data?.detail || err?.data?.message || err?.message || "Có lỗi xảy ra khi lưu tin tuyển dụng.";
+      setServerError(msg);
+      setActiveTab("edit");
+      showToast(msg, "danger");
     } finally {
       setIsSubmitting(false);
     }
@@ -906,6 +911,12 @@ export default function JobComposerModal({
       </Modal.Header>
 
       <Modal.Body className="p-3 p-md-4 bg-surface">
+        {serverError && (
+          <div className="alert alert-danger py-2 px-3 small mb-3 d-flex align-items-center gap-2">
+            <i className="bi bi-exclamation-triangle-fill flex-shrink-0 text-danger"></i>
+            <div>{serverError}</div>
+          </div>
+        )}
         {activeTab === "edit" ? (
           <Form id="job-composer-form">
             <div className="composer-form-inner w-100" style={{ margin: "0 auto" }}>

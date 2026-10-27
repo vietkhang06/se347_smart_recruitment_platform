@@ -52,7 +52,10 @@ export const apiCompanyService = {
       if (err.status === 400 || err.status === 403 || err.status === 409 ||
           err.response?.status === 400 || err.response?.status === 403 || err.response?.status === 409) {
         const detail = err.response?.data?.detail || err.response?.data?.message || err.message;
-        throw new Error(detail || "Không thể cập nhật hồ sơ doanh nghiệp.");
+        const customErr = new Error(detail || "Không thể cập nhật hồ sơ doanh nghiệp.");
+        customErr.status = err.status || err.response?.status;
+        customErr.fieldErrors = err.response?.data?.fieldErrors || err.response?.data?.errors || err.fieldErrors;
+        throw customErr;
       }
       return mockCompanyService.updateCompany(companyId, updateData);
     }

@@ -189,6 +189,9 @@ public class ApplicationService {
         ApplicationEntity application = applicationRepository.findById(applicationId)
                 .orElseThrow(() -> new IllegalArgumentException("Application not found: " + applicationId));
 
+        // Validate that the associated job is not closed
+        validateJobNotClosed(application.getJobId());
+
         ApplicationStage currentStage = application.getStageEnum();
         ApplicationStage targetStage = ApplicationStage.fromDbValue(request.getToStage());
 
@@ -726,6 +729,31 @@ public class ApplicationService {
     // =========================================================================
     // Internal helpers
     // =========================================================================
+
+    /**
+     * Validates that the job is not closed when updating application stage.
+     */
+    private void validateJobNotClosed(UUID jobId) {
+        if (jobId == null || jdbcClient == null) {
+            return;
+        }
+        try {
+            var query = jdbcClient.sql("SELECT status FROM jobs WHERE id = ? AND deleted_at IS NULL");
+            if (query == null) return;
+            var paramQuery = query.param(jobId);
+            if (paramQuery == null) return;
+            var mappedQuery = paramQuery.query(String.class);
+            if (mappedQuery == null) return;
+            Optional<String> statusOpt = mappedQuery.optional();
+            if (statusOpt.isPresent() && "closed".equalsIgnoreCase(statusOpt.get())) {
+                throw new IllegalStateException("Cannot update application stage because the job is closed.");
+            }
+        } catch (IllegalStateException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            log.warn("Could not verify job status for job {}: {}", jobId, ex.getMessage());
+        }
+    }
 
     /**
      * Validates that the job exists, has status 'active', and deadline has not passed.

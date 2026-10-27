@@ -159,6 +159,7 @@ function EmployerWorkspace({ companyId }) {
   const [showCandidateModal, setShowCandidateModal] = useState(false);
   const [showInterviewModal, setShowInterviewModal] = useState(false);
   const [interviewCandidate, setInterviewCandidate] = useState(null);
+  const [selectedJobFilter, setSelectedJobFilter] = useState("all");
 
   const handleOpenCreateJob = () => {
     setComposerMode("create");
@@ -371,15 +372,19 @@ function EmployerWorkspace({ companyId }) {
           setJobs={setJobs}
           onOpenComposer={handleOpenCreateJob}
           onEditJob={handleOpenEditJob}
-          onNavigateCandidates={() =>
-            handleTabChange("pipeline")
-          }
+          onNavigateCandidates={(job) => {
+            setSelectedJobFilter(job?.id || job?.title || "all");
+            handleTabChange("candidates");
+          }}
         />
       )}
 
       {activeTab === "candidates" && (
         <CandidatesView
           candidates={candidates}
+          jobs={jobs}
+          selectedJobFilter={selectedJobFilter}
+          onSelectJobFilter={setSelectedJobFilter}
           onOpenCandidate={handleOpenCandidate}
           onInviteCandidate={handleInviteCandidate}
         />
@@ -388,6 +393,9 @@ function EmployerWorkspace({ companyId }) {
       {activeTab === "pipeline" && (
         <PipelineView
           candidates={candidates}
+          jobs={jobs}
+          selectedJobFilter={selectedJobFilter}
+          onSelectJobFilter={setSelectedJobFilter}
           setCandidates={setCandidates}
           onStageChange={handleCandidateStageChange}
           onOpenCandidate={handleOpenCandidate}

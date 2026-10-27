@@ -202,6 +202,38 @@ class ApplicationServiceTest {
             verify(applicationRepository, never()).save(any());
             verify(historyRepository, never()).save(any());
         }
+
+        @Test
+        @DisplayName("updateStage throws IllegalStateException when associated job is closed")
+        void updateStage_closedJob_throwsIllegalStateException() {
+            UUID appId = UUID.randomUUID();
+            UUID jobId = UUID.randomUUID();
+            ApplicationEntity app = ApplicationEntity.builder()
+                    .id(appId)
+                    .jobId(jobId)
+                    .stage("screening")
+                    .build();
+
+            when(applicationRepository.findById(appId)).thenReturn(Optional.of(app));
+
+            var mockSpec = mock(JdbcClient.StatementSpec.class);
+            var mockQuerySpec = mock(JdbcClient.MappedQuerySpec.class);
+            when(jdbcClient.sql(contains("FROM jobs"))).thenReturn(mockSpec);
+            when(mockSpec.param(jobId)).thenReturn(mockSpec);
+            when(mockSpec.query(String.class)).thenReturn(mockQuerySpec);
+            when(mockQuerySpec.optional()).thenReturn(Optional.of("closed"));
+
+            ApplicationStageUpdateRequest request = ApplicationStageUpdateRequest.builder()
+                    .toStage("interview")
+                    .build();
+
+            assertThatThrownBy(() -> applicationService.updateStage(appId, UUID.randomUUID(), request))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("job is closed");
+
+            verify(applicationRepository, never()).save(any());
+            verify(historyRepository, never()).save(any());
+        }
     }
 
     @Nested

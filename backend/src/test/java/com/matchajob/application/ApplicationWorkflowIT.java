@@ -481,4 +481,26 @@ class ApplicationWorkflowIT {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Invalid stage transition");
     }
+
+    @Test
+    @DisplayName("updateStage fails when the associated job is closed")
+    void updateStage_closedJob_fails() {
+        CandidateFixture candidate = createCandidateFixture();
+        UUID employerId = createEmployerUser();
+        UUID jobId = createJobFixture(employerId, "active");
+        UUID cvId = createCvVersionFixture(candidate.candidateId());
+
+        ApplicationResponse app = applicationService.applyForJob(candidate.candidateId(), candidate.userId(),
+                ApplicationApplyRequest.builder().jobId(jobId).cvVersionId(cvId).build());
+
+        // Close the job
+        jdbcClient.sql("UPDATE jobs SET status = 'closed' WHERE id = ?").param(jobId).update();
+
+        // Attempting to advance application stage on a closed job must fail
+        assertThatThrownBy(() -> applicationService.updateStage(
+                app.getApplicationId(), employerId,
+                ApplicationStageUpdateRequest.builder().toStage("screening").reason("Advancing").build()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("closed");
+    }
 }
