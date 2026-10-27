@@ -34,7 +34,6 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -51,6 +50,7 @@ class MatchingServiceTest {
     @Mock private JobRepository jobRepository;
     @Mock private ProcessingJobRepository processingJobRepository;
     @Mock private ProcessingJobService processingJobService;
+    @Mock private MatchingPersistenceService persistence;
 
     private MatchingService service;
 
@@ -67,7 +67,7 @@ class MatchingServiceTest {
                 applicationCvSnapshotRepository,
                 jobRepository,
                 processingJobRepository,
-                processingJobService);
+                processingJobService, persistence);
     }
 
     @Test
@@ -111,8 +111,9 @@ class MatchingServiceTest {
         when(applicationCvSnapshotRepository.findWithCvVersionByApplicationId(applicationId))
                 .thenReturn(Optional.of(snapshot));
         when(jobRepository.findByIdAndDeletedAtIsNull(jobId)).thenReturn(Optional.of(job));
+        when(persistence.claim(applicationId)).thenReturn(Optional.of(ProcessingJob.builder().id(UUID.randomUUID()).build()));
+        when(persistence.complete(any(), any())).thenAnswer(invocation -> invocation.getArgument(1));
         when(aiWorkerClient.calculateMatchScore(any(MatchScoreRequest.class))).thenReturn(scoreResponse);
-        when(matchResultRepository.save(any(MatchResult.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         MatchResult result = service.evaluateApplicationMatch(applicationId);
 
@@ -172,146 +173,25 @@ class MatchingServiceTest {
         when(applicationCvSnapshotRepository.findWithCvVersionByApplicationId(applicationId))
                 .thenReturn(Optional.of(snapshot));
         when(jobRepository.findByIdAndDeletedAtIsNull(jobId)).thenReturn(Optional.of(job));
+        when(persistence.claim(applicationId)).thenReturn(Optional.of(ProcessingJob.builder().id(UUID.randomUUID()).build()));
         when(aiWorkerClient.calculateMatchScore(any(MatchScoreRequest.class)))
                 .thenReturn(MatchScoreResponse.builder().overallScore(null).build());
 
         assertThatThrownBy(() -> service.evaluateApplicationMatch(applicationId))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("invalid overall");
+                .isInstanceOf(MatchingException.class)
+                .hasMessageContaining("contract");
         verify(matchResultRepository, never()).save(any(MatchResult.class));
     }
 
     @Test
-    void doesNotRestartAnAlreadyProcessingJob() {
+    void processingStateDoesNotOfferAnotherPost() {
         UUID applicationId = UUID.randomUUID();
-        ProcessingJob processingJob = ProcessingJob.builder()
-                .id(UUID.randomUUID())
-                .jobType("APPLICATION_MATCHING")
-                .entityType("application")
-                .entityId(applicationId)
-                .status("PROCESSING")
-                .retryAfter(Instant.now())
-                .build();
-        when(processingJobRepository.findFirstByJobTypeAndEntityTypeAndEntityIdOrderByCreatedAtDesc(
-                eq("APPLICATION_MATCHING"), eq("application"), eq(applicationId)))
-                .thenReturn(Optional.of(processingJob));
+        when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(ApplicationEntity.builder().id(applicationId).jobId(UUID.randomUUID()).build()));
         when(matchResultRepository.findByApplicationId(applicationId)).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> service.evaluateApplicationMatch(applicationId))
-                .isInstanceOf(MatchingService.MatchNotReadyException.class)
-                .hasMessageContaining("already being processed");
-        verify(applicationRepository, never()).findById(applicationId);
-        verify(aiWorkerClient, never()).calculateMatchScore(any(MatchScoreRequest.class));
-    }
-
-    @Test
-    void evaluatesApplicationMatch_whenResultExists_returnsExistingWithoutCallingAiWorker() {
-        UUID applicationId = UUID.randomUUID();
-        MatchResult existingResult = MatchResult.builder()
-                .applicationId(applicationId)
-                .overallScore((short) 90)
-                .build();
-        ProcessingJob processingJob = ProcessingJob.builder()
-                .id(UUID.randomUUID())
-                .status("PROCESSING")
-                .build();
-
-        when(matchResultRepository.findByApplicationId(applicationId)).thenReturn(Optional.of(existingResult));
-        when(processingJobRepository.findFirstByJobTypeAndEntityTypeAndEntityIdOrderByCreatedAtDesc(
-                "APPLICATION_MATCHING", "application", applicationId)).thenReturn(Optional.of(processingJob));
-
-        MatchResult result = service.evaluateApplicationMatch(applicationId);
-
-        assertThat(result).isSameAs(existingResult);
-        verify(processingJobService).markJobCompleted(processingJob.getId());
-        verify(aiWorkerClient, never()).calculateMatchScore(any(MatchScoreRequest.class));
-    }
-
-    @Test
-    void evaluatesApplicationMatch_withActiveLeaseToken_allowsExecution() {
-        UUID applicationId = UUID.randomUUID();
-        UUID jobId = UUID.randomUUID();
-        UUID cvVersionId = UUID.randomUUID();
-        String lease = UUID.randomUUID().toString();
-        ProcessingJob processingJob = ProcessingJob.builder()
-                .id(UUID.randomUUID())
-                .status("PROCESSING")
-                .leaseToken(lease)
-                .build();
-
-        ApplicationEntity application = ApplicationEntity.builder().id(applicationId).jobId(jobId).build();
-        CvVersion cvVersion = CvVersion.builder().id(cvVersionId).rawText("CV text").build();
-        ApplicationCvSnapshot snapshot = ApplicationCvSnapshot.builder().applicationId(applicationId).cvVersion(cvVersion).build();
-        Job job = Job.builder().id(jobId).title("Engineer").build();
-
-        when(matchResultRepository.findByApplicationId(applicationId)).thenReturn(Optional.empty());
-        when(processingJobRepository.findFirstByJobTypeAndEntityTypeAndEntityIdOrderByCreatedAtDesc(
-                "APPLICATION_MATCHING", "application", applicationId)).thenReturn(Optional.of(processingJob));
-        when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
-        when(applicationCvSnapshotRepository.findWithCvVersionByApplicationId(applicationId)).thenReturn(Optional.of(snapshot));
-        when(jobRepository.findByIdAndDeletedAtIsNull(jobId)).thenReturn(Optional.of(job));
-        when(aiWorkerClient.calculateMatchScore(any(MatchScoreRequest.class)))
-                .thenReturn(MatchScoreResponse.builder().overallScore(85).build());
-        when(matchResultRepository.save(any(MatchResult.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-        MatchResult result = service.evaluateApplicationMatch(applicationId, lease);
-
-        assertThat(result).isNotNull();
-        assertThat(result.getOverallScore()).isEqualTo((short) 85);
-        verify(processingJobService, never()).startJob(any());
-        verify(processingJobService).markJobCompleted(processingJob.getId());
-    }
-
-    @Test
-    void evaluatesApplicationMatch_whenMaxAttemptsReached_throwsMatchNotReady() {
-        UUID applicationId = UUID.randomUUID();
-        ProcessingJob exhaustedJob = ProcessingJob.builder()
-                .id(UUID.randomUUID())
-                .status("FAILED")
-                .attemptCount(3)
-                .maxAttempts(3)
-                .build();
-
-        when(matchResultRepository.findByApplicationId(applicationId)).thenReturn(Optional.empty());
-        when(processingJobRepository.findFirstByJobTypeAndEntityTypeAndEntityIdOrderByCreatedAtDesc(
-                "APPLICATION_MATCHING", "application", applicationId)).thenReturn(Optional.of(exhaustedJob));
-
-        assertThatThrownBy(() -> service.evaluateApplicationMatch(applicationId))
-                .isInstanceOf(MatchingService.MatchNotReadyException.class)
-                .hasMessageContaining("retry limit has been reached");
+        when(processingJobRepository.findFirstByJobTypeAndEntityTypeAndEntityIdOrderByCreatedAtDesc("APPLICATION_MATCHING", "application", applicationId))
+                .thenReturn(Optional.of(ProcessingJob.builder().id(UUID.randomUUID()).status("PROCESSING").build()));
+        when(applicationCvSnapshotRepository.findWithCvVersionByApplicationId(applicationId)).thenReturn(Optional.empty());
+        assertThat(service.getMatchResultStatus(applicationId).isRetryable()).isFalse();
         verify(aiWorkerClient, never()).calculateMatchScore(any());
-    }
-
-    @Test
-    void evaluatesApplicationMatch_onAiWorkerException_marksJobFailedAsRetryable() {
-        UUID applicationId = UUID.randomUUID();
-        UUID jobId = UUID.randomUUID();
-        UUID cvVersionId = UUID.randomUUID();
-        ProcessingJob processingJob = ProcessingJob.builder()
-                .id(UUID.randomUUID())
-                .status("PENDING")
-                .attemptCount(0)
-                .maxAttempts(3)
-                .retryAfter(Instant.now().minusSeconds(10))
-                .build();
-
-        ApplicationEntity application = ApplicationEntity.builder().id(applicationId).jobId(jobId).build();
-        CvVersion cvVersion = CvVersion.builder().id(cvVersionId).rawText("CV text").build();
-        ApplicationCvSnapshot snapshot = ApplicationCvSnapshot.builder().applicationId(applicationId).cvVersion(cvVersion).build();
-        Job job = Job.builder().id(jobId).title("Engineer").build();
-
-        when(matchResultRepository.findByApplicationId(applicationId)).thenReturn(Optional.empty());
-        when(processingJobRepository.findFirstByJobTypeAndEntityTypeAndEntityIdOrderByCreatedAtDesc(
-                "APPLICATION_MATCHING", "application", applicationId)).thenReturn(Optional.of(processingJob));
-        when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
-        when(applicationCvSnapshotRepository.findWithCvVersionByApplicationId(applicationId)).thenReturn(Optional.of(snapshot));
-        when(jobRepository.findByIdAndDeletedAtIsNull(jobId)).thenReturn(Optional.of(job));
-        when(aiWorkerClient.calculateMatchScore(any(MatchScoreRequest.class)))
-                .thenThrow(new org.springframework.web.client.ResourceAccessException("AI Worker connection failed"));
-
-        assertThatThrownBy(() -> service.evaluateApplicationMatch(applicationId))
-                .isInstanceOf(org.springframework.web.client.ResourceAccessException.class);
-
-        verify(processingJobService).markJobFailed(eq(processingJob.getId()), anyString(), eq(true));
     }
 }

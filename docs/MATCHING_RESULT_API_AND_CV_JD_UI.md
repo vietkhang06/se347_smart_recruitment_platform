@@ -1,126 +1,70 @@
-# MatchaJob — Matching Result API + CV–JD Detail UI
+# SE347 — Matching API Integration + Result UI + Contract Test
 
-**Status:** Implementation candidate for review; not yet runtime-verified against the team's live database/AI Worker.
+Cập nhật: 27/10/2026. Phạm vi: task Việt Khang trong ảnh. Bản nền là ZIP `se347_smart_recruitment_platform-main.zip` đã gửi, không phải dự án SE121/MidCV hoặc SE373 review agent.
 
-## 1. API contract
+## Luồng đã triển khai
 
-Base URL in local development: `http://localhost:8080/api` (Spring `server.servlet.context-path=/api`). The route mapping itself starts at `/v1`; do not include `/api` inside controller `@RequestMapping` declarations.
+1. Recruiter tải danh sách hồ sơ qua `GET /api/v1/employer/applications`.
+2. Mở chi tiết dùng Application ID thật; MatchingResultPanel gọi `GET /api/v1/applications/{applicationId}/match`.
+3. `POST` cùng URL chạy matching đồng bộ qua Worker `/api/v1/match/score`; không nhận CV/JD hoặc Job ID từ client.
+4. Backend lấy Job và CV snapshot bất biến từ DB. Worker request/response dùng snake_case; API cho FE dùng camelCase.
+5. Transaction ngắn claim job dưới khóa application; HTTP Worker nằm ngoài transaction. Transaction khác lưu result + trạng thái job + application.match_score cùng lúc. Lease 120 giây, Worker timeout mặc định 60 giây, FE POST timeout 75 giây.
+6. GET đọc lại dữ liệu DB. Completed POST là idempotent: trả kết quả đã lưu, không tự chấm lại.
 
-### Read a result or processing state
+Không có matching queue consumer mới. PENDING nghĩa đã có việc chờ; nhấn Chạy đối sánh mới gọi POST. GET không khởi động Worker. Tự poll chỉ khi PROCESSING (mỗi 3s, tối đa 40 lượt), có tải lại thủ công.
 
-```http
-GET /api/v1/applications/{applicationId}/match
-Authorization: Bearer <JWT>
-Accept: application/json
-```
+## Trạng thái và dữ liệu
 
-A known application returns HTTP `200 OK` whether a score has been produced yet or not. Use `status` to determine whether score fields are available:
+| API status | UI | Score | POST |
+|---|---|---|---|
+| NOT_STARTED | Chưa chạy đối sánh | null | Có thể bắt đầu |
+| PENDING | Đang chờ xử lý (queued) | null | Có thể chạy nếu retryable và đã qua retryAfter |
+| PROCESSING | Đang xử lý | null | Chặn request trùng; GET theo dõi |
+| COMPLETED | Hoàn tất | overallScore bắt buộc số nguyên 0..100; tiêu chí có thể null | Trả result cũ |
+| FAILED | Xử lý thất bại | null | Dừng; không tự reset số lần thử |
 
-- `NOT_STARTED`: no matching result or processing job was found.
-- `PENDING`: a matching processing job is queued.
-- `PROCESSING`: a matching processing job is being processed.
-- `COMPLETED`: a persisted result is available.
-- `FAILED`: processing failed, or a processing job says it completed but the database has no result.
+`PENDING` là enum canonical tương ứng từ queued trong task. Không phát minh thêm QUEUED hoặc ERROR vào enum Backend. Lỗi tải HTTP/schema được giữ riêng ở FE.
 
-Errors: `401` missing/invalid JWT, `403` the authenticated user is neither the candidate who applied nor an employer authorized for the job, `404` application not found.
+Response bắt buộc có `applicationId`, `jobId`, `cvVersionId`, `status`, `overallScore`, `skillsScore`, `experienceScore`, `criteriaScores`, `matchedSkills`, `missingSkills`, `breakdown`, `explanation`, `processingJobId`, `evaluatedAt`, `message`, `retryable`, `retryAfter`, `attemptCount`, `maxAttempts`.
 
-### Trigger a matching evaluation
+- Schema: `docs/contracts/schemas/matching-result.schema.json`.
+- `breakdown` là object; danh sách skill là array string; không đổi null score thành 0.
+- Score/boolean/string coercion từ Worker bị từ chối trước khi map Java DTO.
+- Khi chưa COMPLETED: score/explanation/evaluatedAt null; breakdown/criteriaScores rỗng; skill arrays rỗng.
+- COMPLETED không retry. Processing metadata của completed response có thể null vì endpoint trả result entity đã lưu.
+- `evaluatedAt` được chốt độ chính xác microsecond để POST/GET không lệch do PostgreSQL làm tròn nanosecond.
+- Không gửi raw CV, đường dẫn file nội bộ hoặc exception của Worker trong matching response.
 
-```http
-POST /api/v1/applications/{applicationId}/match
-Authorization: Bearer <JWT>
-Accept: application/json
-```
+## Lỗi và retry
 
-The route is synchronous today and returns `200 OK` after a score is received and persisted. It uses the persisted application, `application_cv_snapshots` CV version and database Job fields. The caller cannot override `cvVersionId`, `jobId`, job title or JD content through query parameters.
-
-- `409 Conflict` (`MATCHING_NOT_READY`) if the application's CV snapshot is missing or extraction has not populated `raw_text`.
-- `404 Not Found` if the application or Job does not exist.
-- `403 Forbidden` if the user cannot access the application.
-- `500` for unexpected AI Worker failures or an invalid worker response (the existing global handler emits a sanitized Problem Details body).
-
-The existing `POST /applications` path creates a `processing_jobs` row with `job_type=APPLICATION_MATCHING`. This implementation does not claim an asynchronous matching worker exists: the explicit POST above performs a synchronous evaluation, moves the row to `PROCESSING`, and marks it `COMPLETED` on a saved result. If the call fails, the service records a failure and applies the existing retry/backoff policy for connection errors and AI Worker 5xx responses. GET reports PENDING/PROCESSING/FAILED when no result exists and the processing row is in those states. An existing saved result takes precedence and reconciles a stale processing row to COMPLETED.
-
-## 2. Public response DTO
-
-Scores are JSON numbers in the range `0..100`. Scores are `null` until `status=COMPLETED`; never coerce a missing score to `0`.
-
-```json
-{
-  "applicationId": "77777777-7777-4777-8777-777777777777",
-  "jobId": "22222222-2222-4222-8222-222222222222",
-  "cvVersionId": "55555555-5555-4555-8555-555555555555",
-  "status": "COMPLETED",
-  "overallScore": 82,
-  "skillsScore": 78,
-  "experienceScore": 88,
-  "criteriaScores": { "skills": 78, "experience": 88 },
-  "matchedSkills": ["Java", "Spring Boot", "PostgreSQL"],
-  "missingSkills": ["Kubernetes"],
-  "breakdown": {
-    "requiredSkills": ["Java", "Spring Boot", "PostgreSQL", "Kubernetes"],
-    "matchedSkills": ["Java", "Spring Boot", "PostgreSQL"],
-    "missingSkills": ["Kubernetes"],
-    "candidate_experience_years": 4
-  },
-  "explanation": "Candidate matches core requirements; Kubernetes should be verified.",
-  "processingJobId": null,
-  "evaluatedAt": "2026-10-18T10:00:00Z",
-  "message": "Matching result is complete."
-}
-```
-
-`matching-result-completed.json` and `matching-result-pending.json` are **fixtures only**; they are not an actual score for a real candidate.
-
-## 3. Mapping between layers
-
-| Layer | Field names | Mapping rule |
+| HTTP/code | Nghĩa | Hành động |
 |---|---|---|
-| AI Worker `MatchScoreResponse` | `overall_score`, `skills_score`, `experience_score`, `breakdown`, `rationale` | Existing Pydantic response remains snake_case. The `breakdown` can include `required_skills_matched` and `missing_skills`. |
-| Backend client DTO | `@JsonProperty` maps the above snake_case names to Java fields | `MatchScoreResponse` is an internal integration DTO, not returned directly to Frontend. |
-| Backend public DTO | `overallScore`, `skillsScore`, `experienceScore`, `criteriaScores`, `matchedSkills`, `missingSkills`, `explanation`, `status` | `MatchingResultMapper` normalizes variants such as `required_skills_matched`, `matched_skills`, `requiredSkillsMatched` into `matchedSkills`; derives missing skills when required and matched lists permit it. |
-| Frontend | camelCase matching DTO | `apiApplicationService.getMatchingResult()` maps the canonical contract and keeps `null` scores null. The modal renders status, scores, matched/missing skills and explanation. |
+| 401 | Chưa đăng nhập/token không hợp lệ | Đăng nhập |
+| 403 | Không sở hữu hồ sơ/Job | Kiểm tra quyền |
+| 404 | Không có application/Job | Kiểm tra ID |
+| 409 MATCHING_NOT_READY | Snapshot/raw CV chưa sẵn sàng | Đợi extraction, tải trạng thái rồi thử |
+| 409 MATCHING_IN_PROGRESS | Đang có attempt sở hữu job | Chỉ GET |
+| 409 MATCHING_BACKOFF | Chưa tới retryAfter | Đợi mốc thời gian |
+| 409 MATCHING_RETRY_EXHAUSTED | Job FAILED/hết lần thử | Kiểm tra dịch vụ; không tự xóa/reset job |
+| 409 MATCHING_STATE_CONFLICT / MATCHING_LEASE_LOST | Trạng thái không nhất quán/lease đổi | Tải lại, kiểm tra log |
+| 502 MATCHING_WORKER_UNAVAILABLE | Worker mất kết nối/HTTP lỗi | GET lại trạng thái; retry theo metadata |
+| 502 MATCHING_WORKER_REJECTED | Worker trả lỗi 4xx không tạm thời | Sửa request/integration; không retry tự động |
+| 502 MATCHING_WORKER_SCHEMA_ERROR | Worker trả JSON không đúng contract | Sửa mismatch; không lưu điểm giả |
 
-No scoring weights are introduced by the API mapping. Score calculations remain owned by the AI Worker provider.
+Connection error, HTTP 429 hoặc 5xx của Worker là lỗi có thể thử lại. Sau attempt 1 backoff 4s; attempt 2 backoff 8s; attempt 3 dừng FAILED. Worker 4xx khác hoặc sai schema là lỗi dừng. Metadata DB mới là nguồn quyết định có thử tiếp hay không.
 
-## 4. Authorization and data ownership
+Nếu browser timeout/hủy POST, Backend có thể vẫn xử lý. UI bắt buộc GET trạng thái trước khi POST tiếp. Lỗi HTTP được hiển thị, không thay bằng fixture. Đóng modal/đổi hồ sơ hủy request FE và bỏ response cũ.
 
-- Both endpoints require JWT authentication through the existing default-deny Spring Security chain.
-- `ResourceOwnershipService.checkApplicationAccess()` allows the candidate profile that submitted the application or an employer who manages the Job.
-- The source of truth for `jobId` and `cvVersionId` is the persisted Application and its immutable `application_cv_snapshots` relation, not client query parameters.
-- The response never returns the CV file path, file bytes, token or raw CV text.
-- An unknown application produces 404; an existing application with no result produces a state DTO, not a false 404.
+## Cấu hình
 
-## 5. Frontend fixture behavior
+Local frontend: trong `frontend/.env.local` đặt `VITE_DATA_SOURCE=api` và `VITE_API_BASE_URL=http://localhost:8081/api` (đổi cổng nếu chạy Backend trực tiếp 8080). Khởi động lại Vite sau khi đổi env.
 
-`frontend/src/fixtures/matching-result.fixture.json` is used only as a clearly labelled local-development fallback when the API request fails. The modal shows a notice that fixture scores are not the real candidate's AI score. Set `VITE_MATCHING_FIXTURE_FALLBACK=false` to disable this fallback locally and verify the error state.
+Compose truyền VITE_DATA_SOURCE mặc định api. Không bật `ai-stub` profile khi nghiệm thu. `VITE_MATCHING_FIXTURE_FALLBACK` không còn được sử dụng. Matching fixtures chỉ phục vụ test, không được import trong runtime API adapter.
 
-## 6. Validation commands
+Worker provider/scoring algorithm được giữ nguyên. Source hiện vẫn dùng DeterministicTestProvider cho matching, kể cả lớp OpenAIProvider; không khẳng định đã gọi API LLM bên ngoài. Việc thay scoring provider cần phối hợp owner AI, ngoài phạm vi adapter/UI/contract.
 
-From repository root:
+## Kiểm thử
 
-```bash
-python scripts/contract-tests/test_matching_contract.py
-```
+Đọc hướng dẫn từng lệnh trong `docs/MATCHING_TASK_COPY_GUIDE_VI.md`. Script live tạo tài khoản và tài nguyên test thật qua HTTP, dùng CV DOCX tự sinh, không chèn điểm bằng SQL, không dùng stub server. Kết quả được in theo test case và ghi summary.json; lỗi làm exit code khác 0; ca chưa chạy được ghi NOT_RUN và kết quả PARTIAL.
 
-AI Worker schema/endpoint tests (run from `ai-worker/`):
-
-```bash
-python -m pytest -q
-```
-
-Backend (Java 21 + available Maven dependencies + configured PostgreSQL/test profile required):
-
-```powershell
-cd backend
-.\mvnw.cmd -o -Dtest=MatchingResultMapperTest,ApplicationOwnershipSecurityIT test
-```
-
-Frontend (Node version compatible with the project's Vite version and dependencies installed):
-
-```powershell
-cd frontend
-npm run build
-```
-
-The source changes alone are not proof of runtime success. In this coding environment, Python contract tests and AI Worker tests are executable; Backend compilation/JUnit depends on Maven distribution/dependencies being available, and the frontend build depends on installing npm packages. Record test output, service availability and database state when validating in the group's environment.
+Phân biệt: unit/component test cô lập; contract kiểm tra schema/Java serialization/FE validator; live acceptance kiểm tra HTTP qua DB và Worker. Chạy unit không được suy ra live PASS.
