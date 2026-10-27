@@ -28,7 +28,7 @@ Tài liệu thống nhất cách Frontend, Backend và AI Worker trao đổi d�
 | C-04 | Public response dùng DTO/schema API riêng; không trả entity `CvVersion`, `ProcessingJob` hoặc `MatchResult` trực tiếp | Controller hiện trả trực tiếp các entity này, có field nội bộ như `filePath`, `leaseToken`, `lastError`, và `breakdown` đang là chuỗi JSON. | Cần sửa theo contract |
 | C-05 | Dùng Problem Details cho lỗi Backend/Frontend-facing; không lộ stack trace, đường dẫn lưu file, lease token, API key hoặc lỗi upstream thô | Backend hiện đặt `server.error.include-message: always` và generic handler dùng `ex.getMessage()`; cần siết lại trước tích hợp. | Cần sửa |
 | C-06 | Upload CV và trích xuất CV là luồng bất đồng bộ ở Backend: `202 Accepted` + `processingJobId`; theo dõi qua processing endpoint | Upload hiện tạo `ProcessingJob` và trả `202`; trạng thái job gồm `PENDING`, `PROCESSING`, `COMPLETED`, `FAILED` trong service. | Phù hợp source, cần DTO công khai |
-| C-07 | Matching hiện được thực hiện đồng bộ trong `MatchingService`; không trả `202` trừ khi đã đưa công việc vào queue và có resource trạng thái thực sự | `MatchController` hiện gọi `evaluateMatch(...)` trước khi trả `202`; service gọi AI Worker rồi lưu kết quả trong cùng request. | **Cần sửa status hoặc chuyển sang queue thật** |
+| C-07 | Matching hiện được thực hiện đồng bộ trong `MatchingService`; không trả `202` trừ khi đã đưa công việc vào queue và có resource trạng thái thực sự | POST trả 200 sau khi gọi Worker và lưu kết quả; xem mục 6.5. | Đã triển khai đồng bộ |
 | C-08 | Auth/JWT là yêu cầu của contract mục tiêu nhưng hiện chưa tìm thấy Auth Controller/Spring Security trong source đã rà | API cần xác thực cho Candidate/Employer nhưng chưa được triển khai trong source được kiểm kê. | Chưa triển khai |
 
 ## 3. URL, service và môi trường
@@ -246,21 +246,18 @@ Không tìm thấy Application workflow controller trong source audit, mặc dù
 
 Các trường cơ sở có căn cứ từ entity/SQL: `id`, `candidateId`, `jobId`, `coverLetter`, `stage`, `rejectReason`, `matchScore`, `appliedAt`, `updatedAt`. `application_cv_snapshots` liên kết `applicationId` với `cvVersionId`. Contract response được phép expose `cvVersionId` từ quan hệ snapshot sau khi triển khai; hiện chưa có controller/workflow làm việc đó.
 
-### 6.5. Matching
+### 6.5. Matching — updated 27/10/2026
 
-Implementation detail: `docs/MATCHING_RESULT_API_AND_CV_JD_UI.md`. Public response fields and fixtures use the camelCase `MatchingResultResponse` contract; AI Worker fields remain snake_case internally.
+Canonical implementation and retry/error tables: `MATCHING_RESULT_API_AND_CV_JD_UI.md`. JSON Schema: `contracts/schemas/matching-result.schema.json`.
 
-| Method + path chuẩn | Trạng thái source | Contract mục tiêu | Vấn đề cần sửa |
-|---|---|---|---|
-| `POST /api/v1/applications/{applicationId}/match` | Có trong source; contract đồng bộ đã triển khai | `200 MatchingResultResponse`; body/query không cần truyền CV/JD. Backend đọc Application + `application_cv_snapshots` + Job trong DB. `409 MATCHING_NOT_READY` nếu CV chưa sẵn sàng hoặc retry bị chặn bởi trạng thái/backoff hiện tại. | Cần xác minh bằng runtime test với PostgreSQL và AI Worker thật trước merge. |
-| `GET /api/v1/applications/{applicationId}/match` | Có trong source; trả public DTO | `200 MatchingResultResponse`; nếu Application tồn tại nhưng chưa có kết quả, trả trạng thái `NOT_STARTED`, `PENDING`, `PROCESSING` hoặc `FAILED` với score `null`; `404` khi Application không tồn tại. | Cần xác minh ownership và response bằng runtime test trước merge. |
-
-Backend cập nhật row `APPLICATION_MATCHING` theo xử lý đồng bộ: `PROCESSING` khi bắt đầu, `COMPLETED` khi lưu result, và `PENDING`/`FAILED` theo retry/backoff của `ProcessingJobService`. Source audit chưa tìm thấy dispatcher matching bất đồng bộ.
-| `GET /api/v1/employer/jobs/{jobId}/ranking` | Chưa tìm thấy | `200 PageResponse<RankedApplication>` | Cần thực hiện query ranking và chốt tie-break cùng scoring owner. |
-
-`MatchResult` hiện chứa `id`, `applicationId`, `jobId`, `cvVersionId`, `overallScore`, `skillsScore`, `experienceScore`, `breakdown`, `rationale`, `createdAt`. `breakdown` được lưu JSONB nhưng field Java hiện khai báo `String`; API DTO nên serialize `breakdown` thành object JSON thay vì JSON string lồng bên trong string.
-
-**Quyết định phải có của Khải Vạn:** semantics của score/breakdown/rationale, các trường có thể null, scoring fixtures có thể kiểm chứng và xác nhận provider thực sự dùng. Không đóng băng trọng số/độ chính xác khi chưa có quyết định/đánh giá rõ ràng.
+- GET `/api/v1/applications/{applicationId}/match`: 200 result or NOT_STARTED/PENDING/PROCESSING/FAILED state; pending scores null.
+- POST same URL: synchronous 200 result, server-resolved Job and immutable CV snapshot; repeated POST returns saved result.
+- Public fields camelCase; Worker fields snake_case. Queued means PENDING in the canonical enum.
+- Response includes retryable, retryAfter, attemptCount and maxAttempts. MatchingPersistenceService manages short transactional claims/completion/failure; no async matching consumer is introduced.
+- 409 codes distinguish CV not ready, in progress, backoff, terminal/exhausted retry and state/lease conflict. Worker unavailable/schema errors return safe 502 Problem Details.
+- Candidate owner or employer managing the Job can access; other identities receive 403. Missing application 404; no JWT 401.
+- Frontend never replaces matching/list errors with demo scores/candidates. Fixtures remain test-only.
+- Worker baseline algorithm is unchanged; external LLM/provider integration and scoring-quality approval are not claimed by these API tests.
 
 ## 7. Contract AI Worker (Backend → FastAPI)
 

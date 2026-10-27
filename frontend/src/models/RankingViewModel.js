@@ -12,11 +12,11 @@ export function createDefaultRankingItem() {
     candidateInitials: "UV",
     stage: "Mới",
     stageCode: "new",
-    overallScore: 0,
-    skillsScore: 0,
-    experienceScore: 0,
+    overallScore: null,
+    skillsScore: null,
+    experienceScore: null,
     rationale: "Chưa có đánh giá chi tiết từ hệ thống AI.",
-    scoreLevel: "average",
+    scoreLevel: "pending",
     badgeClass: "badge-secondary",
     appliedDate: ""
   };

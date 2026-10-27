@@ -1,7 +1,7 @@
 import { TOKEN_KEY } from "./dataMode";
 export class HttpError extends Error {
   constructor(message, status, data = null) {
-    super(message); this.name = "HttpError"; this.status = status; this.data = data;
+    super(message); this.code = data?.code || null; this.retryable = data?.retryable ?? [0, 429, 502, 503, 504].includes(status); this.name = "HttpError"; this.status = status; this.data = data;
   }
 }
 export function buildFullUrl(endpoint) {
@@ -11,7 +11,14 @@ export function buildFullUrl(endpoint) {
   if (base.endsWith("/api") && path.startsWith("/api/")) path = path.slice(4);
   return base + path;
 }
-async function request(endpoint, { auth = true, timeout = 15000, ...options } = {}) {
+export function withQuery(url, params) {
+  const parsed = new URL(url);
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== null && value !== undefined) parsed.searchParams.set(key, String(value));
+  });
+  return parsed.toString();
+}
+async function request(endpoint, { auth = true, timeout = 15000, params, ...options } = {}) {
   const headers = new Headers(options.headers);
   headers.set("Accept", "application/json, application/problem+json");
   const token = auth ? localStorage.getItem(TOKEN_KEY) : null;
@@ -27,7 +34,7 @@ async function request(endpoint, { auth = true, timeout = 15000, ...options } = 
   const timer = setTimeout(abort, timeout);
   try {
     const transport = fetch;
-    const response = await transport(buildFullUrl(endpoint), { ...options, headers, body, signal: controller.signal });
+    const response = await transport(withQuery(buildFullUrl(endpoint), params), { ...options, headers, body, signal: controller.signal });
     const raw = response.status === 204 ? "" : await response.text();
     let data = raw || null;
     if (raw && /json/i.test(response.headers.get("content-type") || "")) {

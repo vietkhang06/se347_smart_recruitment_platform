@@ -1,0 +1,241 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MatchingResultResponse",
+  "type": "object",
+  "required": [
+    "applicationId",
+    "jobId",
+    "cvVersionId",
+    "status",
+    "overallScore",
+    "skillsScore",
+    "experienceScore",
+    "criteriaScores",
+    "matchedSkills",
+    "missingSkills",
+    "breakdown",
+    "explanation",
+    "processingJobId",
+    "evaluatedAt",
+    "message",
+    "retryable",
+    "retryAfter",
+    "attemptCount",
+    "maxAttempts"
+  ],
+  "properties": {
+    "applicationId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "jobId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "cvVersionId": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "uuid"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "status": {
+      "enum": [
+        "NOT_STARTED",
+        "PENDING",
+        "PROCESSING",
+        "COMPLETED",
+        "FAILED"
+      ]
+    },
+    "overallScore": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 100
+    },
+    "skillsScore": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 100
+    },
+    "experienceScore": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 100
+    },
+    "criteriaScores": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "matchedSkills": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "missingSkills": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "breakdown": {
+      "type": "object"
+    },
+    "explanation": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "processingJobId": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "uuid"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "evaluatedAt": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "message": {
+      "type": "string"
+    },
+    "retryable": {
+      "type": "boolean"
+    },
+    "retryAfter": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "attemptCount": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "maxAttempts": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1
+    }
+  },
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "COMPLETED"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "overallScore": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "cvVersionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "evaluatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "retryable": {
+            "const": false
+          },
+          "retryAfter": {
+            "type": "null"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "overallScore": {
+            "type": "null"
+          },
+          "skillsScore": {
+            "type": "null"
+          },
+          "experienceScore": {
+            "type": "null"
+          },
+          "explanation": {
+            "type": "null"
+          },
+          "evaluatedAt": {
+            "type": "null"
+          },
+          "criteriaScores": {
+            "maxProperties": 0
+          },
+          "breakdown": {
+            "maxProperties": 0
+          },
+          "matchedSkills": {
+            "maxItems": 0
+          },
+          "missingSkills": {
+            "maxItems": 0
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "enum": [
+              "PROCESSING",
+              "FAILED"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "retryable": {
+            "const": false
+          }
+        }
+      }
+    }
+  ]
+}

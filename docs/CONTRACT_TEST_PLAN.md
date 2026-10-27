@@ -1,5 +1,7 @@
 # Contract Test Plan — MatchaJob (SE347, Nhóm 7)
 
+> Matching task cập nhật 27/10/2026: xem MATCHING_TASK_COPY_GUIDE_VI.md và MATCHING_RESULT_API_AND_CV_JD_UI.md. scripts/contract-tests/test_matching_contract.py hiện kiểm tra schema thật và có --java-artifacts; test_matching_live.py là nghiệm thu HTTP có mutation test data. Nội dung ngày 12/10 bên dưới là lịch sử audit, không được dùng để kết luận endpoint hiện tại còn thiếu.
+
 - **Version:** Draft 0.1
 - **Date:** 2026-10-12
 - **Responsible:** Việt Khang — MVP Scope + API Convention + Integration Contract

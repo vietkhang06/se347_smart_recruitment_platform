@@ -92,11 +92,11 @@ public class AiWorkerClient {
 
     public MatchScoreResponse calculateMatchScore(MatchScoreRequest request) {
         log.info("Requesting match score evaluation for job: {}", request.getJobTitle());
-        return processingRestClient.post()
+        return MatchScoreContract.parse(processingRestClient.post()
                 .uri("/api/v1/match/score")
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(request)
                 .retrieve()
-                .body(MatchScoreResponse.class);
+                .body(com.fasterxml.jackson.databind.JsonNode.class));
     }
 }

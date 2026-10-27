@@ -68,4 +68,10 @@ public class MatchingResultResponse {
 
     @Schema(description = "Safe user-facing status detail; does not expose internal stack traces")
     private String message;
+
+    @Schema(description = "Whether POST can start/retry matching; retryAfter must also be respected")
+    private boolean retryable;
+    private Instant retryAfter;
+    private Integer attemptCount;
+    private Integer maxAttempts;
 }

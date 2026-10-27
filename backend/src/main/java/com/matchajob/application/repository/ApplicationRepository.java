@@ -20,6 +20,12 @@ import java.util.UUID;
 @Repository
 public interface ApplicationRepository extends JpaRepository<com.matchajob.application.model.ApplicationEntity, UUID> {
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select a from ApplicationEntity a where a.id = :id")
+    Optional<com.matchajob.application.model.ApplicationEntity> findByIdForMatchingUpdate(
+            @org.springframework.data.repository.query.Param("id") UUID id);
+
+
     /**
      * Check if a candidate has already applied to a specific job (anti-duplicate).
      */

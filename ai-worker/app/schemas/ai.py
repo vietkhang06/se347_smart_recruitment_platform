@@ -1,7 +1,7 @@
 """Pydantic schemas for MatchaJob AI Worker endpoints."""
 
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict, StrictInt, StrictStr, field_validator
 
 
 class LanguageItem(BaseModel):
@@ -74,17 +74,27 @@ class EmbeddingsResponse(BaseModel):
 
 
 class MatchScoreRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     job_id: Optional[str] = None
-    job_title: str
+    job_title: StrictStr = Field(..., min_length=1)
     job_description: Optional[str] = ""
     job_requirements: Optional[str] = ""
-    cv_text: str
-    candidate_skills: Optional[List[str]] = Field(default_factory=list)
+    cv_text: StrictStr
+    candidate_skills: Optional[List[StrictStr]] = Field(default_factory=list)
 
 
 class MatchScoreResponse(BaseModel):
-    overall_score: int = Field(..., ge=0, le=100)
-    skills_score: Optional[int] = Field(None, ge=0, le=100)
-    experience_score: Optional[int] = Field(None, ge=0, le=100)
+    model_config = ConfigDict(extra="forbid")
+    overall_score: StrictInt = Field(..., ge=0, le=100)
+    skills_score: Optional[StrictInt] = Field(None, ge=0, le=100)
+    experience_score: Optional[StrictInt] = Field(None, ge=0, le=100)
     breakdown: Dict[str, Any] = Field(default_factory=dict)
-    rationale: Optional[str] = None
+    rationale: Optional[StrictStr] = None
+
+    @field_validator("breakdown")
+    @classmethod
+    def validate_skill_lists(cls, value):
+        for key in ("required_skills_matched", "missing_skills", "required_skills", "matchedSkills", "missingSkills", "requiredSkills"):
+            if key in value and (not isinstance(value[key], list) or any(not isinstance(item, str) or not item.strip() for item in value[key])):
+                raise ValueError(f"{key} must be an array of nonempty strings")
+        return value

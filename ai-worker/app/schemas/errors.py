@@ -10,3 +10,6 @@ class ProblemDetail(BaseModel):
     status: int = Field(description="HTTP status code")
     detail: str = Field(description="Human-readable explanation specific to this occurrence")
     instance: str | None = Field(default=None, description="URI reference identifying the specific occurrence")
+
+    code: str = "HTTP_ERROR"
+    retryable: bool = False
