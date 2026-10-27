@@ -38,6 +38,7 @@ services:
       - "${FRONTEND_HOST_PORT:-5173}:${FRONTEND_CONTAINER_PORT:-5173}"
     environment:
       - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:8081/api}
+      - VITE_DATA_SOURCE=${VITE_DATA_SOURCE:-api}
     volumes:
       - ./frontend:/app
       - /app/node_modules
@@ -77,6 +78,7 @@ services:
       - JWT_SECRET=${JWT_SECRET:-dGhpc19pc19hX3Zlcnlfc2VjdXJlX2p3dF9zZWNyZXRfa2V5X2Zvcl9tYXRjaGFqb2JfZGV2XzIwMjY=}
       - JWT_EXPIRATION_MS=${JWT_EXPIRATION_MS:-3600000}
       - REQUIRE_EMAIL_VERIFICATION=${REQUIRE_EMAIL_VERIFICATION:-false}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000}
     volumes:
       - cv_storage:${MATCHAJOB_UPLOAD_DIR:-/data/cv}
     depends_on:
