@@ -8,6 +8,7 @@ import com.matchajob.cv.service.CvProcessingOrchestrator;
 import com.matchajob.cv.service.CvRegistrationService;
 import com.matchajob.cv.service.CvStorageService;
 import com.matchajob.cv.service.CvAccessAuditService;
+import com.matchajob.processing.repository.ProcessingJobRepository;
 import org.springframework.core.io.Resource;
 import com.matchajob.security.ResourceOwnershipService;
 import com.matchajob.security.SecurityUtils;
@@ -32,6 +33,8 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Locale;
 import java.util.NoSuchElementException;
 import java.util.UUID;
@@ -48,6 +51,7 @@ public class CvController {
     private final CvProcessingOrchestrator orchestrator;
     private final ResourceOwnershipService resourceOwnershipService;
     private final CvAccessAuditService auditService;
+    private final ProcessingJobRepository processingJobs;
 
     public CvController(
             CvStorageService storageService,
@@ -55,13 +59,15 @@ public class CvController {
             CvRegistrationService registrationService,
             CvProcessingOrchestrator orchestrator,
             ResourceOwnershipService resourceOwnershipService,
-            CvAccessAuditService auditService) {
+            CvAccessAuditService auditService,
+            ProcessingJobRepository processingJobs) {
         this.storageService = storageService;
         this.cvVersionRepository = cvVersionRepository;
         this.registrationService = registrationService;
         this.orchestrator = orchestrator;
         this.resourceOwnershipService = resourceOwnershipService;
         this.auditService = auditService;
+        this.processingJobs = processingJobs;
     }
 
     @PostMapping(value = "/{candidateId}/cv", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -109,21 +115,22 @@ public class CvController {
         checkReadAccess(authentication, userId, candidateId, cvVersionId);
         CvVersion cv = findCandidateCv(candidateId, cvVersionId);
         auditAdmin(authentication, userId, cvVersionId, "VIEW_CV_METADATA");
-        return CvVersionResponse.from(cv);
+        return metadata(List.of(cv)).getFirst();
     }
 
     @GetMapping("/{candidateId}/cv/active")
     public CvVersionResponse getActiveCv(@PathVariable UUID candidateId, Authentication authentication) {
         resourceOwnershipService.checkCandidateProfileOwnership(SecurityUtils.extractUserId(authentication), candidateId);
-        return CvVersionResponse.from(cvVersionRepository.findByCandidateIdAndActiveTrue(candidateId)
-                .orElseThrow(() -> new NoSuchElementException("No active CV was found for this candidate.")));
+        CvVersion cv = cvVersionRepository.findByCandidateIdAndActiveTrue(candidateId)
+                .orElseThrow(() -> new NoSuchElementException("No active CV was found for this candidate."));
+        return metadata(List.of(cv)).getFirst();
     }
 
     @PutMapping("/{candidateId}/cv/{cvVersionId}/active")
     public CvVersionResponse activateCv(
             @PathVariable UUID candidateId, @PathVariable UUID cvVersionId, Authentication authentication) {
         resourceOwnershipService.checkCandidateProfileOwnership(SecurityUtils.extractUserId(authentication), candidateId);
-        return CvVersionResponse.from(registrationService.activate(candidateId, cvVersionId));
+        return metadata(List.of(registrationService.activate(candidateId, cvVersionId))).getFirst();
     }
 
     @GetMapping("/{candidateId}/cv")
@@ -132,10 +139,7 @@ public class CvController {
             Authentication authentication) {
         UUID userId = SecurityUtils.extractUserId(authentication);
         resourceOwnershipService.checkCandidateProfileOwnership(userId, candidateId);
-        return cvVersionRepository.findByCandidateIdOrderByCreatedAtDesc(candidateId)
-                .stream()
-                .map(CvVersionResponse::from)
-                .toList();
+        return metadata(cvVersionRepository.findByCandidateIdOrderByCreatedAtDesc(candidateId));
     }
 
     @GetMapping("/{candidateId}/cv/{cvVersionId}/download")
@@ -176,6 +180,15 @@ public class CvController {
                 .header("X-Content-Type-Options", "nosniff")
                 .cacheControl(CacheControl.noStore())
                 .body(content);
+    }
+
+    private List<CvVersionResponse> metadata(List<CvVersion> versions) {
+        if (versions.isEmpty()) return List.of();
+        Map<UUID, UUID> jobIds = new HashMap<>();
+        processingJobs.findByJobTypeAndEntityTypeAndEntityIdInOrderByCreatedAtDesc(
+                "CV_TEXT_EXTRACTION", "cv_version", versions.stream().map(CvVersion::getId).toList())
+                .forEach(job -> jobIds.putIfAbsent(job.getEntityId(), job.getId()));
+        return versions.stream().map(cv -> CvVersionResponse.from(cv, jobIds.get(cv.getId()))).toList();
     }
 
     private void checkReadAccess(Authentication authentication, UUID userId, UUID candidateId, UUID cvVersionId) {

@@ -10,6 +10,7 @@ import jakarta.persistence.LockModeType;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -43,6 +44,9 @@ public interface ProcessingJobRepository extends JpaRepository<ProcessingJob, UU
     int recoverExpiredLeases(@Param("now") Instant now);
 
     List<ProcessingJob> findByEntityId(UUID entityId);
+
+    List<ProcessingJob> findByJobTypeAndEntityTypeAndEntityIdInOrderByCreatedAtDesc(
+            String jobType, String entityType, Collection<UUID> entityIds);
 
     @Query(value = """
         SELECT * FROM processing_jobs

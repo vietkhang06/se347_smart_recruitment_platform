@@ -40,6 +40,8 @@ class CvStorageIT {
         assertThat(controller.getActiveCv(candidateId, auth).id()).isEqualTo(second.cvVersionId());
         var versions = controller.listCandidateCvs(candidateId, auth);
         assertThat(versions).hasSize(2);
+        assertThat(versions).extracting(v -> v.processingJobId())
+                .containsExactlyInAnyOrder(first.processingJobId(), second.processingJobId());
         assertThat(versions.stream().filter(v -> v.active())).hasSize(1);
         controller.activateCv(candidateId, first.cvVersionId(), auth);
         assertThat(controller.getActiveCv(candidateId, auth).id()).isEqualTo(first.cvVersionId());

@@ -41,6 +41,7 @@ class CvSecurityHttpTest {
     @MockBean CvProcessingOrchestrator worker;
     @MockBean ResourceOwnershipService ownership;
     @MockBean CvAccessAuditService audit;
+    @MockBean com.matchajob.processing.repository.ProcessingJobRepository processingJobs;
 
     @Test
     void anonymousMetadataCannotReachController() throws Exception {

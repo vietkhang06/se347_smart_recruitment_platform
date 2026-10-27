@@ -6,6 +6,7 @@ import com.matchajob.cv.model.CvVersion;
 import com.matchajob.cv.repository.CvVersionRepository;
 import com.matchajob.cv.service.*;
 import com.matchajob.processing.model.ProcessingJob;
+import com.matchajob.processing.repository.ProcessingJobRepository;
 import com.matchajob.security.ResourceOwnershipService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -40,7 +41,7 @@ class CvHttpContractTest {
     void setup() {
         storage = new CvStorageService(root.toString(), DataSize.ofMegabytes(10));
         mvc = MockMvcBuilders.standaloneSetup(new CvController(storage, cvs, registrations,
-                mock(CvProcessingOrchestrator.class), ownership, mock(CvAccessAuditService.class)))
+                mock(CvProcessingOrchestrator.class), ownership, mock(CvAccessAuditService.class), mock(ProcessingJobRepository.class)))
                 .setControllerAdvice(new GlobalExceptionHandler()).build();
     }
 

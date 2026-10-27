@@ -8,6 +8,7 @@ import com.matchajob.cv.service.CvProcessingOrchestrator;
 import com.matchajob.cv.service.CvRegistrationService;
 import com.matchajob.cv.service.CvStorageService;
 import com.matchajob.cv.service.CvAccessAuditService;
+import com.matchajob.processing.repository.ProcessingJobRepository;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.mock.web.MockMultipartFile;
@@ -52,6 +53,24 @@ class CvControllerTest {
     ResourceOwnershipService resourceOwnershipService;
     @Mock
     CvAccessAuditService auditService;
+    @Mock
+    ProcessingJobRepository processingJobs;
+
+    @Test
+    void versionListIncludesProcessingJobIdsUsingOneBatchQuery() {
+        UUID candidateId = UUID.randomUUID(), cvId = UUID.randomUUID(), jobId = UUID.randomUUID();
+        when(cvVersionRepository.findByCandidateIdOrderByCreatedAtDesc(candidateId))
+                .thenReturn(java.util.List.of(cv(candidateId, cvId)));
+        when(processingJobs.findByJobTypeAndEntityTypeAndEntityIdInOrderByCreatedAtDesc(
+                "CV_TEXT_EXTRACTION", "cv_version", java.util.List.of(cvId)))
+                .thenReturn(java.util.List.of(com.matchajob.processing.model.ProcessingJob.builder()
+                        .id(jobId).entityId(cvId).build()));
+        var result = controller().listCandidateCvs(candidateId, authentication(UUID.randomUUID()));
+        assertThat(result).hasSize(1);
+        assertThat(result.getFirst().processingJobId()).isEqualTo(jobId);
+        verify(processingJobs).findByJobTypeAndEntityTypeAndEntityIdInOrderByCreatedAtDesc(
+                "CV_TEXT_EXTRACTION", "cv_version", java.util.List.of(cvId));
+    }
 
     @Test
     void metadataIsCandidateScopedAndDoesNotExposeObjectKey() {
@@ -135,7 +154,7 @@ class CvControllerTest {
                 cvVersionRepository,
                 registrationService,
                 orchestrator,
-                resourceOwnershipService, auditService);
+                resourceOwnershipService, auditService, processingJobs);
     }
 
     private Authentication authentication(UUID userId) {

@@ -16,11 +16,16 @@ public record CvVersionResponse(
         String status,
         @JsonProperty("created_at") Instant createdAt,
         @JsonProperty("updated_at") Instant updatedAt,
-        @JsonProperty("is_active") boolean active
+        @JsonProperty("is_active") boolean active,
+        @JsonProperty("processing_job_id") UUID processingJobId
 ) {
     public static CvVersionResponse from(CvVersion cv) {
+        return from(cv, null);
+    }
+
+    public static CvVersionResponse from(CvVersion cv, UUID processingJobId) {
         return new CvVersionResponse(
                 cv.getId(), cv.getCandidateId(), cv.getFileName(), cv.getFileSizeBytes(),
-                cv.getMimeType(), cv.getSha256Hash(), cv.getStatus(), cv.getCreatedAt(), cv.getUpdatedAt(), cv.isActive());
+                cv.getMimeType(), cv.getSha256Hash(), cv.getStatus(), cv.getCreatedAt(), cv.getUpdatedAt(), cv.isActive(), processingJobId);
     }
 }

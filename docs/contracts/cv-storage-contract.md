@@ -25,11 +25,17 @@ Public CV metadata:
   "status": "uploaded",
   "created_at": "2026-10-12T02:00:00Z",
   "updated_at": "2026-10-12T02:00:00Z",
-  "is_active": true
+  "is_active": true,
+  "processing_job_id": "2b60e47e-e31f-4336-84ba-e074d199e462"
 }
 ```
 
 The physical storage path, parsed CV content and raw extracted text are internal and must not be returned by metadata endpoints.
+
+Week 3 adds nullable `processing_job_id` to list/get/active metadata, preserving every existing field and route.
+It refers only to the latest `CV_TEXT_EXTRACTION` / `cv_version` job for that exact CV, never a matching job.
+List metadata uses one batch job lookup, not one query per version. Legacy/imported CVs with no job return null.
+The job endpoint retains its own resource authorization; possession of a job UUID grants no access.
 
 ### Storage and object-key rules
 
@@ -52,6 +58,19 @@ CV status:
 | `failed` | Non-retryable processing failure, exhausted retries, or an expired lease with no attempts left. |
 
 Processing-job status remains separate: `PENDING`, `PROCESSING`, `COMPLETED`, `FAILED`.
+
+### Frontend processing observation (Week 3)
+
+- Resolve candidate profile ID using authenticated `GET /api/v1/candidates/profile`; do not substitute user ID.
+- Upload: multipart part `file`, Bearer JWT, browser-generated boundary, `sync=false` by default; retain the returned CV/job UUIDs.
+- Reload: list metadata restores the job UUID; poll existing `GET /api/v1/processing-jobs/{id}` every 2 seconds, without overlapping requests.
+- UI mapping: `PENDING` -> queued, `PROCESSING` -> processing, `COMPLETED` -> completed, `FAILED` -> failed. Progress is a state, not a fabricated percentage or CV/JD score.
+- On terminal job status, refetch exact CV metadata; completed requires `extracted`, failed requires `failed`.
+- Legacy metadata without a job UUID falls back to bounded metadata polling (`uploaded` means waiting or processing, not a verified running job).
+- Stop on completion/failure, 401/403/404, three consecutive transient errors, unmount, account/version change, or a 3-minute observation budget. Observation timeout does **not** mark a backend job failed.
+- Manual refresh only reads current status; it never creates another extraction job. A new corrected upload creates a new immutable version.
+- Download/preview uses authenticated fetch -> Blob URL, never a public object key or direct unauthenticated link. Revoke URLs on close/unmount/session change. PDF preview depends on browser support; DOCX is downloaded.
+- API mode never falls back to IndexedDB/mock when a request fails. Demo mode remains explicitly separate.
 
 The CV-only scheduler polls every 2000 ms by default and claims only `CV_TEXT_EXTRACTION` jobs. Retryable failures return the job to `PENDING` with backoff, leaving CV `uploaded`; terminal failures set job `FAILED` and CV `failed` in one transaction. Success persists extraction, embedding and job completion in one transaction. Leases last 120 seconds and use tokens to prevent a stale worker from overwriting a newer attempt. Configure `MATCHAJOB_CV_PROCESSING_ENABLED` and `MATCHAJOB_CV_PROCESSING_POLL_DELAY_MS` when needed; normal uploads use `sync=false`.
 
