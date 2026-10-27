@@ -22,6 +22,25 @@ public class TaxonomyController {
         return ResponseEntity.ok(taxonomyService.getAllCategories());
     }
 
+    @PostMapping("/categories")
+    public ResponseEntity<CategoryEntity> createCategory(@RequestBody CategoryEntity category) {
+        try {
+            return ResponseEntity.ok(taxonomyService.createCategory(category));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @DeleteMapping("/categories/{id}")
+    public ResponseEntity<Void> deleteCategory(@PathVariable Long id) {
+        try {
+            taxonomyService.deleteCategory(id);
+            return ResponseEntity.noContent().build();
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
     @GetMapping("/work-types")
     public ResponseEntity<List<String>> getWorkTypes() {
         return ResponseEntity.ok(taxonomyService.getWorkTypes());

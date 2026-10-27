@@ -15,7 +15,7 @@ import java.util.UUID;
 
 public interface JobRepository extends JpaRepository<Job, UUID>, JpaSpecificationExecutor<Job> {
 
-    List<Job> findByCompanyIdAndDeletedAtIsNull(UUID companyId);
+       List<Job> findByCompanyIdAndDeletedAtIsNull(UUID companyId);
 
     Page<Job> findByCompanyIdAndDeletedAtIsNull(UUID companyId, Pageable pageable);
 
@@ -30,4 +30,7 @@ public interface JobRepository extends JpaRepository<Job, UUID>, JpaSpecificatio
     Optional<Job> findBySlugAndDeletedAtIsNull(String slug);
 
     boolean existsBySlug(String slug);
+
+    @Query("SELECT j.status, COUNT(j) FROM Job j GROUP BY j.status")
+    List<Object[]> countJobsByStatus();
 }
