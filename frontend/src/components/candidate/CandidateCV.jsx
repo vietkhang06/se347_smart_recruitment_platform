@@ -1,10 +1,12 @@
 import { useState } from "react";
+import { IS_API } from "../../services/dataMode";
+import ApiCandidateCV from "./ApiCandidateCV";
 import {
   uploadCV,
   downloadCV
 } from "../../services/profileService";
 
-export default function CandidateCV({
+function MockCandidateCV({
   value,
   onChange,
   onBusy = () => {}
@@ -79,4 +81,8 @@ export default function CandidateCV({
       )}
     </div>
   );
+}
+
+export default function CandidateCV(props) {
+  return IS_API ? <ApiCandidateCV {...props} /> : <MockCandidateCV {...props} />;
 }

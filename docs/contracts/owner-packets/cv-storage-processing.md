@@ -27,7 +27,9 @@
 
 ## Giới hạn cần giao tiếp với module khác
 
-- Frontend candidateWorkspace hiện là IndexedDB demo; owner frontend cần adapter multipart/Bearer JWT và dùng CV UUID thật khi nộp application.
+- Tuần 3: CandidateCV tách rõ mock/API; ApiProfileEditor dùng component API upload/list/active/download và polling. candidateWorkspace vẫn là IndexedDB **chỉ cho demo**, không dùng làm fallback API.
+- Metadata CV có processing_job_id nullable để khôi phục theo dõi sau reload; API job giữ camelCase, metadata CV giữ snake_case. Danh sách dùng batch query, không thêm migration.
+- PN Thông có thể tái dùng CandidateCV với candidateId lấy từ profile API; onChange trả cvId/cvName/cvSize, trong đó cvId là UUID backend thật. Luồng nộp application API đang bị tắt từ trước trong JobDetailPage: không tự bật hoặc thay bằng đơn mock trong task CV.
 - Worker thật cần provider/credential phù hợp; DB integration dùng AiWorkerClient mock không đánh giá chất lượng AI.
 - DOCX validation kiểm tra package/giới hạn giải nén, không phải malware scanner hoặc toàn bộ chuẩn OOXML.
-- Trạng thái runtime/test cuối cùng phải lấy từ báo cáo và command evidence; không suy ra hoàn thành từ việc source tồn tại.
+- Trạng thái runtime/test tuần 3: ../../weekly/week-3-tieu-cv-api-progress-docker-report.vi.md. Không suy ra hoàn thành từ việc source tồn tại.
