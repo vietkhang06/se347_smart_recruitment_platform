@@ -38,7 +38,7 @@ describe("Auth API và HTTP contract", () => {
     await expect(httpClient.post("/v1/auth/register", {}, { auth: false })).rejects.toMatchObject({ status: 409, data: { errors: { email: "Trùng email" } } });
   });
   it("không lặp /api khi caller truyền prefix", () => {
-    expect(buildFullUrl("/api/v1/jobs")).toBe("http://localhost:8080/api/v1/jobs");
+    expect(buildFullUrl("/api/v1/jobs")).toBe("http://localhost:8081/api/v1/jobs");
   });
   it("FormData giữ boundary do trình duyệt tạo", async () => {
     fetch.mockResolvedValue(json({ id: "cv" }));

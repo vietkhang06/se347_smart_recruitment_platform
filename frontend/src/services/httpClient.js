@@ -6,18 +6,19 @@ export class HttpError extends Error {
 }
 export function buildFullUrl(endpoint) {
   if (/^https?:\/\//i.test(endpoint)) return endpoint;
-  const base = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api").replace(/\/+$/, "");
+  const base = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8081/api").replace(/\/+$/, "");
   let path = "/" + endpoint.replace(/^\/+/, "");
   if (base.endsWith("/api") && path.startsWith("/api/")) path = path.slice(4);
   return base + path;
 }
-async function request(endpoint, { auth = true, timeout = 15000, ...options } = {}) {
+async function request(endpoint, { auth = true, timeout = 15000, responseType = "json", ...options } = {}) {
   const headers = new Headers(options.headers);
-  headers.set("Accept", "application/json, application/problem+json");
+  if (!headers.has("Accept")) headers.set("Accept", "application/json, application/problem+json");
   const token = auth ? localStorage.getItem(TOKEN_KEY) : null;
   if (token) headers.set("Authorization", `Bearer ${token}`);
   let body = options.body;
-  if (body != null && typeof body === "object" && !(body instanceof FormData)) {
+  if (body instanceof FormData) headers.delete("Content-Type");
+  else if (body != null && typeof body === "object") {
     headers.set("Content-Type", "application/json"); body = JSON.stringify(body);
   }
   const controller = new AbortController();
@@ -26,8 +27,11 @@ async function request(endpoint, { auth = true, timeout = 15000, ...options } = 
   options.signal?.addEventListener("abort", abort, { once: true });
   const timer = setTimeout(abort, timeout);
   try {
+    if (controller.signal.aborted) throw new DOMException("Request aborted", "AbortError");
     const transport = fetch;
     const response = await transport(buildFullUrl(endpoint), { ...options, headers, body, signal: controller.signal });
+    // Parse unsuccessful binary requests as Problem Details, not as a downloaded 'CV'.
+    if (response.ok && responseType === "blob") return await response.blob();
     const raw = response.status === 204 ? "" : await response.text();
     let data = raw || null;
     if (raw && /json/i.test(response.headers.get("content-type") || "")) {
