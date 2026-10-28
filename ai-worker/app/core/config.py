@@ -1,7 +1,12 @@
 """Application configuration settings for MatchaJob AI Worker."""
 
 from functools import lru_cache
-from pydantic_settings import BaseSettings, SettingsConfigDict
+try:
+    from pydantic_settings import BaseSettings, SettingsConfigDict
+except ImportError:
+    from pydantic import BaseModel as BaseSettings  # type: ignore[assignment]
+    def SettingsConfigDict(**kwargs):  # type: ignore[misc]
+        return kwargs
 
 
 class Settings(BaseSettings):

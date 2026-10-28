@@ -2,8 +2,11 @@
 
 import abc
 import hashlib
+import logging
 import math
 from typing import Any, Dict, List
+
+logger = logging.getLogger(__name__)
 
 from app.core.config import get_settings
 from app.schemas.ai import MatchScoreRequest, MatchScoreResponse
@@ -244,16 +247,53 @@ class DeterministicTestProvider(AIProvider):
 
 
 class OpenAIProvider(AIProvider):
-    """Production OpenAI provider with fallback to test provider when unconfigured."""
+    """Production OpenAI provider with resilient fallback to test provider on failure or when unconfigured."""
 
-    def __init__(self, api_key: str, model: str = "gpt-4o-mini"):
-        self.api_key = api_key
+    def __init__(self, api_key: str, model: str = "gpt-4o-mini", embedding_model: str = "text-embedding-3-small"):
+        self.api_key = api_key.strip() if api_key else ""
         self.model = model
+        self.embedding_model = embedding_model
         self.fallback = DeterministicTestProvider()
 
     def generate_embeddings(self, texts: List[str]) -> List[List[float]]:
+        if texts is None:
+            raise ValueError("texts must not be None")
+        if not texts:
+            return []
         if not self.api_key:
             return self.fallback.generate_embeddings(texts)
+        try:
+            import json
+            import urllib.request
+            import urllib.error
+
+            req_data = json.dumps({
+                "input": texts,
+                "model": self.embedding_model,
+                "dimensions": 1536,
+            }).encode("utf-8")
+            req = urllib.request.Request(
+                "https://api.openai.com/v1/embeddings",
+                data=req_data,
+                headers={
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json",
+                },
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=10.0) as resp:
+                if resp.status == 200:
+                    result = json.loads(resp.read().decode("utf-8"))
+                    embeddings = [item["embedding"] for item in result.get("data", [])]
+                    if len(embeddings) == len(texts) and all(len(v) == 1536 for v in embeddings):
+                        return embeddings
+                    logger.warning(
+                        "OpenAI embeddings returned invalid dimensions or count: count=%d, expected=%d",
+                        len(embeddings), len(texts)
+                    )
+        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError, json.JSONDecodeError, KeyError) as e:
+            # Resilient fallback on upstream failure (timeout, network, auth, quota)
+            logger.warning("OpenAI embeddings API call failed (%s). Falling back to deterministic provider.", e)
         return self.fallback.generate_embeddings(texts)
 
     def extract_entities(self, raw_text: str) -> Dict[str, Any]:
