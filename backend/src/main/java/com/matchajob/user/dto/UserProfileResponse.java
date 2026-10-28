@@ -23,6 +23,13 @@ public class UserProfileResponse {
     @JsonProperty("full_name")
     private String fullName;
 
+    private String phone;
+
+    @JsonProperty("avatar_url")
+    private String avatarUrl;
+
+    private String timezone;
+
     private String role;
 
     private String status;

@@ -5,12 +5,14 @@ import com.matchajob.security.JwtAuthenticationFilter;
 import com.matchajob.security.JwtTokenProvider;
 import com.matchajob.security.SecurityConfig;
 import com.matchajob.security.SecurityProfileValidator;
+import com.matchajob.user.dto.UpdateCurrentUserRequest;
 import com.matchajob.user.dto.UserProfileResponse;
 import com.matchajob.user.model.User;
 import com.matchajob.user.repository.UserRepository;
 import com.matchajob.user.service.UserService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -30,6 +32,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -224,6 +227,154 @@ class UserControllerTest {
         // Strictly verify service was called with authenticated user ID, never the victim ID
         verify(userService, times(1)).getCurrentUserProfile(authenticatedUserId);
         verify(userService, never()).getCurrentUserProfile(victimUserId);
+    }
+
+    // =========================================================================
+    // PATCH /v1/users/me — allowlisted base-profile update
+    // =========================================================================
+
+    @Test
+    @DisplayName("14. Anonymous PATCH /v1/users/me is rejected with 401")
+    void updateCurrentUser_anonymous_401() throws Exception {
+        mockMvc.perform(patch("/v1/users/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"fullName\":\"New Name\"}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401));
+
+        verifyNoInteractions(userService);
+    }
+
+    @Test
+    @DisplayName("15. Candidate PATCH /v1/users/me updates allowlisted fields")
+    void updateCurrentUser_validPayload_200() throws Exception {
+        UUID userId = UUID.randomUUID();
+        User dbUser = User.builder()
+                .id(userId)
+                .email("candidate@example.com")
+                .fullName("Old Name")
+                .role("candidate")
+                .status("active")
+                .isVerified(true)
+                .build();
+        when(userRepository.findById(userId)).thenReturn(Optional.of(dbUser));
+
+        UserProfileResponse response = UserProfileResponse.builder()
+                .id(userId)
+                .email("candidate@example.com")
+                .fullName("New Name")
+                .phone("+84901234567")
+                .role("CANDIDATE")
+                .status("active")
+                .isVerified(true)
+                .build();
+        when(userService.updateCurrentUserProfile(eq(userId), any(UpdateCurrentUserRequest.class)))
+                .thenReturn(response);
+
+        String token = jwtTokenProvider.generateToken(userId, "candidate@example.com", "CANDIDATE");
+
+        mockMvc.perform(patch("/v1/users/me")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"fullName\":\"New Name\",\"phone\":\"+84901234567\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.full_name").value("New Name"))
+                .andExpect(jsonPath("$.phone").value("+84901234567"));
+    }
+
+    @Test
+    @DisplayName("16. PATCH /v1/users/me silently drops privileged fields (role/status/is_verified/email)")
+    void updateCurrentUser_privilegedFieldsIgnored() throws Exception {
+        UUID userId = UUID.randomUUID();
+        User dbUser = User.builder()
+                .id(userId)
+                .email("candidate@example.com")
+                .fullName("Old Name")
+                .role("candidate")
+                .status("active")
+                .isVerified(true)
+                .build();
+        when(userRepository.findById(userId)).thenReturn(Optional.of(dbUser));
+
+        ArgumentCaptor<UpdateCurrentUserRequest> captor =
+                ArgumentCaptor.forClass(UpdateCurrentUserRequest.class);
+
+        when(userService.updateCurrentUserProfile(eq(userId), captor.capture()))
+                .thenReturn(UserProfileResponse.builder()
+                        .id(userId)
+                        .email("candidate@example.com")
+                        .fullName("New Name")
+                        .role("CANDIDATE")
+                        .status("active")
+                        .isVerified(true)
+                        .build());
+
+        String token = jwtTokenProvider.generateToken(userId, "candidate@example.com", "CANDIDATE");
+
+        mockMvc.perform(patch("/v1/users/me")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"fullName\":\"New Name\",\"role\":\"ADMIN\",\"status\":\"suspended\","
+                                + "\"is_verified\":false,\"email\":\"attacker@evil.com\"}"))
+                .andExpect(status().isOk());
+
+        // The privileged keys never reach the service: the DTO has no setter for them,
+        // so Jackson drops them and only fullName is marked as present.
+        UpdateCurrentUserRequest forwarded = captor.getValue();
+        assertThat(forwarded.hasFullName()).isTrue();
+        assertThat(forwarded.getFullName()).isEqualTo("New Name");
+        assertThat(forwarded.hasPhone()).isFalse();
+        assertThat(forwarded.hasAvatarUrl()).isFalse();
+        assertThat(forwarded.hasTimezone()).isFalse();
+    }
+
+    @Test
+    @DisplayName("17. Invalid timezone is rejected with 400")
+    void updateCurrentUser_invalidTimezone_400() throws Exception {
+        UUID userId = UUID.randomUUID();
+        User dbUser = User.builder()
+                .id(userId)
+                .email("candidate@example.com")
+                .fullName("Old Name")
+                .role("candidate")
+                .status("active")
+                .isVerified(true)
+                .build();
+        when(userRepository.findById(userId)).thenReturn(Optional.of(dbUser));
+        when(userService.updateCurrentUserProfile(eq(userId), any(UpdateCurrentUserRequest.class)))
+                .thenThrow(new IllegalArgumentException("timezone: unknown IANA timezone 'Mars/Base'"));
+
+        String token = jwtTokenProvider.generateToken(userId, "candidate@example.com", "CANDIDATE");
+
+        mockMvc.perform(patch("/v1/users/me")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"timezone\":\"Mars/Base\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("18. Suspended account PATCH /v1/users/me is rejected with 401")
+    void updateCurrentUser_suspended_401() throws Exception {
+        UUID userId = UUID.randomUUID();
+        User suspended = User.builder()
+                .id(userId)
+                .email("suspended@example.com")
+                .role("candidate")
+                .status("suspended")
+                .isVerified(true)
+                .build();
+        when(userRepository.findById(userId)).thenReturn(Optional.of(suspended));
+
+        String token = jwtTokenProvider.generateToken(userId, "suspended@example.com", "CANDIDATE");
+
+        mockMvc.perform(patch("/v1/users/me")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"fullName\":\"Hacked\"}"))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(userService);
     }
 
     @Test

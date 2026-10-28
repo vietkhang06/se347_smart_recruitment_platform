@@ -85,6 +85,9 @@ public class SecurityConfig {
                     auth.requestMatchers(HttpMethod.GET, "/v1/jobs/*/applications/ranking").hasRole("EMPLOYER");
                     auth.requestMatchers("/v1/interviews", "/v1/interviews/**").authenticated();
 
+                    // Role-protected endpoints: Admin (must precede anyRequest)
+                    auth.requestMatchers("/v1/admin", "/v1/admin/**").hasRole("ADMIN");
+
                     // Role-protected endpoints: Candidate
                     auth.requestMatchers("/v1/candidates/profile", "/v1/candidates/profile/**").hasRole("CANDIDATE");
                     auth.requestMatchers(HttpMethod.POST, "/v1/applications").hasRole("CANDIDATE");

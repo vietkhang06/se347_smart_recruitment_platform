@@ -7,6 +7,10 @@ matchajob:
   cv:
     processing:
       enabled: false
+  matching:
+    processing:
+      # Disabled in test profile to prevent background polling threads competing with Mockito mocks in ITs
+      enabled: false
 
 spring:
   application:

@@ -538,7 +538,8 @@ class ApplicationOwnershipSecurityIT {
                     .status("uploaded")
                     .build();
             when(cvVersionRepository.findByIdAndCandidateId(cvId, candidateId)).thenReturn(Optional.of(cv));
-            when(cvStorageService.readFile("candidates/key.pdf")).thenReturn("test".getBytes());
+            when(cvStorageService.loadResource("candidates/key.pdf"))
+                    .thenReturn(new org.springframework.core.io.ByteArrayResource("test".getBytes()));
 
             mockMvc.perform(get("/v1/candidates/" + candidateId + "/cv/" + cvId + "/download")
                             .header("Authorization", authHeader))
