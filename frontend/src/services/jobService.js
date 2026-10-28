@@ -114,7 +114,7 @@ export const jobService = {
   // Trả về null nếu mã sai, tin chưa công khai hoặc đã hết hạn.
   async getPublicJobById(id, options = {}) {
     if (IS_API) {
-      try { return mapApiJob(await httpClient.get(`/v1/jobs/${encodeURIComponent(id)}`, { ...options, auth: false })); }
+      try { return mapApiJob(await httpClient.get(`/v1/jobs/${encodeURIComponent(id)}`, { ...options, auth: true })); }
       catch (error) { if (error.status === 404) return null; throw error; }
     }
     if (id === null || id === undefined || String(id).trim() === "") {

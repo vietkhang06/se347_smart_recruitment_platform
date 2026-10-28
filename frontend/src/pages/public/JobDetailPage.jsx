@@ -36,14 +36,17 @@ export default function JobDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
-  const [, setApplications] = useState(() => ownApplications());
+  const [, setApplications] = useState(() => IS_API ? [] : ownApplications());
   const [showModal, setShowModal] = useState(false);
+
+  const [applyBusy, setApplyBusy] = useState(false);
+  const [submittedJobId, setSubmittedJobId] = useState(null);
 
   const hrProfile = jobService.getEmployerContact();
   const fav = job ? isFavorite(job.id) : false;
 
   const alreadyApplied = Boolean(
-    !IS_API && job &&
+    submittedJobId === id || !IS_API && job &&
       ownApplications().some(
         (application) => String(application.jobId) === String(job.id)
       )
@@ -362,13 +365,12 @@ export default function JobDetailPage() {
               Xem kỹ yêu cầu và chuẩn bị hồ sơ phù hợp trước khi ứng tuyển.
             </p>
 
-            {IS_API && <p className="small text-muted">Ứng tuyển trực tuyến sẽ mở khi luồng gửi hồ sơ được kết nối. Bạn vẫn có thể xem và lưu tin.</p>}
             <div className="d-grid gap-2 mb-3">
               <Button
                 variant={alreadyApplied ? "outline-success" : "success"}
                 size="lg"
                 className="fw-bold"
-                disabled={alreadyApplied || IS_API}
+                disabled={alreadyApplied}
                 onClick={() => setShowModal(true)}
               >
                 <i
@@ -446,10 +448,11 @@ export default function JobDetailPage() {
 
       <Modal
         show={showModal}
-        onHide={() => setShowModal(false)}
+        onHide={() => { if (!applyBusy) setShowModal(false); }}
+        backdrop="static"
         centered
       >
-        <Modal.Header closeButton>
+        <Modal.Header closeButton={!applyBusy}>
           <Modal.Title className="fw-bold fs-5">
             Ứng tuyển: {job.title}
           </Modal.Title>
@@ -458,8 +461,10 @@ export default function JobDetailPage() {
         <Modal.Body>
           <CandidateApplyForm
             job={job}
+            onBusy={setApplyBusy}
             onSuccess={() => {
-              setApplications(ownApplications());
+              if (!IS_API) setApplications(ownApplications());
+              setSubmittedJobId(id);
               setShowModal(false);
               showToast("Đã gửi hồ sơ và CV thành công!");
             }}

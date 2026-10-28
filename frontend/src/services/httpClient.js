@@ -11,9 +11,9 @@ export function buildFullUrl(endpoint) {
   if (base.endsWith("/api") && path.startsWith("/api/")) path = path.slice(4);
   return base + path;
 }
-async function request(endpoint, { auth = true, timeout = 15000, ...options } = {}) {
+async function request(endpoint, { auth = true, timeout = 15000, responseType = "json", ...options } = {}) {
   const headers = new Headers(options.headers);
-  headers.set("Accept", "application/json, application/problem+json");
+  headers.set("Accept", responseType === "blob" ? "*/*" : "application/json, application/problem+json");
   const token = auth ? localStorage.getItem(TOKEN_KEY) : null;
   if (token) headers.set("Authorization", `Bearer ${token}`);
   let body = options.body;
@@ -28,6 +28,7 @@ async function request(endpoint, { auth = true, timeout = 15000, ...options } = 
   try {
     const transport = fetch;
     const response = await transport(buildFullUrl(endpoint), { ...options, headers, body, signal: controller.signal });
+    if (response.ok && responseType === "blob") return await response.blob();
     const raw = response.status === 204 ? "" : await response.text();
     let data = raw || null;
     if (raw && /json/i.test(response.headers.get("content-type") || "")) {
