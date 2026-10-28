@@ -1,3 +1,5 @@
+import { IS_API } from "../../services/dataMode";
+import ApiApplyForm from "./ApiApplyForm";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
@@ -294,6 +296,8 @@ export default function CandidateApplyForm(props) {
       </div>
     );
   }
+
+  if (IS_API) return <ApiApplyForm key={`${user.id || user.email}:${props.job.id}`} {...props} />;
 
   return (
     <ApplyForm

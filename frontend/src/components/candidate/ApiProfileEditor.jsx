@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Container, Row, Col, Card, Form, Button, Alert } from "react-bootstrap";
 import { candidateProfileService } from "../../services/profileService";
+import ApiCvManager from "./ApiCvManager";
 const fields = [
   ["headline", "Chức danh mong muốn", 255], ["location", "Địa điểm", 255],
   ["education", "Học vấn", 500], ["address", "Địa chỉ", 1000], ["bio", "Giới thiệu bản thân", 5000]
@@ -33,7 +34,6 @@ export default function ApiProfileEditor({ user }) {
   };
   if (loading) return <Container className="py-5" role="status">Đang tải hồ sơ…</Container>;
   if (!profile) return <Container className="py-5"><Alert variant="danger" role="alert">{error || "Không có dữ liệu hồ sơ."}</Alert><Button onClick={() => setRetry(v => v + 1)}>Thử lại</Button></Container>;
-  const cvUrl = /^https?:\/\//i.test(profile.cv_url || "") ? profile.cv_url : null;
   return <Container className="py-5">
     <Card className="matcha-card p-4 mb-4 border-0 shadow-sm"><h1 className="h4">Hồ sơ ứng viên</h1><strong>{user.name}</strong><span className="text-muted">{user.email}</span></Card>
     <Row className="g-4"><Col lg={8}><Card className="matcha-card p-4 border-0 shadow-sm">
@@ -56,7 +56,7 @@ export default function ApiProfileEditor({ user }) {
       </fieldset></Form>
     </Card></Col>
     <Col lg={4}><Card className="matcha-card p-4 border-0 shadow-sm"><h2 className="h5">CV hiện tại</h2>
-      {cvUrl ? <a href={cvUrl} target="_blank" rel="noopener noreferrer" className="btn btn-outline-success">Xem CV</a> : <p className="text-muted">Chưa có CV trên hệ thống.</p>}
+      <ApiCvManager candidateId={profile.id} />
       {profile.ai_cv_score != null && <p className="mt-3">Điểm CV: {profile.ai_cv_score}/100</p>}
     </Card></Col></Row>
   </Container>;
