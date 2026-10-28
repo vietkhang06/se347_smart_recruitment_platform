@@ -79,6 +79,8 @@ class CvProcessingIT {
     @org.junit.jupiter.api.BeforeEach
     void setUp() {
         jdbcClient.sql("DELETE FROM embeddings WHERE entity_type = 'cv_version'").update();
+        jdbcClient.sql("DELETE FROM processing_jobs WHERE entity_type = 'cv_version'").update();
+        org.mockito.Mockito.reset(aiWorkerClient);
     }
 
     private byte[] createSamplePdfBytes() {
