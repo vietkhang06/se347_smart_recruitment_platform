@@ -333,17 +333,19 @@ public class MatchingService {
         validateScoreResponse(scoreResponse);
         String breakdownJson = matchingResultMapper.serializeBreakdown(scoreResponse);
 
-        MatchResult result = MatchResult.builder()
-                .applicationId(applicationId)
-                .jobId(java.util.Objects.requireNonNull(jobId, "Job ID is required for matching"))
-                .cvVersionId(cvVersionId)
-                .overallScore(scoreResponse.getOverallScore().shortValue())
-                .skillsScore(scoreResponse.getSkillsScore() != null ? scoreResponse.getSkillsScore().shortValue() : null)
-                .experienceScore(scoreResponse.getExperienceScore() != null ? scoreResponse.getExperienceScore().shortValue() : null)
-                .breakdown(breakdownJson)
-                .rationale(scoreResponse.getRationale())
-                .createdAt(Instant.now())
-                .build();
+        MatchResult result = matchResultRepository.findByApplicationId(applicationId)
+                .orElseGet(() -> MatchResult.builder()
+                        .applicationId(applicationId)
+                        .createdAt(Instant.now())
+                        .build());
+
+        result.setJobId(java.util.Objects.requireNonNull(jobId, "Job ID is required for matching"));
+        result.setCvVersionId(cvVersionId);
+        result.setOverallScore(scoreResponse.getOverallScore().shortValue());
+        result.setSkillsScore(scoreResponse.getSkillsScore() != null ? scoreResponse.getSkillsScore().shortValue() : null);
+        result.setExperienceScore(scoreResponse.getExperienceScore() != null ? scoreResponse.getExperienceScore().shortValue() : null);
+        result.setBreakdown(breakdownJson);
+        result.setRationale(scoreResponse.getRationale());
 
         return matchResultRepository.save(result);
     }
