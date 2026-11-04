@@ -13,6 +13,8 @@ import OverviewView from "./views/OverviewView";
 import JobsView from "./views/JobsView";
 import CandidatesView from "./views/CandidatesView";
 import PipelineView from "./views/PipelineView";
+import RankingView from "./views/RankingView";
+import { toEmployerStatisticsViewModel } from "../../mappers/statisticsMapper";
 import InterviewsView from "./views/InterviewsView";
 import AnalyticsView from "./views/AnalyticsView";
 import CompanyView from "./views/CompanyView";
@@ -65,7 +67,7 @@ function EmployerWorkspace({ companyId }) {
 
   const getTab = hash => {
     const tab = String(hash || "").replace("#", "");
-    return ["overview", "jobs", "candidates", "pipeline", "interviews", "analytics", "company", "billing", "profile"].includes(tab) ? tab : "overview";
+    return ["overview", "jobs", "candidates", "ranking", "pipeline", "interviews", "analytics", "company", "billing", "profile"].includes(tab) ? tab : "overview";
   };
   const getInitialTab = () => getTab(location.hash);
 
@@ -227,6 +229,8 @@ function EmployerWorkspace({ companyId }) {
     handleTabChange("interviews");
   };
 
+  const stats = toEmployerStatisticsViewModel(jobs, candidates, interviews);
+
   const activeJobsCount = jobs.filter(
     job => mockStore.isJobAcceptingApplications(job)
   ).length;
@@ -297,40 +301,7 @@ function EmployerWorkspace({ companyId }) {
         <OverviewView
           employerData={{
             company,
-            metrics: [
-              {
-                label: "Tin đang tuyển",
-                value: String(activeJobsCount),
-                change: `Tổng ${jobs.length} tin`,
-                tone: "green",
-                icon: "▣"
-              },
-              {
-                label: "Ứng viên tiếp nhận",
-                value: String(candidates.length),
-                change: `${newCandidatesCount} mới cần duyệt`,
-                tone: "purple",
-                icon: "●"
-              },
-              {
-                label: "Lịch phỏng vấn",
-                value: String(interviews.length),
-                change: `${
-                  interviews.filter(
-                    item => item.status === "Sắp diễn ra"
-                  ).length
-                } sắp diễn ra`,
-                tone: "orange",
-                icon: "◷"
-              },
-              {
-                label: "Tỷ lệ phản hồi",
-                value: "94%",
-                change: "+4,2% tuần này",
-                tone: "teal",
-                icon: "↗"
-              }
-            ],
+            metrics: stats.summaryCards,
             interviews,
             candidates,
             activity: [
@@ -341,23 +312,16 @@ function EmployerWorkspace({ companyId }) {
               },
               {
                 time: "Hôm qua",
-                text: "Tin Senior Product Designer có 8 hồ sơ mới",
+                text: "Hệ thống AI vừa cập nhật bảng xếp hạng ứng viên",
                 tone: "purple"
               },
               {
-                time: "18/09",
-                text: "Lê Quốc Huy đã hoàn tất bài test kỹ thuật",
+                time: "Gần đây",
+                text: `Tiếp nhận tổng cộng ${candidates.length} hồ sơ ứng tuyển`,
                 tone: "teal"
               }
             ],
-            weeklyPerformance: {
-              labels: [
-                "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5",
-                "Thứ 6", "Thứ 7", "Chủ nhật"
-              ],
-              applications: [24, 38, 31, 52, 45, 68, 56],
-              views: [110, 145, 132, 210, 185, 290, 240]
-            }
+            weeklyPerformance: stats.weeklyPerformance
           }}
           onOpenComposer={handleOpenCreateJob}
           onOpenCandidate={handleOpenCandidate}
@@ -379,6 +343,15 @@ function EmployerWorkspace({ companyId }) {
 
       {activeTab === "candidates" && (
         <CandidatesView
+          candidates={candidates}
+          onOpenCandidate={handleOpenCandidate}
+          onInviteCandidate={handleInviteCandidate}
+        />
+      )}
+
+      {activeTab === "ranking" && (
+        <RankingView
+          jobs={jobs}
           candidates={candidates}
           onOpenCandidate={handleOpenCandidate}
           onInviteCandidate={handleInviteCandidate}
@@ -407,36 +380,17 @@ function EmployerWorkspace({ companyId }) {
       )}
 
       {activeTab === "analytics" && (
-        <>
-        <div className="alert alert-info small">Biểu đồ hiệu suất và nguồn ứng viên đang sử dụng dữ liệu minh họa.</div>
         <AnalyticsView
           employerData={{
             company,
             jobs,
             candidates,
             interviews,
-            weeklyPerformance: {
-              labels: ["T2", "T3", "T4", "T5", "T6", "T7", "CN"],
-              applications: [24, 38, 31, 52, 45, 68, 56],
-              views: [110, 145, 132, 210, 185, 290, 240]
-            },
-            funnel: {
-              labels: [
-                "Ứng tuyển", "Sàng lọc", "Bài test",
-                "Phỏng vấn", "Nhận Offer"
-              ],
-              counts: [candidates.length, 4, 3, 2, 1]
-            },
-            sources: {
-              labels: [
-                "MatchaJob", "LinkedIn", "Nội bộ giới thiệu",
-                "Facebook", "Khác"
-              ],
-              data: [48, 26, 14, 8, 4]
-            }
+            weeklyPerformance: stats.weeklyPerformance,
+            funnel: stats.recruitmentFunnel,
+            sources: stats.sources
           }}
         />
-        </>
       )}
 
       {activeTab === "company" && (

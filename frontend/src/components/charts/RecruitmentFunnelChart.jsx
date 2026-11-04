@@ -9,6 +9,8 @@ import {
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
 import { useTheme } from '../../context/ThemeContext';
+import Spinner from 'react-bootstrap/Spinner';
+import Button from 'react-bootstrap/Button';
 
 ChartJS.register(
   CategoryScale,
@@ -19,15 +21,54 @@ ChartJS.register(
   Legend
 );
 
-export default function RecruitmentFunnelChart({ funnelData }) {
-  const { theme } = useTheme();
-  const isDark = theme === 'dark';
+export default function RecruitmentFunnelChart({ funnelData, isLoading = false, error = null, onRetry }) {
+  let isDark = false;
+  try {
+    const themeContext = useTheme ? useTheme() : null;
+    isDark = themeContext?.theme === 'dark';
+  } catch {
+    isDark = false;
+  }
 
   const textColor = isDark ? '#94a3b8' : '#64748b';
   const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)';
 
+  if (isLoading) {
+    return (
+      <div className="d-flex flex-column align-items-center justify-content-center text-muted py-5" style={{ minHeight: "240px" }}>
+        <Spinner animation="border" variant="success" size="sm" className="mb-2" />
+        <span className="small">Đang tải số liệu phễu tuyển dụng...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="d-flex flex-column align-items-center justify-content-center text-muted py-5 text-center" style={{ minHeight: "240px" }}>
+        <i className="bi bi-exclamation-triangle text-warning fs-3 mb-2" />
+        <span className="small text-danger mb-2">{error}</span>
+        {onRetry && (
+          <Button variant="outline-success" size="sm" onClick={onRetry}>
+            Thử lại
+          </Button>
+        )}
+      </div>
+    );
+  }
+
   const labels = funnelData?.labels || ["Ứng tuyển", "Sàng lọc", "Bài test", "Phỏng vấn", "Nhận Offer"];
-  const counts = funnelData?.counts || [148, 86, 42, 18, 5];
+  const counts = Array.isArray(funnelData?.counts) ? funnelData.counts : [0, 0, 0, 0, 0];
+  const hasData = counts.some((c) => c > 0);
+
+  if (!hasData) {
+    return (
+      <div className="d-flex flex-column align-items-center justify-content-center text-muted py-5 border border-dashed rounded bg-surface-2" style={{ minHeight: "240px" }}>
+        <i className="bi bi-funnel fs-2 mb-2 text-secondary opacity-50" />
+        <span className="small fw-medium">Chưa có ứng viên trong phễu tuyển dụng</span>
+        <span className="small text-muted" style={{ fontSize: "12px" }}>Số liệu sẽ tự động xuất hiện khi có ứng viên nộp hồ sơ</span>
+      </div>
+    );
+  }
 
   const data = {
     labels: labels,

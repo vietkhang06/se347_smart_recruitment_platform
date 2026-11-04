@@ -1972,3 +1972,42 @@ main {
   white-space: normal;
   line-height: 1.4;
 }
+
+/* Truncate 2 lines */
+.text-truncate-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Card hover animation */
+.hover-shadow {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.hover-shadow:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Spin animation for refresh icons */
+@keyframes spinAnimation {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.spin {
+  display: inline-block;
+  animation: spinAnimation 1s linear infinite;
+}
+
+/* Responsive Touch Target for Mobile Kanban */
+@media (max-width: 768px) {
+  .kanban-col {
+    padding: 0.75rem !important;
+  }
+  .kanban-col .btn-group-sm > .btn {
+    padding: 0.35rem 0.5rem !important;
+    min-width: 32px;
+    min-height: 32px;
+  }
+}

@@ -5,8 +5,10 @@ import Col from "react-bootstrap/Col";
 import Button from "react-bootstrap/Button";
 import Form from "react-bootstrap/Form";
 import InputGroup from "react-bootstrap/InputGroup";
+import Badge from "react-bootstrap/Badge";
 import { useToast } from "../../../context/ToastContext";
 import { STAGES_PIPELINE } from "../../../mock";
+import { formatNumber } from "../../../utils/formatUtils";
 
 export function candidateScore(candidate) {
   const raw = candidate.matchScore ?? candidate.match;
@@ -25,7 +27,15 @@ export function exportCandidatesCSV(candidates) {
   };
   const rows = [
     ["Mã hồ sơ", "Họ tên", "Vị trí", "Email", "Điện thoại", "Giai đoạn", "Điểm phù hợp"],
-    ...candidates.map(c => [c.id, c.name || c.candidateName, c.appliedJobTitle || c.role || c.candidateRole, c.email || c.candidateEmail, c.phone || c.candidatePhone, c.stage || "Mới", candidateScore(c)])
+    ...candidates.map(c => [
+      c.id || c.applicationId,
+      c.name || c.candidateName,
+      c.appliedJobTitle || c.role || c.candidateRole,
+      c.email || c.candidateEmail,
+      c.phone || c.candidatePhone,
+      c.stage || "Mới",
+      candidateScore(c)
+    ])
   ];
   const url = URL.createObjectURL(new Blob(["\uFEFF" + rows.map(row => row.map(cell).join(",")).join("\r\n")], { type: "text/csv;charset=utf-8" }));
   const link = document.createElement("a");
@@ -70,6 +80,15 @@ export default function CandidatesView({ candidates = [], onOpenCandidate, onInv
     new Set(candidates.map((c) => c.appliedJobTitle || c.role || c.candidateRole))
   ).filter(Boolean);
 
+  const isFiltering = Boolean(search || jobFilter !== "all" || stageFilter !== "all" || matchFilter !== "all");
+
+  const handleResetFilters = () => {
+    setSearch("");
+    setJobFilter("all");
+    setStageFilter("all");
+    setMatchFilter("all");
+  };
+
   const filteredCandidates = candidates.filter((c) => {
     const name = (c.candidateName || c.name || "").toLowerCase();
     const role = (c.appliedJobTitle || c.candidateRole || c.role || "").toLowerCase();
@@ -101,24 +120,45 @@ export default function CandidatesView({ candidates = [], onOpenCandidate, onInv
     <Card className="matcha-card p-4 border-0 shadow-sm" data-aos="fade-up">
       <div className="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
         <div>
-          <h5 className="fw-bold mb-0">Kho hồ sơ ứng viên nổi bật ({candidates.length})</h5>
+          <div className="d-flex align-items-center gap-2">
+            <h5 className="fw-bold mb-0">Kho hồ sơ ứng viên nổi bật</h5>
+            <Badge bg="secondary" className="bg-opacity-25 text-body">
+              {formatNumber(filteredCandidates.length)} / {formatNumber(candidates.length)} hồ sơ
+            </Badge>
+          </div>
           <p className="text-muted small mb-0">Hồ sơ ứng viên được sàng lọc và xếp hạng theo tiêu chuẩn tuyển dụng</p>
         </div>
-        <Button variant="outline-success" size="sm" disabled={!filteredCandidates.length} onClick={() => {
-          try { exportCandidatesCSV(filteredCandidates); showToast("Đã tạo tệp CSV theo bộ lọc."); }
-          catch (err) { showToast(err?.message || "Không thể xuất danh sách.", "danger"); }
-        }}>
-          <i className="bi bi-file-earmark-spreadsheet me-1"></i>Xuất danh sách
-        </Button>
+        <div className="d-flex gap-2 align-items-center flex-wrap">
+          {isFiltering && (
+            <Button variant="outline-secondary" size="sm" onClick={handleResetFilters}>
+              <i className="bi bi-arrow-counterclockwise me-1" />Xóa bộ lọc
+            </Button>
+          )}
+          <Button
+            variant="outline-success"
+            size="sm"
+            disabled={!filteredCandidates.length}
+            onClick={() => {
+              try {
+                exportCandidatesCSV(filteredCandidates);
+                showToast("Đã tạo tệp CSV theo bộ lọc.");
+              } catch (err) {
+                showToast(err?.message || "Không thể xuất danh sách.", "danger");
+              }
+            }}
+          >
+            <i className="bi bi-file-earmark-spreadsheet me-1" />Xuất danh sách
+          </Button>
+        </div>
       </div>
 
       {/* Filter Strip: Tinh chỉnh kích thước cân đối, tránh search quá dài và stage quá hẹp */}
       <div className="d-flex flex-wrap align-items-center gap-2 mb-4">
         {/* Thanh tìm kiếm: Cố định độ rộng tối đa 380px để không lấn át các bộ lọc */}
-        <div style={{ flex: "1 1 260px", maxWidth: "380px" }}>
+        <div style={{ flex: "1 1 240px", maxWidth: "380px" }}>
           <InputGroup size="sm">
             <InputGroup.Text style={{ backgroundColor: "var(--surface-2)", borderColor: "var(--border)", color: "var(--muted)" }}>
-              <i className="bi bi-search"></i>
+              <i className="bi bi-search" />
             </InputGroup.Text>
             <Form.Control
               placeholder="Tìm theo tên ứng viên, vị trí hoặc kỹ năng..."
@@ -175,17 +215,24 @@ export default function CandidatesView({ candidates = [], onOpenCandidate, onInv
       <Row className="g-3">
         {filteredCandidates.length === 0 ? (
           <Col xs={12}>
-            <div className="text-center py-5 text-muted">
-              <i className="bi bi-person-x fs-1 d-block mb-2"></i>
-              Không tìm thấy ứng viên nào phù hợp với điều kiện tìm kiếm.
+            <div className="text-center py-5 text-muted border border-dashed rounded bg-surface-2">
+              <i className="bi bi-person-x fs-1 d-block mb-2 text-secondary opacity-50" />
+              <div className="fw-semibold">Không tìm thấy ứng viên nào phù hợp</div>
+              <p className="small text-muted mb-3">Thử thay đổi từ khóa tìm kiếm hoặc bỏ chọn một số tiêu chí lọc</p>
+              {isFiltering && (
+                <Button variant="outline-success" size="sm" onClick={handleResetFilters}>
+                  <i className="bi bi-arrow-counterclockwise me-1" />
+                  Đặt lại toàn bộ bộ lọc
+                </Button>
+              )}
             </div>
           </Col>
         ) : (
           filteredCandidates.map((c) => {
             const stageBadge = getCandidateStageBadge(c.stage);
             return (
-              <Col md={6} lg={4} key={c.id}>
-                <Card className="p-3 border shadow-sm h-100 bg-surface d-flex flex-column">
+              <Col xs={12} sm={6} lg={4} key={c.id || c.applicationId}>
+                <Card className="p-3 border shadow-sm h-100 bg-surface d-flex flex-column hover-shadow transition-all">
                   <div className="d-flex align-items-center justify-content-between mb-2">
                     <div className="d-flex align-items-center gap-2 overflow-hidden">
                       <div
@@ -200,18 +247,18 @@ export default function CandidatesView({ candidates = [], onOpenCandidate, onInv
                       </div>
                     </div>
                     {/* Badge trạng thái với màu sắc chuyên biệt cho 5 giai đoạn */}
-                    <span className={`status-badge ${stageBadge.className}`}>
+                    <span className={`status-badge ${stageBadge.className} flex-shrink-0 ms-1`}>
                       {stageBadge.label}
                     </span>
                   </div>
 
-                  <div className="small text-muted mb-2">
-                    <i className="bi bi-geo-alt me-1 text-danger"></i>{c.location || "Chưa cập nhật địa điểm"} · <i className="bi bi-briefcase me-1"></i>{c.experience || "Chưa cập nhật kinh nghiệm"}
+                  <div className="small text-muted mb-2 text-truncate">
+                    <i className="bi bi-geo-alt me-1 text-danger" />{c.location || "Chưa cập nhật địa điểm"} · <i className="bi bi-briefcase me-1" />{c.experience || "Chưa cập nhật kinh nghiệm"}
                   </div>
 
-                  {/* Hiển thị đầy đủ 5 kỹ năng của ứng viên - Kích thước vừa vặn tự nhiên, không bị kéo dãn */}
+                  {/* Hiển thị đầy đủ kỹ năng của ứng viên */}
                   <div className="d-flex flex-wrap align-items-start gap-1 mb-3">
-                    {(Array.isArray(c.skills) ? c.skills : []).map((s, index) => (
+                    {(Array.isArray(c.skills) ? c.skills : []).slice(0, 5).map((s, index) => (
                       <span key={`${s}-${index}`} className="candidate-skill-badge">
                         {s}
                       </span>
@@ -220,7 +267,13 @@ export default function CandidatesView({ candidates = [], onOpenCandidate, onInv
                   </div>
 
                   <div className="d-flex justify-content-between align-items-center pt-2 border-top mt-auto">
-                    {candidateScore(c) !== null ? <span className="text-success fw-bold small"><i className="bi bi-stars me-1" />{candidateScore(c)}% phù hợp</span> : <span className="text-muted small">Chưa có điểm phù hợp</span>}
+                    {candidateScore(c) !== null ? (
+                      <span className="text-success fw-bold small">
+                        <i className="bi bi-stars me-1" />{candidateScore(c)}% phù hợp
+                      </span>
+                    ) : (
+                      <span className="text-muted small">Chưa có điểm phù hợp</span>
+                    )}
                     <div className="d-flex gap-1">
                       <Button variant="outline-secondary" size="sm" onClick={() => onOpenCandidate(c)}>
                         Hồ sơ
