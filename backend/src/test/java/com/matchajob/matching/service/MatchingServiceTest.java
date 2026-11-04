@@ -314,4 +314,69 @@ class MatchingServiceTest {
 
         verify(processingJobService).markJobFailed(eq(processingJob.getId()), anyString(), eq(true));
     }
+
+    @Test
+    void saveMatchResultTransaction_whenResultAlreadyExists_updatesExistingResultIdempotently() {
+        UUID applicationId = UUID.randomUUID();
+        UUID jobId = UUID.randomUUID();
+        UUID cvVersionId = UUID.randomUUID();
+
+        MatchResult existing = MatchResult.builder()
+                .id(UUID.randomUUID())
+                .applicationId(applicationId)
+                .jobId(jobId)
+                .cvVersionId(cvVersionId)
+                .overallScore((short) 60)
+                .skillsScore((short) 50)
+                .experienceScore((short) 70)
+                .breakdown("{}")
+                .rationale("Previous score")
+                .build();
+
+        MatchScoreResponse updatedScore = MatchScoreResponse.builder()
+                .overallScore(85)
+                .skillsScore(90)
+                .experienceScore(80)
+                .rationale("New re-evaluated score")
+                .breakdown(java.util.Map.of("skills", 90))
+                .build();
+
+        when(matchResultRepository.findByApplicationId(applicationId)).thenReturn(Optional.of(existing));
+        when(matchResultRepository.save(any(MatchResult.class))).thenAnswer(i -> i.getArgument(0));
+
+        MatchResult saved = service.saveMatchResultTransaction(applicationId, jobId, cvVersionId, updatedScore);
+
+        assertThat(saved.getId()).isEqualTo(existing.getId());
+        assertThat(saved.getOverallScore()).isEqualTo((short) 85);
+        assertThat(saved.getSkillsScore()).isEqualTo((short) 90);
+        assertThat(saved.getExperienceScore()).isEqualTo((short) 80);
+        assertThat(saved.getRationale()).isEqualTo("New re-evaluated score");
+        verify(matchResultRepository).save(existing);
+    }
+
+    @Test
+    void saveMatchResultTransaction_whenResultDoesNotExist_createsNewResult() {
+        UUID applicationId = UUID.randomUUID();
+        UUID jobId = UUID.randomUUID();
+        UUID cvVersionId = UUID.randomUUID();
+
+        MatchScoreResponse newScore = MatchScoreResponse.builder()
+                .overallScore(92)
+                .skillsScore(95)
+                .experienceScore(88)
+                .rationale("Excellent fit")
+                .breakdown(java.util.Map.of("skills", 95))
+                .build();
+
+        when(matchResultRepository.findByApplicationId(applicationId)).thenReturn(Optional.empty());
+        when(matchResultRepository.save(any(MatchResult.class))).thenAnswer(i -> i.getArgument(0));
+
+        MatchResult saved = service.saveMatchResultTransaction(applicationId, jobId, cvVersionId, newScore);
+
+        assertThat(saved).isNotNull();
+        assertThat(saved.getApplicationId()).isEqualTo(applicationId);
+        assertThat(saved.getOverallScore()).isEqualTo((short) 92);
+        assertThat(saved.getRationale()).isEqualTo("Excellent fit");
+        verify(matchResultRepository).save(any(MatchResult.class));
+    }
 }
