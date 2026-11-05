@@ -36,12 +36,9 @@ public class TaxonomyService {
         return categoryRepository.save(category);
     }
 
-    public void deleteCategory(UUID id) {
-        Category category = categoryRepository.findById(id)
-                .orElseThrow(() -> new Illeg not found with id: " + id));
-
-        if (jobRepository.existsByTitle(category.getName())) {
-             throw new IllegalStateExceptionently in use");
+    public void deleteCategory(Long id) {
+        if (jobRepository.existsByCategoryId(id)) {
+            throw new IllegalStateException("Cannot delete category currently in use");
         }
         categoryRepository.deleteById(id);
     }

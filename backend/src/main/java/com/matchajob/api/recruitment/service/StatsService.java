@@ -13,7 +13,7 @@ public class StatsService {
     private final JobRepository jobRepository;
 
     public Map<String, Long> getJobCountByStatus() {
-        List<Object[]> results = jobRepository.countJobsByStatus();
+        List<Object[]> results = jobRepository.countPublicJobsByStatus();
         Map<String, Long> stats = new HashMap<>();
         for (Object[] row : results) {
             String status = (String) row[0];
