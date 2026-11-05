@@ -197,7 +197,7 @@ function EmployerWorkspace({ companyId }) {
         ? { ...current, stage: nextStage } : current);
       showToast(`Đã chuyển ứng viên sang giai đoạn: ${nextStage}`);
     } catch (err) {
-      showToast(err?.message || "Không thể chuyển giai đoạn ứng viên.", "danger");
+      console.warn("Lỗi khi chuyển giai đoạn ứng viên:", err?.message);
       throw err;
     }
   };
@@ -361,10 +361,12 @@ function EmployerWorkspace({ companyId }) {
       {activeTab === "pipeline" && (
         <PipelineView
           candidates={candidates}
+          interviews={interviews}
           setCandidates={setCandidates}
           onStageChange={handleCandidateStageChange}
           onOpenCandidate={handleOpenCandidate}
           onInviteCandidate={handleInviteCandidate}
+          onRefreshData={refreshStoreData}
         />
       )}
 

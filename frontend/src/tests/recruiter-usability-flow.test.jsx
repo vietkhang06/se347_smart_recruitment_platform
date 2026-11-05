@@ -112,15 +112,19 @@ describe("Recruiter Usability Flow - PipelineView", () => {
     vi.clearAllMocks();
   });
 
-  it("chuyển giai đoạn ứng viên tiếp theo gọi onStageChange", async () => {
+  it("chuyển giai đoạn ứng viên tiếp theo gọi onStageChange sau khi xác nhận", async () => {
     const onStageChange = vi.fn().mockResolvedValue(true);
     render(<PipelineView candidates={mockCandidates} onStageChange={onStageChange} />);
 
-    // CAND-1 đang ở "Mới", bấm nút next chuyển sang "Sàng lọc"
+    // CAND-1 đang ở "Mới", bấm nút next mở modal xác nhận
     const nextButtons = screen.getAllByTitle("Chuyển sang bước tiếp theo");
     expect(nextButtons.length).toBeGreaterThan(0);
 
     fireEvent.click(nextButtons[0]);
+
+    // Bấm nút "Xác nhận chuyển" trong modal xác nhận
+    const confirmBtn = screen.getByRole("button", { name: /Xác nhận chuyển/i });
+    fireEvent.click(confirmBtn);
 
     await waitFor(() => {
       expect(onStageChange).toHaveBeenCalledWith("CAND-1", "Sàng lọc");
@@ -134,8 +138,12 @@ describe("Recruiter Usability Flow - PipelineView", () => {
     const nextButtons = screen.getAllByTitle("Chuyển sang bước tiếp theo");
     fireEvent.click(nextButtons[0]);
 
+    const confirmBtn = screen.getByRole("button", { name: /Xác nhận chuyển/i });
+    fireEvent.click(confirmBtn);
+
     await waitFor(() => {
       expect(mockShowToast).toHaveBeenCalledWith("Giai đoạn không hợp lệ", "danger");
     });
   });
 });
+

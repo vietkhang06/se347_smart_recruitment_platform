@@ -113,3 +113,4 @@ describe("Chart Components States (Loading, Empty, Error)", () => {
     expect(screen.getByText(/Chưa có dữ liệu nguồn kênh ứng viên/i)).toBeTruthy();
   });
 });
+
