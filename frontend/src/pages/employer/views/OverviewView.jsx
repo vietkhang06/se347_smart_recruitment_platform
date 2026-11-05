@@ -152,18 +152,18 @@ export default function OverviewView({ employerData, onOpenComposer, onOpenCandi
                       ))}
                     </div>
                     <div className="d-flex justify-content-between align-items-center pt-2 border-top mt-auto">
-                      <span className="text-muted small text-truncate me-1" style={{ fontSize: "12px" }}>
-                        <i className="bi bi-geo-alt me-1" />{c.location || "Việt Nam"}
-                      </span>
-                      <Button
-                        variant="link"
-                        size="sm"
-                        className="p-0 text-success text-decoration-none fw-semibold flex-shrink-0"
-                        onClick={() => onOpenCandidate(c)}
-                      >
-                        Hồ sơ →
-                      </Button>
-                    </div>
+                        <span className="text-muted small text-truncate me-1" style={{ fontSize: "12px" }}>
+                          <i className="bi bi-geo-alt me-1" />{c.location || "Việt Nam"}
+                        </span>
+                        <Button
+                          variant="link"
+                          size="sm"
+                          className="p-0 text-success text-decoration-none fw-semibold flex-shrink-0"
+                          onClick={() => onOpenCandidate(c)}
+                        >
+                          Hồ sơ →
+                        </Button>
+                      </div>
                   </Card>
                 </Col>
               );
