@@ -329,5 +329,58 @@ class ResourceOwnershipServiceTest {
                     .isInstanceOf(AccessDeniedException.class)
                     .hasMessageContaining("You do not have permission to view this CV");
         }
+
+        @Test
+        @DisplayName("permits candidate owner to access their own CV version")
+        void checkCvVersionAccess_candidateOwner_permitted() {
+            UUID userId = UUID.randomUUID();
+            UUID candidateId = UUID.randomUUID();
+            UUID cvVersionId = UUID.randomUUID();
+
+            when(candidateProfileRepository.findByUserId(userId))
+                    .thenReturn(Optional.of(CandidateProfile.builder().id(candidateId).userId(userId).build()));
+
+            ownershipService.checkCvVersionAccess(userId, candidateId, cvVersionId);
+        }
+
+        @Test
+        @DisplayName("rejects unrelated candidate attempting to access another candidate CV via guessed URL")
+        void checkCvVersionAccess_unrelatedCandidate_guessedUrl_rejected() {
+            UUID userId = UUID.randomUUID();
+            UUID myCandidateId = UUID.randomUUID();
+            UUID victimCandidateId = UUID.randomUUID();
+            UUID cvVersionId = UUID.randomUUID();
+
+            when(candidateProfileRepository.findByUserId(userId))
+                    .thenReturn(Optional.of(CandidateProfile.builder().id(myCandidateId).userId(userId).build()));
+            when(jdbcClient.sql(anyString())
+                    .params(cvVersionId, victimCandidateId, userId, userId, userId)
+                    .query(Integer.class).single())
+                    .thenReturn(0);
+
+            assertThatThrownBy(() -> ownershipService.checkCvVersionAccess(userId, victimCandidateId, cvVersionId))
+                    .isInstanceOf(AccessDeniedException.class)
+                    .hasMessageContaining("You do not have permission to view this CV");
+        }
+
+        @Test
+        @DisplayName("rejects cross-employer access when application belongs to a different company")
+        void checkCvVersionAccess_crossEmployer_differentCompany_rejected() {
+            UUID employerUserId = UUID.randomUUID();
+            UUID candidateId = UUID.randomUUID();
+            UUID cvVersionId = UUID.randomUUID();
+
+            when(candidateProfileRepository.findByUserId(employerUserId)).thenReturn(Optional.empty());
+            when(jdbcClient.sql(anyString()).param(employerUserId).query(UUID.class).optional())
+                    .thenReturn(Optional.empty());
+            when(jdbcClient.sql(anyString())
+                    .params(cvVersionId, candidateId, employerUserId, employerUserId, employerUserId)
+                    .query(Integer.class).single())
+                    .thenReturn(0);
+
+            assertThatThrownBy(() -> ownershipService.checkCvVersionAccess(employerUserId, candidateId, cvVersionId))
+                    .isInstanceOf(AccessDeniedException.class)
+                    .hasMessageContaining("You do not have permission to view this CV");
+        }
     }
 }

@@ -60,7 +60,8 @@ export function toApplicationViewModel(dto, candidateSnapshot = null) {
   const role = dto.candidateRole || dto.role || dto.candidateHeadline || candidateSnapshot?.role || "Ứng viên";
   const email = dto.candidateEmail || dto.email || candidateSnapshot?.email || "";
   const phone = dto.candidatePhone || dto.phone || candidateSnapshot?.phone || "";
-  const match = Number(dto.matchScore ?? dto.overallScore ?? dto.match ?? 0);
+  const rawMatch = dto.matchScore ?? dto.overallScore ?? dto.match;
+  const match = rawMatch == null || rawMatch === "" ? null : Number(rawMatch);
   const appliedJobTitle = dto.appliedJobTitle || dto.jobTitle || "Vị trí tuyển dụng";
   const skills = Array.isArray(dto.candidateSkills) && dto.candidateSkills.length > 0
     ? dto.candidateSkills

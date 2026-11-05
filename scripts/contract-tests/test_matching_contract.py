@@ -1,106 +1,45 @@
-"""Cross-layer contract checks for MatchaJob MatchingResultResponse.
-
-Runs with the Python standard library only. These tests validate source/fixture alignment,
-not live HTTP behavior or real AI scoring quality.
-"""
+"""Executable schema and cross-language serialization checks, not source-string searches."""
+import argparse
+import copy
 import json
-import re
-import unittest
+import subprocess
 from pathlib import Path
-
+from jsonschema import Draft202012Validator, FormatChecker
 ROOT = Path(__file__).resolve().parents[2]
-DOC_FIXTURES = ROOT / "docs" / "contracts" / "fixtures"
-FRONTEND_FIXTURES = ROOT / "frontend" / "src" / "fixtures"
-
-PUBLIC_FIELDS = {
-    "applicationId", "jobId", "cvVersionId", "status", "overallScore",
-    "skillsScore", "experienceScore", "criteriaScores", "matchedSkills",
-    "missingSkills", "breakdown", "explanation", "processingJobId",
-    "evaluatedAt", "message"
-}
-
-
-def read_json(path: Path):
-    if not path.is_file():
-        raise AssertionError(f"Missing fixture: {path}")
+def read(path):
     return json.loads(path.read_text(encoding="utf-8"))
-
-
-class MatchingContractTests(unittest.TestCase):
-    def test_completed_public_fixture_has_the_canonical_shape(self):
-        docs = read_json(DOC_FIXTURES / "matching-result-completed.json")
-        frontend = read_json(FRONTEND_FIXTURES / "matching-result.fixture.json")
-        self.assertEqual(docs, frontend, "The frontend fallback fixture must mirror the documented contract fixture")
-        self.assertEqual(set(docs), PUBLIC_FIELDS)
-        self.assertEqual(docs["status"], "COMPLETED")
-        for field in ("overallScore", "skillsScore", "experienceScore"):
-            self.assertIsInstance(docs[field], int)
-            self.assertGreaterEqual(docs[field], 0)
-            self.assertLessEqual(docs[field], 100)
-        self.assertIsInstance(docs["matchedSkills"], list)
-        self.assertIsInstance(docs["missingSkills"], list)
-        self.assertIsInstance(docs["criteriaScores"], dict)
-
-    def test_pending_fixture_keeps_scores_null(self):
-        docs = read_json(DOC_FIXTURES / "matching-result-pending.json")
-        frontend = read_json(FRONTEND_FIXTURES / "matching-result-pending.fixture.json")
-        self.assertEqual(docs, frontend)
-        self.assertEqual(set(docs), PUBLIC_FIELDS)
-        self.assertEqual(docs["status"], "PENDING")
-        self.assertIsNone(docs["overallScore"])
-        self.assertIsNone(docs["skillsScore"])
-        self.assertIsNone(docs["experienceScore"])
-        self.assertGreater(len(docs["processingJobId"]), 0)
-
-    def test_ai_worker_snake_case_fixture_maps_to_public_skill_lists(self):
-        ai = read_json(DOC_FIXTURES / "ai-match-score-response.json")
-        public = read_json(DOC_FIXTURES / "matching-result-completed.json")
-        self.assertIn("overall_score", ai)
-        self.assertIn("skills_score", ai)
-        self.assertIn("experience_score", ai)
-        self.assertIn("breakdown", ai)
-        self.assertIn("rationale", ai)
-        self.assertEqual(public["matchedSkills"], ai["breakdown"]["required_skills_matched"])
-        self.assertEqual(public["missingSkills"], ai["breakdown"]["missing_skills"])
-
-    def test_java_dto_controller_and_frontend_map_the_contract_fields(self):
-        dto = (ROOT / "backend/src/main/java/com/matchajob/matching/dto/MatchingResultResponse.java").read_text(encoding="utf-8")
-        controller = (ROOT / "backend/src/main/java/com/matchajob/matching/controller/MatchController.java").read_text(encoding="utf-8")
-        mapper = (ROOT / "backend/src/main/java/com/matchajob/matching/service/MatchingResultMapper.java").read_text(encoding="utf-8")
-        frontend_service = (ROOT / "frontend/src/services/api/apiApplicationService.js").read_text(encoding="utf-8")
-        detail_ui = (ROOT / "frontend/src/pages/employer/components/CandidateDetailModal.jsx").read_text(encoding="utf-8")
-        ai_schema = (ROOT / "ai-worker/app/schemas/ai.py").read_text(encoding="utf-8")
-        matching_service = (ROOT / "backend/src/main/java/com/matchajob/matching/service/MatchingService.java").read_text(encoding="utf-8")
-
-        for field in PUBLIC_FIELDS:
-            self.assertRegex(dto, rf"\b{re.escape(field)}\b", f"DTO missing field {field}")
-        self.assertIn('@GetMapping("/{applicationId}/match")', controller)
-        self.assertIn('@PostMapping("/{applicationId}/match")', controller)
-        self.assertIn("ResponseEntity.ok(matchingResultMapper.fromEntity(result))", controller)
-        self.assertNotIn("@ResponseStatus(HttpStatus.ACCEPTED)", controller)
-        self.assertIn('"required_skills_matched"', mapper)
-        self.assertIn('"missing_skills"', mapper)
-        self.assertIn('/v1/applications/${applicationId}/match', frontend_service)
-        self.assertIn('matchedSkills', frontend_service)
-        self.assertIn('missingSkills', frontend_service)
-        self.assertIn('Đối chiếu CV–JD', detail_ui)
-        self.assertIn('explanation', detail_ui)
-        for field in ("overall_score", "skills_score", "experience_score", "breakdown", "rationale"):
-            self.assertIn(field, ai_schema)
-
-    def test_synchronous_matching_keeps_processing_job_state_consistent(self):
-        service = (ROOT / "backend/src/main/java/com/matchajob/processing/service/ProcessingJobService.java").read_text(encoding="utf-8")
-        matching_service = (ROOT / "backend/src/main/java/com/matchajob/matching/service/MatchingService.java").read_text(encoding="utf-8")
-        self.assertRegex(
-            matching_service,
-            r"processingJob\.ifPresent\(processingRecord -> processingJobService\.startJob\(processingRecord\.getId\(\)\)\)",
-        )
-        self.assertIn("processingJobService.markJobCompleted(processingRecord.getId())", matching_service)
-        self.assertIn("processingJobService.markJobFailed(", matching_service)
-        self.assertIn('job.setStatus("COMPLETED")', service)
-        self.assertIn('job.setStatus("FAILED")', service)
-        self.assertIn('job.setStatus("PENDING")', service)  # retryable failure with backoff
-
-
-if __name__ == "__main__":
-    unittest.main(verbosity=2)
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--java-artifacts", action="store_true", help="Require actual DTO payloads exported by MatchScoreContractTest")
+    args = parser.parse_args()
+    schema = read(ROOT / "docs/contracts/schemas/matching-result.schema.json")
+    validator = Draft202012Validator(schema, format_checker=FormatChecker())
+    worker = Draft202012Validator(read(ROOT / "docs/contracts/schemas/ai-match-score-response.schema.json"))
+    worker.validate(read(ROOT / "docs/contracts/fixtures/ai-match-score-response.json"))
+    print("PASS TC-C01: Worker response fixture validates against the shared schema")
+    for doc, frontend in [("matching-result-completed.json", "matching-result.fixture.json"), ("matching-result-pending.json", "matching-result-pending.fixture.json")]:
+        value = read(ROOT / "docs/contracts/fixtures" / doc)
+        assert value == read(ROOT / "frontend/src/fixtures" / frontend)
+        validator.validate(value)
+        subprocess.run(["node", str(ROOT / "scripts/contract-tests/validate_frontend_matching.mjs"), str(ROOT / "docs/contracts/fixtures" / doc)], check=True)
+    print("PASS TC-C02: Shared examples pass JSON Schema and the actual Frontend runtime validator")
+    completed = read(ROOT / "docs/contracts/fixtures/matching-result-completed.json")
+    mutations = []
+    for key in schema["required"]:
+        value = copy.deepcopy(completed); value.pop(key); mutations.append(value)
+    for key, invalid in [("overallScore", "82"), ("overallScore", True), ("overallScore", 101), ("overallScore", 82.5), ("status", "queued"), ("breakdown", "{}"), ("matchedSkills", None), ("missingSkills", [1]), ("criteriaScores", {"skills": "80"}), ("evaluatedAt", "yesterday"), ("retryable", "false")]:
+        value = copy.deepcopy(completed); value[key] = invalid; mutations.append(value)
+    for index, value in enumerate(mutations):
+        assert list(validator.iter_errors(value)), f"Invalid payload unexpectedly accepted: mutation {index}"
+    print(f"PASS TC-C03: {len(mutations)} missing-field/type/enum/nullability mutations are rejected")
+    if args.java_artifacts:
+        for name in ("completed.json", "pending.json"):
+            path = ROOT / "backend/target/matching-contract" / name
+            if not path.exists(): raise RuntimeError("Run MatchScoreContractTest before --java-artifacts")
+            validator.validate(read(path))
+            subprocess.run(["node", str(ROOT / "scripts/contract-tests/validate_frontend_matching.mjs"), str(path)], check=True)
+        print("PASS TC-C04: Actual Java DTO JSON passes shared schema and Frontend validator")
+    else:
+        print("NOT_RUN TC-C04: Java serialization payloads; run again with --java-artifacts after Maven tests")
+    print("Contract checks completed. This does not claim a live deployment passed.")
+if __name__ == "__main__": main()

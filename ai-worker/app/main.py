@@ -4,6 +4,7 @@ import time
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
 from app.api.health import router as health_router
 from app.api.cv import router as cv_router
 from app.core.config import get_settings
@@ -56,6 +57,8 @@ def create_application() -> FastAPI:
         problem = ProblemDetail(
             type="https://matchajob.internal/errors/http-error",
             title=exc.detail if isinstance(exc.detail, str) else "HTTP Error",
+            code="HTTP_ERROR",
+            retryable=exc.status_code == 429 or exc.status_code >= 500,
             status=exc.status_code,
             detail=str(exc.detail),
             instance=str(request.url.path),
@@ -66,12 +69,23 @@ def create_application() -> FastAPI:
             media_type="application/problem+json",
         )
 
+    @app.exception_handler(RequestValidationError)
+    async def validation_exception_handler(request: Request, exc: RequestValidationError):
+        # Do not echo CV text or other request values in validation responses.
+        problem = ProblemDetail(type="https://matchajob.internal/errors/validation-error",
+                                title="Validation Error", status=422,
+                                detail="Request fields do not match the agreed schema.",
+                                instance=request.url.path, code="VALIDATION_ERROR", retryable=False)
+        return JSONResponse(status_code=422, content=problem.model_dump(), media_type="application/problem+json")
+
     @app.exception_handler(Exception)
     async def generic_exception_handler(request: Request, exc: Exception):
         logger.exception("Unhandled server exception: %s", exc)
         problem = ProblemDetail(
             type="https://matchajob.internal/errors/internal-server-error",
             title="Internal Server Error",
+            code="WORKER_INTERNAL_ERROR",
+            retryable=True,
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred while processing the request.",
             instance=str(request.url.path),
