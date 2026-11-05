@@ -318,6 +318,36 @@ Bổ sung trường `companies` dưới dạng một **mảng JSON (Array)** the
 
 ---
 
+### 6.5 `PATCH /v1/users/me` [CONFIRMED]
+
+Cập nhật một phần hồ sơ cơ bản của chính người dùng đang đăng nhập. Áp dụng cho **mọi role**.
+
+- **Quyền truy cập:** Người dùng đã xác thực (`isAuthenticated()`); tài khoản `suspended` bị chặn 401.
+- **Field được phép sửa (allowlist):** `fullName` (≤150), `phone` (≤20), `avatarUrl` (≤500, http/https), `timezone` (IANA hợp lệ, ≤50).
+- **Field bị bỏ qua hoàn toàn:** `email`, `role`, `status`, `is_verified`, `password_hash`, `id`, `deleted_at`. DTO không có setter cho các field này nên không thể leo thang quyền qua body.
+- **Response:** `UserProfileResponse` (id, email, full_name, phone, avatar_url, timezone, role, status, is_verified, companies).
+- **Lỗi:** `400 VALIDATION_ERROR` (sai định dạng), `400` (timezone không tồn tại, fullName rỗng), `401` (anonymous/suspended), `404 USER_NOT_FOUND`.
+
+### 6.6 Admin account management [CONFIRMED]
+
+Tiền tố `/v1/admin/**` yêu cầu `ROLE_ADMIN` (khai báo trong `SecurityConfig` trước `anyRequest()`).
+
+#### `GET /v1/admin/users`
+- **Query:** `page` (0-based, mặc định 0), `size` (1–100, mặc định 20), `role`, `status`, `keyword` (LIKE trên email/full_name).
+- **Response:** `{ content[], page, size, total_elements, total_pages }`, sắp xếp `created_at DESC`, loại bỏ bản ghi soft-delete.
+- **Lỗi:** `401` anonymous, `403` nếu không phải ADMIN.
+
+#### `PATCH|PUT /v1/admin/users/{id}/status`
+- **Body:** `{ "status": "active" | "suspended", "reason": "..." }` (`reason` ≤500, ghi vào `audit_logs.metadata`).
+- **Quy tắc an toàn:**
+  1. Admin **không thể tự khóa** chính mình → `400 SELF_SUSPEND_NOT_ALLOWED`.
+  2. Không thể khóa **admin đang hoạt động cuối cùng** → `400 LAST_ADMIN_PROTECTED`.
+  3. Idempotent: nếu trạng thái không đổi → `200`, không ghi audit.
+  4. Kích hoạt tài khoản `pending_verification` đồng thời set `is_verified = true` (nếu không, `JwtAuthenticationFilter` vẫn chặn 401 khi bật `require-email-verification`).
+  5. Mỗi thay đổi ghi `audit_logs` với `action = SUSPEND_USER | ACTIVATE_USER`, `target_type = 'user'`, `actor_id = admin`.
+- **Response:** `AdminUserSummaryResponse` (id, email, full_name, phone, role, status, is_verified, created_at, last_login_at).
+- **Hiệu lực tức thì:** không cần thu hồi token — filter đọc DB mỗi request, nên token cũ của tài khoản bị khóa nhận `401` ngay ở request kế tiếp.
+
 ## 7. Error Handling & Status Codes Summary [CONFIRMED]
 
 | HTTP Status | Error Code | Mô tả |

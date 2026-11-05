@@ -5,6 +5,7 @@ import com.matchajob.processing.repository.ProcessingJobRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
@@ -44,7 +45,12 @@ public class ProcessingJobService {
                 .updatedAt(Instant.now())
                 .build();
 
-        return jobRepository.save(job);
+        try {
+            return jobRepository.save(job);
+        } catch (DataIntegrityViolationException ex) {
+            log.warn("Concurrent job creation race detected for key {}, returning existing record", idempotencyKey);
+            return jobRepository.findByIdempotencyKey(idempotencyKey).orElseThrow(() -> ex);
+        }
     }
 
     @Transactional

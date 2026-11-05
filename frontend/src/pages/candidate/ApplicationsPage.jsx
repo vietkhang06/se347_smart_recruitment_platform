@@ -1,3 +1,5 @@
+import { IS_API } from "../../services/dataMode";
+import ApiApplications from "../../components/candidate/ApiApplications";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Container, Card, Button, Modal, Form, Badge, Alert } from "react-bootstrap";
@@ -23,7 +25,7 @@ function timeOf(a) {
 export default function ApplicationsPage() {
   const { user } = useAuth();
   if (user?.role !== "candidate") return <Container className="py-5"><Alert variant="info">Đăng nhập bằng tài khoản ứng viên để xem đơn. <Link to="/login">Đăng nhập</Link></Alert></Container>;
-  return <Workspace key={user.email} user={user} />;
+  return IS_API ? <ApiApplications key={user.id || user.email} /> : <Workspace key={user.email} user={user} />;
 }
 function Workspace({ user }) {
   const [, refresh] = useState(0);

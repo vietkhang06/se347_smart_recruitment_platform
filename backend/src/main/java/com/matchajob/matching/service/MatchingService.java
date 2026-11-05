@@ -83,114 +83,231 @@ public class MatchingService {
     public MatchResult evaluateApplicationMatch(UUID applicationId) {
         Optional<ProcessingJob> processingJob = findMatchingProcessingJob(applicationId);
         MatchResult existing = matchResultRepository.findByApplicationId(applicationId).orElse(null);
+
         if (existing != null) {
             // Reconcile a stale processing row if a result was saved before a previous interruption.
-            processingJob.filter(processingRecord -> !"COMPLETED".equalsIgnoreCase(processingRecord.getStatus()))
-                    .ifPresent(processingRecord -> processingJobService.markJobCompleted(processingRecord.getId()));
+            processingJob.filter(processingRecord ->
+                            !"COMPLETED".equalsIgnoreCase(processingRecord.getStatus()))
+                    .ifPresent(processingRecord ->
+                            processingJobService.markJobCompleted(processingRecord.getId()));
+
             return existing;
         }
 
         ApplicationEntity application = applicationRepository.findById(applicationId)
-                .orElseThrow(() -> new NoSuchElementException("Application not found: " + applicationId));
-        ApplicationCvSnapshot snapshot = applicationCvSnapshotRepository.findWithCvVersionByApplicationId(applicationId)
-                .orElseThrow(() -> new MatchNotReadyException(
-                        "CV snapshot for this application is not available yet."));
+                .orElseThrow(() ->
+                        new NoSuchElementException("Application not found: " + applicationId));
+
+        ApplicationCvSnapshot snapshot =
+                applicationCvSnapshotRepository.findWithCvVersionByApplicationId(applicationId)
+                        .orElseThrow(() -> new MatchNotReadyException(
+                                "CV snapshot for this application is not available yet."));
+
         CvVersion cv = snapshot.getCvVersion();
+
         if (cv == null || cv.getRawText() == null || cv.getRawText().isBlank()) {
             throw new MatchNotReadyException(
                     "CV extraction is not complete. Retry matching after the CV has been processed.");
         }
 
         Job job = jobRepository.findByIdAndDeletedAtIsNull(application.getJobId())
-                .orElseThrow(() -> new NoSuchElementException("Job not found: " + application.getJobId()));
+                .orElseThrow(() ->
+                        new NoSuchElementException("Job not found: " + application.getJobId()));
 
         String jobRequirements = joinNonBlank(
-                job.getRequirements(), job.getSummaryRequired(), job.getSummaryPreferred());
-        String jobDescription = joinNonBlank(job.getDescription(), job.getSummaryIndustry());
+                job.getRequirements(),
+                job.getSummaryRequired(),
+                job.getSummaryPreferred()
+        );
+
+        String jobDescription = joinNonBlank(
+                job.getDescription(),
+                job.getSummaryIndustry()
+        );
+
         List<String> candidateSkills = extractCandidateSkills(cv.getParsedData());
 
         Optional<ProcessingJob> claim = persistence.claim(applicationId);
-        if (claim.isEmpty()) return matchResultRepository.findByApplicationId(applicationId).orElseThrow();
+
+        if (claim.isEmpty()) {
+            return matchResultRepository.findByApplicationId(applicationId)
+                    .orElseThrow();
+        }
+
         try {
-            MatchScoreRequest request = MatchScoreRequest.builder().jobId(job.getId().toString()).jobTitle(job.getTitle())
-                    .jobRequirements(jobRequirements).jobDescription(jobDescription).cvText(cv.getRawText())
-                    .candidateSkills(candidateSkills).build();
+            MatchScoreRequest request = MatchScoreRequest.builder()
+                    .jobId(job.getId().toString())
+                    .jobTitle(job.getTitle())
+                    .jobRequirements(jobRequirements)
+                    .jobDescription(jobDescription)
+                    .cvText(cv.getRawText())
+                    .candidateSkills(candidateSkills)
+                    .build();
+
             MatchScoreResponse score = aiWorkerClient.calculateMatchScore(request);
+
             validateScoreResponse(score);
-            return persistence.complete(claim.get(), buildResult(applicationId, job.getId(), cv.getId(), score));
+
+            return persistence.complete(
+                    claim.get(),
+                    buildResult(applicationId, job.getId(), cv.getId(), score)
+            );
+
         } catch (RuntimeException exception) {
             boolean retryable = isRetryableMatchingError(exception);
-            persistence.fail(claim.get(), safeProcessingError(exception), retryable);
-            if (exception instanceof MatchingException matching) throw matching;
-            if (exception instanceof ResourceAccessException || exception instanceof HttpStatusCodeException)
-                throw new MatchingException(org.springframework.http.HttpStatus.BAD_GATEWAY,
-                        retryable ? "MATCHING_WORKER_UNAVAILABLE" : "MATCHING_WORKER_REJECTED",
-                        "Matching Worker could not complete this request. Reload status before retrying.", retryable, null);
-            if (exception instanceof org.springframework.web.client.RestClientException)
-                throw new MatchingException(org.springframework.http.HttpStatus.BAD_GATEWAY, "MATCHING_WORKER_SCHEMA_ERROR",
-                        "Matching Worker response could not be decoded using the agreed contract.", false, null);
-            if (exception instanceof IllegalStateException)
-                throw new MatchingException(org.springframework.http.HttpStatus.BAD_GATEWAY, "MATCHING_WORKER_SCHEMA_ERROR",
-                        "Matching Worker response does not match the agreed contract.", false, null);
+
+            persistence.fail(
+                    claim.get(),
+                    safeProcessingError(exception),
+                    retryable
+            );
+
+            if (exception instanceof MatchingException matching) {
+                throw matching;
+            }
+
+            if (exception instanceof ResourceAccessException
+                    || exception instanceof HttpStatusCodeException) {
+
+                throw new MatchingException(
+                        org.springframework.http.HttpStatus.BAD_GATEWAY,
+                        retryable
+                                ? "MATCHING_WORKER_UNAVAILABLE"
+                                : "MATCHING_WORKER_REJECTED",
+                        "Matching Worker could not complete this request. Reload status before retrying.",
+                        retryable,
+                        null
+                );
+            }
+
+            if (exception instanceof org.springframework.web.client.RestClientException) {
+                throw new MatchingException(
+                        org.springframework.http.HttpStatus.BAD_GATEWAY,
+                        "MATCHING_WORKER_SCHEMA_ERROR",
+                        "Matching Worker response could not be decoded using the agreed contract.",
+                        false,
+                        null
+                );
+            }
+
+            if (exception instanceof IllegalStateException) {
+                throw new MatchingException(
+                        org.springframework.http.HttpStatus.BAD_GATEWAY,
+                        "MATCHING_WORKER_SCHEMA_ERROR",
+                        "Matching Worker response does not match the agreed contract.",
+                        false,
+                        null
+                );
+            }
+
             throw exception;
         }
     }
 
     private Optional<ProcessingJob> findMatchingProcessingJob(UUID applicationId) {
-        return processingJobRepository.findFirstByJobTypeAndEntityTypeAndEntityIdOrderByCreatedAtDesc(
-                "APPLICATION_MATCHING", "application", applicationId);
+        return processingJobRepository
+                .findFirstByJobTypeAndEntityTypeAndEntityIdOrderByCreatedAtDesc(
+                        "APPLICATION_MATCHING",
+                        "application",
+                        applicationId
+                );
     }
 
     private String safeProcessingError(RuntimeException exception) {
-        if (exception instanceof ResourceAccessException) return "AI Worker connection failed.";
-        if (exception instanceof HttpStatusCodeException statusException) {
-            return "AI Worker returned HTTP " + statusException.getStatusCode().value() + ".";
+        if (exception instanceof ResourceAccessException) {
+            return "AI Worker connection failed.";
         }
-        return "Matching evaluation failed (" + exception.getClass().getSimpleName() + ").";
+
+        if (exception instanceof HttpStatusCodeException statusException) {
+            return "AI Worker returned HTTP "
+                    + statusException.getStatusCode().value() + ".";
+        }
+
+        return "Matching evaluation failed ("
+                + exception.getClass().getSimpleName() + ").";
     }
 
     private boolean isRetryableMatchingError(RuntimeException exception) {
-        if (exception instanceof ResourceAccessException) return true;
+        if (exception instanceof ResourceAccessException) {
+            return true;
+        }
+
         return exception instanceof HttpStatusCodeException statusException
-                && (statusException.getStatusCode().is5xxServerError() || statusException.getStatusCode().value() == 429);
+                && (statusException.getStatusCode().is5xxServerError()
+                || statusException.getStatusCode().value() == 429);
     }
 
-    /** Returns a result when complete, otherwise a stable processing-state DTO. */
+    /**
+     * Returns a result when complete, otherwise a stable processing-state DTO.
+     */
     public MatchingResultResponse getMatchResultStatus(UUID applicationId) {
         ApplicationEntity application = applicationRepository.findById(applicationId)
-                .orElseThrow(() -> new NoSuchElementException("Application not found: " + applicationId));
+                .orElseThrow(() ->
+                        new NoSuchElementException("Application not found: " + applicationId));
 
-        Optional<MatchResult> result = matchResultRepository.findByApplicationId(applicationId);
+        Optional<MatchResult> result =
+                matchResultRepository.findByApplicationId(applicationId);
+
         if (result.isPresent()) {
             return matchingResultMapper.fromEntity(result.get());
         }
 
-        Optional<ProcessingJob> processingJob = findMatchingProcessingJob(applicationId);
+        Optional<ProcessingJob> processingJob =
+                findMatchingProcessingJob(applicationId);
+
         // An abandoned synchronous attempt becomes retryable after its lease expires.
-        boolean expired = processingJob.filter(j -> "PROCESSING".equals(j.getStatus()) && j.getLeaseExpiresAt() != null
-                && !j.getLeaseExpiresAt().isAfter(Instant.now())).isPresent();
-        String processingStatus = processingJob.map(ProcessingJob::getStatus)
+        boolean expired = processingJob.filter(j ->
+                "PROCESSING".equals(j.getStatus())
+                        && j.getLeaseExpiresAt() != null
+                        && !j.getLeaseExpiresAt().isAfter(Instant.now())
+        ).isPresent();
+
+        String processingStatus = processingJob
+                .map(ProcessingJob::getStatus)
                 .filter(statusValue -> statusValue != null)
                 .orElse("NOT_STARTED");
-        String status = switch ((expired ? "PENDING" : processingStatus).toUpperCase(Locale.ROOT)) {
+
+        String status = switch (
+                (expired ? "PENDING" : processingStatus).toUpperCase(Locale.ROOT)
+        ) {
             case "PENDING" -> "PENDING";
             case "PROCESSING" -> "PROCESSING";
             case "FAILED" -> "FAILED";
-            case "COMPLETED" -> "FAILED"; // A completed job without a result is inconsistent; surface a safe error state.
+            case "COMPLETED" -> "FAILED";
             default -> "NOT_STARTED";
         };
-        boolean attemptsLeft = processingJob.map(j -> j.getAttemptCount() < j.getMaxAttempts()).orElse(true);
-        if (expired && !attemptsLeft) status = "FAILED";
+
+        boolean attemptsLeft = processingJob
+                .map(j -> j.getAttemptCount() < j.getMaxAttempts())
+                .orElse(true);
+
+        if (expired && !attemptsLeft) {
+            status = "FAILED";
+        }
+
         String message = switch (status) {
-            case "PENDING" -> "Matching has been queued and is waiting to be processed.";
-            case "PROCESSING" -> "Matching is currently being processed.";
-            case "FAILED" -> "Matching has no saved result. Check processing status and retry when available.";
-            default -> "No matching result is available for this application yet.";
+            case "PENDING" ->
+                    "Matching has been queued and is waiting to be processed.";
+
+            case "PROCESSING" ->
+                    "Matching is currently being processed.";
+
+            case "FAILED" ->
+                    "Matching has no saved result. Check processing status and retry when available.";
+
+            default ->
+                    "No matching result is available for this application yet.";
         };
 
-        UUID cvVersionId = applicationCvSnapshotRepository.findWithCvVersionByApplicationId(applicationId)
-                .map(snapshot -> snapshot.getCvVersion() == null ? null : snapshot.getCvVersion().getId())
+        UUID cvVersionId = applicationCvSnapshotRepository
+                .findWithCvVersionByApplicationId(applicationId)
+                .map(snapshot ->
+                        snapshot.getCvVersion() == null
+                                ? null
+                                : snapshot.getCvVersion().getId()
+                )
                 .orElse(null);
+
         return MatchingResultResponse.builder()
                 .applicationId(application.getId())
                 .jobId(application.getJobId())
@@ -204,12 +321,25 @@ public class MatchingService {
                 .missingSkills(List.of())
                 .breakdown(Map.of())
                 .explanation(null)
-                .processingJobId(processingJob.map(ProcessingJob::getId).orElse(null))
+                .processingJobId(
+                        processingJob.map(ProcessingJob::getId).orElse(null)
+                )
                 .evaluatedAt(null)
-                .retryable(("NOT_STARTED".equals(status) || "PENDING".equals(status)) && attemptsLeft)
-                .retryAfter("PENDING".equals(status) ? processingJob.map(ProcessingJob::getRetryAfter).orElse(null) : null)
-                .attemptCount(processingJob.map(ProcessingJob::getAttemptCount).orElse(null))
-                .maxAttempts(processingJob.map(ProcessingJob::getMaxAttempts).orElse(null))
+                .retryable(
+                        ("NOT_STARTED".equals(status) || "PENDING".equals(status))
+                                && attemptsLeft
+                )
+                .retryAfter(
+                        "PENDING".equals(status)
+                                ? processingJob.map(ProcessingJob::getRetryAfter).orElse(null)
+                                : null
+                )
+                .attemptCount(
+                        processingJob.map(ProcessingJob::getAttemptCount).orElse(null)
+                )
+                .maxAttempts(
+                        processingJob.map(ProcessingJob::getMaxAttempts).orElse(null)
+                )
                 .message(message)
                 .build();
     }
@@ -220,34 +350,60 @@ public class MatchingService {
 
     private String joinNonBlank(String... parts) {
         List<String> values = new ArrayList<>();
+
         for (String part : parts) {
-            if (part != null && !part.isBlank()) values.add(part.trim());
+            if (part != null && !part.isBlank()) {
+                values.add(part.trim());
+            }
         }
+
         return String.join("\n\n", values);
     }
 
     private List<String> extractCandidateSkills(String parsedData) {
-        if (parsedData == null || parsedData.isBlank()) return List.of();
+        if (parsedData == null || parsedData.isBlank()) {
+            return List.of();
+        }
+
         try {
             var root = objectMapper.readTree(parsedData);
             var skillNode = root.path("skills");
+
             if (skillNode.isArray()) {
                 List<String> skills = new ArrayList<>();
+
                 skillNode.forEach(item -> {
-                    String value = item.isTextual() ? item.asText() : item.path("name").asText("");
-                    if (!value.isBlank()) skills.add(value.trim());
+                    String value = item.isTextual()
+                            ? item.asText()
+                            : item.path("name").asText("");
+
+                    if (!value.isBlank()) {
+                        skills.add(value.trim());
+                    }
                 });
+
                 return skills.stream().distinct().toList();
             }
+
         } catch (Exception ex) {
-            log.warn("Could not parse extracted CV skills; matching will use CV text only.");
+            log.warn(
+                    "Could not parse extracted CV skills; matching will use CV text only."
+            );
         }
+
         return List.of();
     }
 
     public static class MatchNotReadyException extends MatchingException {
+
         public MatchNotReadyException(String message) {
-            super(org.springframework.http.HttpStatus.CONFLICT, "MATCHING_NOT_READY", message, true, null);
+            super(
+                    org.springframework.http.HttpStatus.CONFLICT,
+                    "MATCHING_NOT_READY",
+                    message,
+                    true,
+                    null
+            );
         }
     }
 
@@ -259,42 +415,77 @@ public class MatchingService {
             String jobRequirements,
             String jobDescription) {
 
-        Optional<MatchResult> existing = matchResultRepository.findByApplicationId(applicationId);
+        Optional<MatchResult> existing =
+                matchResultRepository.findByApplicationId(applicationId);
+
         if (existing.isPresent()) {
-            log.info("Match result already exists for application: {}", applicationId);
+            log.info(
+                    "Match result already exists for application: {}",
+                    applicationId
+            );
+
             return existing.get();
         }
 
         CvVersion cv = cvVersionRepository.findById(cvVersionId)
-                .orElseThrow(() -> new IllegalArgumentException("CvVersion not found: " + cvVersionId));
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "CvVersion not found: " + cvVersionId
+                        ));
 
         String cvText = cv.getRawText();
-        java.util.List<String> skills = new java.util.ArrayList<>();
+
+        List<String> skills = new ArrayList<>();
+
         if (cv.getParsedData() != null) {
             try {
                 var jsonNode = objectMapper.readTree(cv.getParsedData());
+
                 if (jsonNode.has("skills") && jsonNode.get("skills").isArray()) {
                     for (var item : jsonNode.get("skills")) {
                         skills.add(item.asText());
                     }
                 }
+
             } catch (Exception ignored) {
+                // Legacy compatibility path: use CV raw text if parsed skills are unavailable.
             }
         }
 
-        return evaluateMatch(applicationId, jobId, cvVersionId, jobTitle, jobRequirements,
-                jobDescription, cvText, skills);
+        return evaluateMatch(
+                applicationId,
+                jobId,
+                cvVersionId,
+                jobTitle,
+                jobRequirements,
+                jobDescription,
+                cvText,
+                skills
+        );
     }
 
     private MatchResult evaluateMatch(
-            UUID applicationId, UUID jobId, UUID cvVersionId, String jobTitle,
-            String jobRequirements, String jobDescription, String cvText, List<String> skills) {
+            UUID applicationId,
+            UUID jobId,
+            UUID cvVersionId,
+            String jobTitle,
+            String jobRequirements,
+            String jobDescription,
+            String cvText,
+            List<String> skills) {
+
         if (jobId == null) {
-            throw new IllegalArgumentException("Job ID is required for matching.");
+            throw new IllegalArgumentException(
+                    "Job ID is required for matching."
+            );
         }
+
         if (cvText == null || cvText.isBlank()) {
-            throw new MatchNotReadyException("CV text is not ready for matching.");
+            throw new MatchNotReadyException(
+                    "CV text is not ready for matching."
+            );
         }
+
         MatchScoreRequest request = MatchScoreRequest.builder()
                 .jobId(jobId.toString())
                 .jobTitle(jobTitle)
@@ -305,9 +496,17 @@ public class MatchingService {
                 .build();
 
         // Never hold a database transaction while calling the AI Worker.
-        MatchScoreResponse scoreResponse = aiWorkerClient.calculateMatchScore(request);
+        MatchScoreResponse scoreResponse =
+                aiWorkerClient.calculateMatchScore(request);
+
         validateScoreResponse(scoreResponse);
-        return saveMatchResultTransaction(applicationId, jobId, cvVersionId, scoreResponse);
+
+        return saveMatchResultTransaction(
+                applicationId,
+                jobId,
+                cvVersionId,
+                scoreResponse
+        );
     }
 
     @Transactional
@@ -318,30 +517,98 @@ public class MatchingService {
             MatchScoreResponse scoreResponse) {
 
         validateScoreResponse(scoreResponse);
-        return matchResultRepository.save(buildResult(applicationId, jobId, cvVersionId, scoreResponse));
+
+        MatchResult result = matchResultRepository
+                .findByApplicationId(applicationId)
+                .orElseGet(() -> MatchResult.builder()
+                        .applicationId(applicationId)
+                        .createdAt(Instant.now().truncatedTo(
+                                java.time.temporal.ChronoUnit.MICROS))
+                        .build());
+
+        result.setJobId(
+                java.util.Objects.requireNonNull(jobId, "Job ID is required for matching")
+        );
+        result.setCvVersionId(cvVersionId);
+        result.setOverallScore(scoreResponse.getOverallScore().shortValue());
+        result.setSkillsScore(
+                scoreResponse.getSkillsScore() == null
+                        ? null
+                        : scoreResponse.getSkillsScore().shortValue()
+        );
+        result.setExperienceScore(
+                scoreResponse.getExperienceScore() == null
+                        ? null
+                        : scoreResponse.getExperienceScore().shortValue()
+        );
+        result.setBreakdown(
+                matchingResultMapper.serializeBreakdown(scoreResponse)
+        );
+        result.setRationale(scoreResponse.getRationale());
+
+        return matchResultRepository.save(result);
     }
 
-    private MatchResult buildResult(UUID applicationId, UUID jobId, UUID cvVersionId, MatchScoreResponse scoreResponse) {
-        return MatchResult.builder().applicationId(applicationId).jobId(jobId).cvVersionId(cvVersionId)
+    private MatchResult buildResult(
+            UUID applicationId,
+            UUID jobId,
+            UUID cvVersionId,
+            MatchScoreResponse scoreResponse) {
+
+        return MatchResult.builder()
+                .applicationId(applicationId)
+                .jobId(jobId)
+                .cvVersionId(cvVersionId)
                 .overallScore(scoreResponse.getOverallScore().shortValue())
-                .skillsScore(scoreResponse.getSkillsScore() == null ? null : scoreResponse.getSkillsScore().shortValue())
-                .experienceScore(scoreResponse.getExperienceScore() == null ? null : scoreResponse.getExperienceScore().shortValue())
-                .breakdown(matchingResultMapper.serializeBreakdown(scoreResponse)).rationale(scoreResponse.getRationale())
-                .createdAt(Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MICROS)).build();
+                .skillsScore(
+                        scoreResponse.getSkillsScore() == null
+                                ? null
+                                : scoreResponse.getSkillsScore().shortValue()
+                )
+                .experienceScore(
+                        scoreResponse.getExperienceScore() == null
+                                ? null
+                                : scoreResponse.getExperienceScore().shortValue()
+                )
+                .breakdown(
+                        matchingResultMapper.serializeBreakdown(scoreResponse)
+                )
+                .rationale(scoreResponse.getRationale())
+                .createdAt(
+                        Instant.now().truncatedTo(
+                                java.time.temporal.ChronoUnit.MICROS
+                        )
+                )
+                .build();
     }
 
     private void validateScoreResponse(MatchScoreResponse response) {
-        if (response == null || response.getOverallScore() == null
-                || response.getOverallScore() < 0 || response.getOverallScore() > 100) {
-            throw new IllegalStateException("AI Worker returned an invalid overall matching score.");
+        if (response == null
+                || response.getOverallScore() == null
+                || response.getOverallScore() < 0
+                || response.getOverallScore() > 100) {
+
+            throw new IllegalStateException(
+                    "AI Worker returned an invalid overall matching score."
+            );
         }
+
         if (response.getSkillsScore() != null
-                && (response.getSkillsScore() < 0 || response.getSkillsScore() > 100)) {
-            throw new IllegalStateException("AI Worker returned an invalid skills score.");
+                && (response.getSkillsScore() < 0
+                || response.getSkillsScore() > 100)) {
+
+            throw new IllegalStateException(
+                    "AI Worker returned an invalid skills score."
+            );
         }
+
         if (response.getExperienceScore() != null
-                && (response.getExperienceScore() < 0 || response.getExperienceScore() > 100)) {
-            throw new IllegalStateException("AI Worker returned an invalid experience score.");
+                && (response.getExperienceScore() < 0
+                || response.getExperienceScore() > 100)) {
+
+            throw new IllegalStateException(
+                    "AI Worker returned an invalid experience score."
+            );
         }
     }
 

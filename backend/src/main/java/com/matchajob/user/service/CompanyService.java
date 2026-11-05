@@ -3,10 +3,12 @@ package com.matchajob.user.service;
 import com.matchajob.auth.exception.AccountSuspendedException;
 import com.matchajob.security.ResourceOwnershipService;
 import com.matchajob.user.dto.CompanyResponse;
+import com.matchajob.user.dto.CompanySummaryResponse;
 import com.matchajob.user.dto.CreateCompanyRequest;
 import com.matchajob.user.dto.UpdateCompanyRequest;
 import com.matchajob.user.exception.DuplicateTaxCodeException;
 import com.matchajob.user.exception.EmployerRoleRequiredException;
+import com.matchajob.user.exception.UserNotAuthenticatedException;
 import com.matchajob.user.exception.UserNotFoundException;
 import com.matchajob.user.model.Company;
 import com.matchajob.user.model.CompanyMember;
@@ -83,6 +85,19 @@ public class CompanyService {
         return getCompanyById(companyId);
     }
 
+    /**
+     * Lists every active company the employer owns or is a member of.
+     * Scoped strictly to the authenticated user — no client-supplied owner filter.
+     */
+    @Transactional(readOnly = true)
+    public List<CompanySummaryResponse> getEmployerCompanies(UUID userId) {
+        if (userId == null) {
+            throw new UserNotAuthenticatedException("Full authentication is required to access this resource");
+        }
+        List<CompanySummaryResponse> summaries = companyMemberRepository.findActiveCompanySummariesByUserId(userId);
+        return summaries != null ? summaries : List.of();
+    }
+
     @Transactional(rollbackFor = Exception.class)
     public CompanyResponse updateCompany(UUID userId, UUID companyId, UpdateCompanyRequest request) {
         if (companyId == null) {
@@ -92,9 +107,11 @@ public class CompanyService {
             throw new IllegalArgumentException("Update payload cannot be null");
         }
 
-        if (userId != null) {
-            resourceOwnershipService.checkEmployerCompanyOwnership(userId, companyId);
+        // Ownership is mandatory: a null principal must never bypass the tenant check.
+        if (userId == null) {
+            throw new UserNotAuthenticatedException("Full authentication is required to access this resource");
         }
+        resourceOwnershipService.checkEmployerCompanyOwnership(userId, companyId);
 
         Company company = companyRepository.findById(companyId)
                 .orElseThrow(() -> new IllegalArgumentException("Company not found with id: " + companyId));
