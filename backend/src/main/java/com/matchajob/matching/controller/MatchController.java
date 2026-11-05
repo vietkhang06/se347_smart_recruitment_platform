@@ -4,6 +4,7 @@ import com.matchajob.matching.dto.MatchingResultResponse;
 import com.matchajob.matching.model.MatchResult;
 import com.matchajob.matching.service.MatchingResultMapper;
 import com.matchajob.matching.service.MatchingService;
+import com.matchajob.matching.service.MatchingException;
 import com.matchajob.security.ResourceOwnershipService;
 import com.matchajob.security.SecurityUtils;
 import io.swagger.v3.oas.annotations.Operation;
@@ -68,7 +69,8 @@ public class MatchController {
                     @ApiResponse(responseCode = "403", description = "User cannot access this application"),
                     @ApiResponse(responseCode = "404", description = "Application or Job not found"),
                     @ApiResponse(responseCode = "409", description = "CV is not ready or a retry is blocked by processing state/backoff"),
-                    @ApiResponse(responseCode = "500", description = "Matching provider failed or returned an invalid response")
+                    @ApiResponse(responseCode = "502", description = "Worker unavailable or invalid Worker response"),
+                    @ApiResponse(responseCode = "500", description = "Unexpected matching error")
             })
     public ResponseEntity<MatchingResultResponse> triggerMatch(
             @Parameter(description = "Application ID whose saved CV snapshot is evaluated")
@@ -108,13 +110,15 @@ public class MatchController {
         return ResponseEntity.ok(matchingService.getMatchResultStatus(applicationId));
     }
 
-    @ExceptionHandler(MatchingService.MatchNotReadyException.class)
-    public ResponseEntity<ProblemDetail> handleMatchingNotReady(MatchingService.MatchNotReadyException exception) {
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, exception.getMessage());
-        problem.setTitle("Matching Not Ready");
-        problem.setType(URI.create("https://matchajob.com/errors/matching-not-ready"));
-        problem.setProperty("code", "MATCHING_NOT_READY");
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(problem);
+    @ExceptionHandler(MatchingException.class)
+    public ResponseEntity<ProblemDetail> handleMatchingError(MatchingException exception) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(exception.getStatus(), exception.getMessage());
+        problem.setTitle("Matching request could not complete");
+        problem.setType(URI.create("https://matchajob.com/errors/" + exception.getCode().toLowerCase().replace('_', '-')));
+        problem.setProperty("code", exception.getCode());
+        problem.setProperty("retryable", exception.isRetryable());
+        problem.setProperty("retryAfter", exception.getRetryAfter());
+        return ResponseEntity.status(exception.getStatus()).contentType(org.springframework.http.MediaType.APPLICATION_PROBLEM_JSON).body(problem);
     }
 
     private void checkApplicationAccess(UUID applicationId, Authentication authentication) {

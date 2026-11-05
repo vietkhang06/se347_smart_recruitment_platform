@@ -114,7 +114,7 @@ export default function OverviewView({ employerData, onOpenComposer, onOpenCandi
                       <span className="text-muted" style={{ fontSize: "11px" }}>{c.role}</span>
                     </div>
                   </div>
-                  <Badge bg="success" className="bg-opacity-10 text-success">{c.match}%</Badge>
+                  <Badge bg="success" className="bg-opacity-10 text-success">{c.match == null ? "Chưa có điểm" : `${c.match}%`}</Badge>
                 </div>
                 <div className="d-flex flex-wrap gap-1 mb-2">
                   {c.skills.map((s) => (

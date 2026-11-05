@@ -1,0 +1,34 @@
+# Development/test acceptance only. No database volume is deleted by this overlay.
+services:
+  backend:
+    environment:
+      - MATCHAJOB_CV_PROCESSING_ENABLED=false
+      - REQUIRE_EMAIL_VERIFICATION=false
+
+  backend-matching-failure:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: matchajob-backend-matching-failure
+    restart: "no"
+    ports:
+      - "${MATCHING_FAILURE_HOST_PORT:-18082}:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+      - BACKEND_CONTAINER_PORT=8080
+      - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL:-jdbc:postgresql://database:5432/matchajob_db}
+      - SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME:-matchajob_user}
+      - SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD:-matchajob_password}
+      - AI_WORKER_BASE_URL=http://127.0.0.1:9
+      - MATCHAJOB_CV_PROCESSING_ENABLED=false
+      - MATCHAJOB_UPLOAD_DIR=/data/cv
+      - REQUIRE_EMAIL_VERIFICATION=false
+      - JWT_SECRET=${JWT_SECRET:-dGhpc19pc19hX3Zlcnlfc2VjdXJlX2p3dF9zZWNyZXRfa2V5X2Zvcl9tYXRjaGFqb2JfZGV2XzIwMjY=}
+      - JWT_EXPIRATION_MS=${JWT_EXPIRATION_MS:-3600000}
+    volumes:
+      - cv_storage:/data/cv
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - matchajob_network

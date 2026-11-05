@@ -5,7 +5,8 @@ import { formatDate } from "./jobMapper";
 /**
  * Xác định phân loại điểm số AI
  */
-export function determineScoreLevel(score = 0) {
+export function determineScoreLevel(score = null) {
+  if (score === null) return { level: "pending", label: "Chưa có điểm", badgeClass: "badge-secondary" };
   if (score >= 85) return { level: "excellent", label: "Rất phù hợp", badgeClass: "badge-success bg-success" };
   if (score >= 70) return { level: "good", label: "Phù hợp", badgeClass: "badge-info bg-info text-dark" };
   if (score >= 50) return { level: "average", label: "Cân nhắc", badgeClass: "badge-warning bg-warning text-dark" };
@@ -18,7 +19,7 @@ export function determineScoreLevel(score = 0) {
 export function toRankingViewModel(item) {
   if (!item) return createDefaultRankingItem();
 
-  const overallScore = Number(item.overallScore ?? item.match ?? 0);
+  const overallScore = item.overallScore ?? item.match ?? null;
   const scoreInfo = determineScoreLevel(overallScore);
 
   let stageCode = (item.stage || "new").toLowerCase();
@@ -38,9 +39,9 @@ export function toRankingViewModel(item) {
     stage: stageMeta.text,
     stageCode,
     overallScore,
-    skillsScore: Number(item.skillsScore ?? 0),
-    experienceScore: Number(item.experienceScore ?? 0),
-    rationale: item.rationale || "Ứng viên sở hữu các kỹ năng phù hợp với yêu cầu vị trí tuyển dụng.",
+    skillsScore: item.skillsScore ?? null,
+    experienceScore: item.experienceScore ?? null,
+    rationale: item.rationale || "Chưa có giải thích từ Worker.",
     scoreLevel: scoreInfo.level,
     scoreLabel: scoreInfo.label,
     badgeClass: scoreInfo.badgeClass,

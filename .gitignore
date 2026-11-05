@@ -98,3 +98,9 @@ scratch/
 !docs/ERD_v2.md
 !docs/Auth_API_Contract_v2.md
 !docs/Implementation_Checklist_Batch_3.md
+
+# Matching task validation artifacts
+.venv-matching/
+.matching-evidence/
+matching-live-evidence/
+!docs/MATCHING_TASK_COPY_GUIDE_VI.md

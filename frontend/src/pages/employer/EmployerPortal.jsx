@@ -119,6 +119,7 @@ function EmployerWorkspace({ companyId }) {
       if (result.status === "fulfilled" && (index === 0 ? result.value?.name : Array.isArray(result.value))) {
         setters[index](result.value);
       } else {
+        if (index === 2) setCandidates([]);
         errors.push(`Không tải được ${labels[index]}: ${result.status === "rejected" ? result.reason?.message || "Lỗi tải dữ liệu" : "Dữ liệu không hợp lệ"}`);
       }
     });
@@ -473,6 +474,13 @@ function EmployerWorkspace({ companyId }) {
       />
 
       <CandidateDetailModal
+        onMatchingCompleted={result => {
+          const patch = item => String(item.applicationId || item.id) === result.applicationId
+            ? { ...item, match: result.overallScore, matchScore: result.overallScore, skillsScore: result.skillsScore, experienceScore: result.experienceScore, matchRationale: result.explanation }
+            : item;
+          setCandidates(items => items.map(patch));
+          setSelectedCandidate(item => item ? patch(item) : item);
+        }}
         candidate={selectedCandidate}
         show={showCandidateModal}
         onHide={() => setShowCandidateModal(false)}

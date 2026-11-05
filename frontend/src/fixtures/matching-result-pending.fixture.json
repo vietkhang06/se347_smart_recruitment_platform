@@ -13,5 +13,9 @@
   "explanation": null,
   "processingJobId": "99999999-9999-4999-8999-999999999999",
   "evaluatedAt": null,
-  "message": "Fixture demo: matching is queued and waiting to be processed."
+  "message": "Fixture demo: matching is queued and waiting to be processed.",
+  "retryable": true,
+  "retryAfter": null,
+  "attemptCount": 0,
+  "maxAttempts": 3
 }

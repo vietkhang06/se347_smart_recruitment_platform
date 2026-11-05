@@ -1,11 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  Modal, Button, Badge, Row, Col, Form, Alert
+  Modal, Button, Row, Col, Form, Alert
 } from "react-bootstrap";
 import { STAGES_PIPELINE } from "../../../mock";
 import { mockStore } from "../../../services/mockStore";
 import { applicationService } from "../../../services";
-import { apiApplicationService } from "../../../services/api/apiApplicationService";
+import { IS_API } from "../../../services/dataMode";
+import MatchingResultPanel from "../../../components/matching/MatchingResultPanel";
 
 export default function CandidateDetailModal({
   candidate: supplied,
@@ -13,7 +14,8 @@ export default function CandidateDetailModal({
   onHide,
   onInviteInterview,
   onStageChange,
-  onRejectCandidate
+  onRejectCandidate,
+  onMatchingCompleted
 }) {
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
@@ -21,22 +23,16 @@ export default function CandidateDetailModal({
   const [saving, setSaving] = useState(false);
   const [busy, setBusy] = useState(false);
   const [history, setHistory] = useState([]);
-  const [matchingResultValue, setMatchingResultValue] = useState(null);
-  const [matchingResultApplicationId, setMatchingResultApplicationId] = useState(null);
-  const [matchingLoading, setMatchingLoading] = useState(false);
-  const [matchingError, setMatchingError] = useState("");
-  const matchingRequestRef = useRef(0);
-
   const suppliedApplicationId = supplied?.applicationId
     || (supplied?.candidateId && supplied?.id ? supplied.id : null);
   const suppliedCandidateId = supplied?.candidateId || supplied?.id;
   const candidate = supplied && {
-    ...(mockStore.getCandidates().find(
+    ...(!IS_API && mockStore.getCandidates().find(
       item => String(item.id) === String(suppliedCandidateId)
     ) || {}),
     ...supplied
   };
-  const mockApplication = supplied && mockStore.getApplications().find(item => {
+  const mockApplication = !IS_API && supplied && mockStore.getApplications().find(item => {
     if (suppliedApplicationId && String(item.applicationId || item.id) === String(suppliedApplicationId)) {
       return true;
     }
@@ -49,91 +45,15 @@ export default function CandidateDetailModal({
     || mockApplication?.applicationId
     || mockApplication?.id
     || candidate?.applicationId;
-  const matchingResult = matchingResultApplicationId === matchingApplicationId
-    ? matchingResultValue
-    : null;
-
   useEffect(() => {
-    setRejecting(false);
-    setReason("");
-    setError("");
-    setHistory([]);
-    setMatchingResultValue(null);
-    setMatchingResultApplicationId(null);
-    setMatchingError("");
-    setMatchingLoading(false);
-    const requestId = ++matchingRequestRef.current;
-    if (!show) return () => { matchingRequestRef.current += 1; };
-
+    setRejecting(false); setReason(""); setError(""); setHistory([]);
+    if (!show || !matchingApplicationId) return;
     let active = true;
-    if (!matchingApplicationId) {
-      setMatchingError("Không xác định được Application ID cho hồ sơ này.");
-    } else {
-      setMatchingLoading(true);
-      apiApplicationService.getMatchingResult(matchingApplicationId)
-        .then(result => {
-          if (active && matchingRequestRef.current === requestId) {
-            setMatchingResultValue(result);
-            setMatchingResultApplicationId(matchingApplicationId);
-            if (result?.status === "ERROR") {
-              setMatchingError(result.message || "Không thể tải kết quả đối sánh CV–JD.");
-            }
-          }
-        })
-        .catch(err => {
-          if (active && matchingRequestRef.current === requestId) {
-            setMatchingError(err?.message || "Không thể tải kết quả đối sánh CV–JD.");
-          }
-        })
-        .finally(() => {
-          if (active && matchingRequestRef.current === requestId) setMatchingLoading(false);
-        });
-    }
-
-    if (matchingApplicationId) {
-      applicationService.getApplicationHistory(matchingApplicationId)
-        .then(items => {
-          if (active && matchingRequestRef.current === requestId) {
-            setHistory(Array.isArray(items) ? items : []);
-          }
-        })
-        .catch(() => {
-          if (active && matchingRequestRef.current === requestId) setHistory([]);
-        });
-    }
-
-    return () => {
-      active = false;
-      if (matchingRequestRef.current === requestId) matchingRequestRef.current += 1;
-    };
+    applicationService.getApplicationHistory(matchingApplicationId)
+      .then(items => { if (active) setHistory(items); })
+      .catch(() => { if (active) setHistory([]); });
+    return () => { active = false; };
   }, [show, matchingApplicationId]);
-
-  const loadMatchingResult = async (trigger = false) => {
-    if (!matchingApplicationId) {
-      setMatchingError("Không xác định được Application ID cho hồ sơ này.");
-      return;
-    }
-    const requestId = ++matchingRequestRef.current;
-    setMatchingLoading(true);
-    setMatchingError("");
-    try {
-      const result = trigger
-        ? await apiApplicationService.triggerMatchingEvaluation(matchingApplicationId)
-        : await apiApplicationService.getMatchingResult(matchingApplicationId);
-      if (matchingRequestRef.current !== requestId) return;
-      setMatchingResultValue(result);
-      setMatchingResultApplicationId(matchingApplicationId);
-      if (result?.status === "ERROR") {
-        setMatchingError(result.message || "Không thể tải kết quả đối sánh CV–JD.");
-      }
-    } catch (err) {
-      if (matchingRequestRef.current === requestId) {
-        setMatchingError(err?.message || "Không thể tải kết quả đối sánh CV–JD.");
-      }
-    } finally {
-      if (matchingRequestRef.current === requestId) setMatchingLoading(false);
-    }
-  };
 
   if (!candidate) {
     return (
@@ -158,22 +78,6 @@ export default function CandidateDetailModal({
 
   const displayName = candidate.name || candidate.candidateName || "Ứng viên";
   const displayRole = candidate.appliedJobTitle || candidate.role || candidate.candidateRole || "Chưa cập nhật";
-  const matchingStatus = matchingResult?.status || (matchingError ? "ERROR" : "NOT_STARTED");
-  const matchingStatusLabel = ({
-    COMPLETED: "Hoàn tất",
-    PENDING: "Đang chờ xử lý",
-    PROCESSING: "Đang xử lý",
-    FAILED: "Xử lý thất bại",
-    NOT_STARTED: "Chưa có kết quả",
-    ERROR: "Không tải được kết quả"
-  })[matchingStatus] || matchingStatus;
-  const matchingCriteria = Object.entries(matchingResult?.criteriaScores || {});
-  if (!matchingCriteria.length && matchingResult?.status === "COMPLETED") {
-    if (matchingResult.skillsScore != null) matchingCriteria.push(["skills", matchingResult.skillsScore]);
-    if (matchingResult.experienceScore != null) matchingCriteria.push(["experience", matchingResult.experienceScore]);
-  }
-  const scoreText = value => value == null ? "—" : `${value}/100`;
-
   async function changeStage(value) {
     if (saving || closed) return;
     if (/từ chối|không phù hợp/i.test(value)) { setRejecting(true); return; }
@@ -249,22 +153,6 @@ export default function CandidateDetailModal({
 
         <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 border rounded p-3 mb-3 bg-surface-2">
           <div className="d-flex align-items-center gap-2">
-            <span className="text-muted small">Đối chiếu CV–JD:</span>
-            <Badge bg={matchingStatus === "COMPLETED" ? "success" : matchingStatus === "FAILED" || matchingStatus === "ERROR" ? "danger" : "secondary"}>
-              {matchingStatusLabel}
-            </Badge>
-          </div>
-          <div className="d-flex align-items-center gap-2">
-            {(matchingStatus !== "COMPLETED" || matchingResult?.source === "FIXTURE") && (
-              <Button size="sm" variant="success" disabled={matchingLoading || !matchingApplicationId} onClick={() => loadMatchingResult(true)}>
-                {matchingLoading ? "Đang xử lý…" : "Chạy đối sánh"}
-              </Button>
-            )}
-            <Button size="sm" variant="outline-secondary" disabled={matchingLoading || !matchingApplicationId} onClick={() => loadMatchingResult(false)}>
-              {matchingLoading ? "Đang tải…" : "Tải lại"}
-            </Button>
-          </div>
-          <div className="d-flex align-items-center gap-2">
             <span className="text-muted small">Giai đoạn:</span>
             <Form.Select
               style={{ width: "auto" }}
@@ -282,95 +170,7 @@ export default function CandidateDetailModal({
           </div>
         </div>
 
-        <section className="border rounded p-3 mb-4" aria-labelledby="matching-detail-title">
-          <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-            <div>
-              <h6 id="matching-detail-title" className="fw-bold mb-1">Chi tiết đối sánh CV–JD</h6>
-              <small className="text-muted">Kết quả theo Application và CV snapshot đã nộp</small>
-            </div>
-            <span className="small text-muted">ID hồ sơ: {matchingApplicationId || "Chưa xác định"}</span>
-          </div>
-
-          {matchingResult?.source === "FIXTURE" && (
-            <Alert variant="info" className="small mb-3">
-              Fixture minh họa: các điểm và kỹ năng bên dưới không phải kết quả AI của ứng viên hiện tại.
-            </Alert>
-          )}
-          {matchingError && <Alert variant="danger" className="small">{matchingError}</Alert>}
-          {matchingLoading && <div className="text-muted small mb-3" role="status">Đang tải kết quả matching…</div>}
-
-          {matchingResult?.status === "COMPLETED" ? (
-            <>
-              <Row className="g-2 mb-3">
-                {[
-                  ["Điểm tổng", matchingResult.overallScore],
-                  ["Kỹ năng", matchingResult.skillsScore],
-                  ["Kinh nghiệm", matchingResult.experienceScore]
-                ].map(([label, value]) => (
-                  <Col xs={12} sm={4} key={label}>
-                    <div className="rounded p-3 h-100 bg-surface-2">
-                      <small className="text-muted d-block">{label}</small>
-                      <strong className="fs-5">{scoreText(value)}</strong>
-                    </div>
-                  </Col>
-                ))}
-              </Row>
-
-              <div className="mb-3">
-                <strong className="small d-block mb-2">Điểm theo tiêu chí</strong>
-                {matchingCriteria.length ? matchingCriteria.map(([criterion, value]) => {
-                  const numericValue = Number(value);
-                  const validScore = Number.isFinite(numericValue) && numericValue >= 0 && numericValue <= 100;
-                  return (
-                    <div className="mb-2" key={criterion}>
-                      <div className="d-flex justify-content-between small mb-1">
-                        <span>{criterion}</span><span>{scoreText(validScore ? numericValue : null)}</span>
-                      </div>
-                      <div className="progress" role="progressbar" aria-label={`Điểm ${criterion}`} aria-valuenow={validScore ? numericValue : 0} aria-valuemin="0" aria-valuemax="100" style={{ height: 7 }}>
-                        <div className="progress-bar bg-success" style={{ width: `${validScore ? numericValue : 0}%` }} />
-                      </div>
-                    </div>
-                  );
-                }) : <small className="text-muted">Không có điểm tiêu chí trong kết quả.</small>}
-              </div>
-
-              <div className="mb-3">
-                <strong className="small d-block mb-2">Kỹ năng khớp ({matchingResult.matchedSkills?.length || 0})</strong>
-                <div className="d-flex flex-wrap gap-2">
-                  {(matchingResult.matchedSkills || []).length ? matchingResult.matchedSkills.map(skill => (
-                    <Badge key={`matched-${skill}`} bg="success">{skill}</Badge>
-                  )) : <small className="text-muted">Chưa xác định được kỹ năng khớp.</small>}
-                </div>
-              </div>
-
-              <div className="mb-3">
-                <strong className="small d-block mb-2">Kỹ năng còn thiếu ({matchingResult.missingSkills?.length || 0})</strong>
-                <div className="d-flex flex-wrap gap-2">
-                  {(matchingResult.missingSkills || []).length ? matchingResult.missingSkills.map(skill => (
-                    <Badge key={`missing-${skill}`} bg="warning" text="dark">{skill}</Badge>
-                  )) : <small className="text-muted">Chưa có kỹ năng thiếu được xác định trong breakdown.</small>}
-                </div>
-              </div>
-
-              <details className="mb-3">
-                <summary className="small fw-semibold">Chi tiết breakdown</summary>
-                <pre className="small mt-2 mb-0 p-2 rounded bg-surface-2" style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
-                  {JSON.stringify(matchingResult.breakdown || {}, null, 2)}
-                </pre>
-              </details>
-
-              <div>
-                <strong className="small d-block mb-1">Giải thích kết quả</strong>
-                <p className="small mb-0" style={{ whiteSpace: "pre-wrap" }}>
-                  {matchingResult.explanation || "AI Worker chưa cung cấp phần giải thích cho kết quả này."}
-                </p>
-              </div>
-              {matchingResult.evaluatedAt && <small className="text-muted d-block mt-2">Đánh giá lúc: {new Date(matchingResult.evaluatedAt).toLocaleString("vi-VN")}</small>}
-            </>
-          ) : !matchingLoading && (
-            <p className="small text-muted mb-0">{matchingResult?.message || "Chưa có kết quả matching đã lưu cho hồ sơ này."}</p>
-          )}
-        </section>
+        <MatchingResultPanel applicationId={matchingApplicationId} active={show} onCompleted={onMatchingCompleted} />
 
         <div className="alert alert-success small d-flex justify-content-between align-items-center flex-wrap gap-2">
           <div>
