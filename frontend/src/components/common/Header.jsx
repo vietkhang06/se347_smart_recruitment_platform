@@ -77,6 +77,7 @@ export default function Header() {
   const RECRUITMENT_TABS = [
     { key: "jobs", label: "Tin tuyển dụng", icon: "bi-briefcase" },
     { key: "candidates", label: "Kho ứng viên", icon: "bi-people" },
+    { key: "ranking", label: "Xếp hạng AI", icon: "bi-stars" },
     { key: "pipeline", label: "Quy trình", icon: "bi-kanban" },
     { key: "interviews", label: "Phỏng vấn", icon: "bi-calendar-check" }
   ];

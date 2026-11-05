@@ -14,7 +14,7 @@ export default function AdminOverviewView({ adminData, onNavigateTab }) {
       {/* 4 KPI Metrics */}
       <Row className="g-3 mb-4">
         {adminData.metrics.map((m, idx) => (
-          <Col lg={3} sm={6} key={idx}>
+          <Col xs={12} sm={6} lg={3} key={idx}>
             <Card className="matcha-card p-3 border-0 shadow-sm h-100">
               <div className="d-flex justify-content-between align-items-center mb-1">
                 <span className="text-muted small">{m.label}</span>
@@ -29,7 +29,7 @@ export default function AdminOverviewView({ adminData, onNavigateTab }) {
 
       <Row className="g-4 mb-4">
         {/* Platform Growth Chart.js */}
-        <Col lg={8}>
+        <Col xs={12} lg={8}>
           <Card className="matcha-card p-4 border-0 shadow-sm h-100">
             <div className="d-flex justify-content-between align-items-center mb-3">
               <div>
@@ -43,7 +43,7 @@ export default function AdminOverviewView({ adminData, onNavigateTab }) {
         </Col>
 
         {/* 3 SLA Priority Tasks */}
-        <Col lg={4}>
+        <Col xs={12} lg={4}>
           <Card className="matcha-card p-4 border-0 shadow-sm h-100 d-flex flex-column">
             <h5 className="fw-bold mb-3">Cảnh báo cần xử lý</h5>
             <div className="d-flex flex-column gap-3 mb-3">

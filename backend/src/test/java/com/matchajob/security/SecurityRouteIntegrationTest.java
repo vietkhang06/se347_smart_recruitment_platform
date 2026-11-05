@@ -573,6 +573,19 @@ class SecurityRouteIntegrationTest {
     class CorsPreflightHandling {
 
         @Test
+        @DisplayName("Preflight OPTIONS request from frontend origin (http://localhost:5174) is permitted with 200 OK and CORS headers")
+        void preflightOptions_fromFrontendPort5174_permittedWith200() throws Exception {
+            mockMvc.perform(options("/v1/auth/login")
+                            .header(HttpHeaders.ORIGIN, "http://localhost:5174")
+                            .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST")
+                            .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "Content-Type,Authorization"))
+                    .andExpect(status().isOk())
+                    .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://localhost:5174"))
+                    .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS, "true"))
+                    .andExpect(header().exists(HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS));
+        }
+
+        @Test
         @DisplayName("Preflight OPTIONS request from frontend origin (http://localhost:5173) is permitted with 200 OK and CORS headers")
         void preflightOptions_fromFrontendOrigin_permittedWith200() throws Exception {
             mockMvc.perform(options("/v1/auth/login")
