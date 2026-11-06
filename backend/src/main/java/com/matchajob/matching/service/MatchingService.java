@@ -11,7 +11,6 @@ import com.matchajob.cv.repository.ApplicationCvSnapshotRepository;
 import com.matchajob.matching.dto.MatchingResultResponse;
 import com.matchajob.processing.model.ProcessingJob;
 import com.matchajob.processing.repository.ProcessingJobRepository;
-import com.matchajob.processing.service.ProcessingJobService;
 import com.matchajob.client.dto.MatchScoreRequest;
 import com.matchajob.client.dto.MatchScoreResponse;
 import com.matchajob.cv.model.CvVersion;
@@ -48,7 +47,6 @@ public class MatchingService {
     private final ApplicationCvSnapshotRepository applicationCvSnapshotRepository;
     private final JobRepository jobRepository;
     private final ProcessingJobRepository processingJobRepository;
-    private final ProcessingJobService processingJobService;
     private final MatchingPersistenceService persistence;
 
     public MatchingService(
@@ -61,7 +59,6 @@ public class MatchingService {
             ApplicationCvSnapshotRepository applicationCvSnapshotRepository,
             JobRepository jobRepository,
             ProcessingJobRepository processingJobRepository,
-            ProcessingJobService processingJobService,
             MatchingPersistenceService persistence) {
         this.cvVersionRepository = cvVersionRepository;
         this.matchResultRepository = matchResultRepository;
@@ -72,69 +69,80 @@ public class MatchingService {
         this.applicationCvSnapshotRepository = applicationCvSnapshotRepository;
         this.jobRepository = jobRepository;
         this.processingJobRepository = processingJobRepository;
-        this.processingJobService = processingJobService;
         this.persistence = persistence;
     }
 
     /**
-     * Evaluates the matching result from persisted application, CV snapshot and job data.
-     * Client-supplied job title/requirements/CV IDs are deliberately not trusted as source data.
+     * Synchronous compatibility entry point used by POST /v1/applications/{id}/match.
+     * The persistence service atomically claims a lease before delegating to the same
+     * execution path used by the background scheduler.
      */
     public MatchResult evaluateApplicationMatch(UUID applicationId) {
-        Optional<ProcessingJob> processingJob = findMatchingProcessingJob(applicationId);
-        MatchResult existing = matchResultRepository.findByApplicationId(applicationId).orElse(null);
-
-        if (existing != null) {
-            // Reconcile a stale processing row if a result was saved before a previous interruption.
-            processingJob.filter(processingRecord ->
-                            !"COMPLETED".equalsIgnoreCase(processingRecord.getStatus()))
-                    .ifPresent(processingRecord ->
-                            processingJobService.markJobCompleted(processingRecord.getId()));
-
-            return existing;
+        if (applicationId == null) {
+            throw new IllegalArgumentException("Application ID is required.");
         }
-
-        ApplicationEntity application = applicationRepository.findById(applicationId)
-                .orElseThrow(() ->
-                        new NoSuchElementException("Application not found: " + applicationId));
-
-        ApplicationCvSnapshot snapshot =
-                applicationCvSnapshotRepository.findWithCvVersionByApplicationId(applicationId)
-                        .orElseThrow(() -> new MatchNotReadyException(
-                                "CV snapshot for this application is not available yet."));
-
-        CvVersion cv = snapshot.getCvVersion();
-
-        if (cv == null || cv.getRawText() == null || cv.getRawText().isBlank()) {
-            throw new MatchNotReadyException(
-                    "CV extraction is not complete. Retry matching after the CV has been processed.");
-        }
-
-        Job job = jobRepository.findByIdAndDeletedAtIsNull(application.getJobId())
-                .orElseThrow(() ->
-                        new NoSuchElementException("Job not found: " + application.getJobId()));
-
-        String jobRequirements = joinNonBlank(
-                job.getRequirements(),
-                job.getSummaryRequired(),
-                job.getSummaryPreferred()
-        );
-
-        String jobDescription = joinNonBlank(
-                job.getDescription(),
-                job.getSummaryIndustry()
-        );
-
-        List<String> candidateSkills = extractCandidateSkills(cv.getParsedData());
 
         Optional<ProcessingJob> claim = persistence.claim(applicationId);
-
         if (claim.isEmpty()) {
             return matchResultRepository.findByApplicationId(applicationId)
-                    .orElseThrow();
+                    .orElseThrow(() -> new MatchingException(
+                            org.springframework.http.HttpStatus.CONFLICT,
+                            "MATCHING_STATE_CONFLICT",
+                            "Matching could not be claimed. Reload the matching status.",
+                            true,
+                            null
+                    ));
         }
 
+        return evaluateApplicationMatch(claim.get());
+    }
+
+    /**
+     * Executes a job that has already been claimed by the queue scheduler.
+     * This method deliberately does not call persistence.claim() again.
+     */
+    public MatchResult evaluateApplicationMatch(ProcessingJob lease) {
+        validateClaimedLease(lease);
+        UUID applicationId = lease.getEntityId();
+
         try {
+            Optional<MatchResult> existing = matchResultRepository.findByApplicationId(applicationId);
+            if (existing.isPresent()) {
+                // A result may have been committed before a worker crashed. Complete the
+                // currently-owned lease idempotently instead of asking the AI Worker again.
+                return persistence.complete(lease, existing.get());
+            }
+
+            ApplicationEntity application = applicationRepository.findById(applicationId)
+                    .orElseThrow(() ->
+                            new NoSuchElementException("Application not found: " + applicationId));
+
+            ApplicationCvSnapshot snapshot =
+                    applicationCvSnapshotRepository.findWithCvVersionByApplicationId(applicationId)
+                            .orElseThrow(() -> new MatchNotReadyException(
+                                    "CV snapshot for this application is not available yet."));
+
+            CvVersion cv = snapshot.getCvVersion();
+            if (cv == null || cv.getRawText() == null || cv.getRawText().isBlank()) {
+                throw new MatchNotReadyException(
+                        "CV extraction is not complete. Retry matching after the CV has been processed.");
+            }
+
+            Job job = jobRepository.findByIdAndDeletedAtIsNull(application.getJobId())
+                    .orElseThrow(() ->
+                            new NoSuchElementException("Job not found: " + application.getJobId()));
+
+            String jobRequirements = joinNonBlank(
+                    job.getRequirements(),
+                    job.getSummaryRequired(),
+                    job.getSummaryPreferred()
+            );
+            String jobDescription = joinNonBlank(
+                    job.getDescription(),
+                    job.getSummaryIndustry()
+            );
+            List<String> candidateSkills = extractCandidateSkills(cv.getParsedData());
+
             MatchScoreRequest request = MatchScoreRequest.builder()
                     .jobId(job.getId().toString())
                     .jobTitle(job.getTitle())
@@ -145,35 +153,39 @@ public class MatchingService {
                     .build();
 
             MatchScoreResponse score = aiWorkerClient.calculateMatchScore(request);
-
             validateScoreResponse(score);
 
             return persistence.complete(
-                    claim.get(),
+                    lease,
                     buildResult(applicationId, job.getId(), cv.getId(), score)
             );
 
         } catch (RuntimeException exception) {
-            boolean retryable = isRetryableMatchingError(exception);
+            boolean retryable = isRetryableMatchingError(exception)
+                    && hasAttemptsRemaining(lease);
 
-            persistence.fail(
-                    claim.get(),
-                    safeProcessingError(exception),
-                    retryable
-            );
+            // One owner, one state transition: MatchingService persists failure once.
+            // The scheduler must never call markJobFailed for this same lease.
+            persistence.fail(lease, safeProcessingError(exception), retryable);
 
             if (exception instanceof MatchingException matching) {
+                if (matching.isRetryable() != retryable) {
+                    throw new MatchingException(
+                            matching.getStatus(),
+                            matching.getCode(),
+                            matching.getMessage(),
+                            retryable,
+                            retryable ? matching.getRetryAfter() : null
+                    );
+                }
                 throw matching;
             }
 
             if (exception instanceof ResourceAccessException
                     || exception instanceof HttpStatusCodeException) {
-
                 throw new MatchingException(
                         org.springframework.http.HttpStatus.BAD_GATEWAY,
-                        retryable
-                                ? "MATCHING_WORKER_UNAVAILABLE"
-                                : "MATCHING_WORKER_REJECTED",
+                        retryable ? "MATCHING_WORKER_UNAVAILABLE" : "MATCHING_WORKER_REJECTED",
                         "Matching Worker could not complete this request. Reload status before retrying.",
                         retryable,
                         null
@@ -204,6 +216,27 @@ public class MatchingService {
         }
     }
 
+    private void validateClaimedLease(ProcessingJob lease) {
+        if (lease == null
+                || lease.getId() == null
+                || lease.getEntityId() == null
+                || !"APPLICATION_MATCHING".equals(lease.getJobType())
+                || !"application".equals(lease.getEntityType())
+                || !"PROCESSING".equals(lease.getStatus())
+                || lease.getLeaseToken() == null
+                || lease.getLeaseToken().isBlank()
+                || lease.getLeaseExpiresAt() == null
+                || !lease.getLeaseExpiresAt().isAfter(Instant.now())) {
+            throw new MatchingException(
+                    org.springframework.http.HttpStatus.CONFLICT,
+                    "MATCHING_LEASE_INVALID",
+                    "A valid claimed matching job lease is required.",
+                    false,
+                    null
+            );
+        }
+    }
+
     private Optional<ProcessingJob> findMatchingProcessingJob(UUID applicationId) {
         return processingJobRepository
                 .findFirstByJobTypeAndEntityTypeAndEntityIdOrderByCreatedAtDesc(
@@ -214,6 +247,12 @@ public class MatchingService {
     }
 
     private String safeProcessingError(RuntimeException exception) {
+        if (exception instanceof MatchNotReadyException matchingNotReady) {
+            return matchingNotReady.getMessage();
+        }
+        if (exception instanceof MatchingException matching) {
+            return matching.getMessage();
+        }
         if (exception instanceof ResourceAccessException) {
             return "AI Worker connection failed.";
         }
@@ -228,6 +267,9 @@ public class MatchingService {
     }
 
     private boolean isRetryableMatchingError(RuntimeException exception) {
+        if (exception instanceof MatchingException matching) {
+            return matching.isRetryable();
+        }
         if (exception instanceof ResourceAccessException) {
             return true;
         }
@@ -235,6 +277,12 @@ public class MatchingService {
         return exception instanceof HttpStatusCodeException statusException
                 && (statusException.getStatusCode().is5xxServerError()
                 || statusException.getStatusCode().value() == 429);
+    }
+
+    private boolean hasAttemptsRemaining(ProcessingJob lease) {
+        return lease.getAttemptCount() != null
+                && lease.getMaxAttempts() != null
+                && lease.getAttemptCount() < lease.getMaxAttempts();
     }
 
     /**
