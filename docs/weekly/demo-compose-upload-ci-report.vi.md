@@ -46,3 +46,7 @@ Remote `main` có thêm tính năng recruiter và test mới. Giữ cấu hình 
 | Compose config và runtime sau giải quyết xung đột | `docker compose --env-file .env.example config -q`; `compose up -d --build --wait`; `smoke-demo.ps1` | PASS: 4 service healthy, smoke 10 dòng PASS | Compose và smoke exit 0 trên project demo cô lập | Không |
 | Backend `mvn verify` sau rebase | PostgreSQL/pgvector cô lập, Flyway migration | PASS: 357 unit + 165 integration, 0 fail/error/skip | Maven exit 0, Failsafe summary 165/0/0/0 | Không |
 | GitHub Actions | Workflow trên remote | NOT RUN tại thời điểm commit | Chưa push | Chờ push và workflow hoàn tất |
+
+## GitHub Actions của PR #35
+
+Lần chạy đầu trên commit `75793b4`: frontend, AI, Compose config **PASS**; backend **FAIL** với 357 unit test pass nhưng `BackendApplicationIT` không khai báo profile test, nên cố nối database dev ở `localhost:5433` thay vì database tạm của runner ở `5432`. Đã thêm `@ActiveProfiles("test")` cho test này. Kiểm tra lại riêng `BackendApplicationIT` cùng `MatchingSchedulerTest` trên PostgreSQL/pgvector mới: **PASS**, Maven exit 0 và Flyway v1–v6. Chờ workflow chạy lại sau commit sửa.
