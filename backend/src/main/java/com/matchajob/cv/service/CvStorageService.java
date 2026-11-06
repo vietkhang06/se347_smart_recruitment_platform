@@ -1,5 +1,10 @@
 package com.matchajob.cv.service;
 
+import org.apache.pdfbox.Loader;
+import org.w3c.dom.Document;
+import org.xml.sax.SAXException;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -66,6 +71,9 @@ public class CvStorageService {
         }
 
         String originalFilename = sanitizeOriginalFilename(file.getOriginalFilename());
+        if (originalFilename.chars().filter(ch -> ch == '.').count() != 1) {
+            throw new IllegalArgumentException("CV filename must have exactly one extension.");
+        }
         FileType fileType = validateExtensionAndDeclaredMime(originalFilename, file.getContentType());
         String generatedFilename = UUID.randomUUID() + fileType.extension();
         String objectKey = "candidates/" + candidateId + "/" + generatedFilename;
@@ -107,6 +115,8 @@ public class CvStorageService {
             validateMagicBytes(header, headerLength, fileType);
             if (DOCX_MIME.equals(fileType.mimeType())) {
                 validateDocxPackage(temporaryFile);
+            } else {
+                validatePdf(temporaryFile);
             }
             moveAtomicallyWhenSupported(temporaryFile, destination);
         } catch (IOException | RuntimeException e) {
@@ -211,8 +221,65 @@ public class CvStorageService {
                     }
                 }
             }
+            Document types = parseDocxPart(zip, "[Content_Types].xml");
+            Document relationships = parseDocxPart(zip, "_rels/.rels");
+            Document content = parseDocxPart(zip, "word/document.xml");
+            if (!"Types".equals(types.getDocumentElement().getLocalName())
+                    || !"Relationships".equals(relationships.getDocumentElement().getLocalName())
+                    || !"document".equals(content.getDocumentElement().getLocalName())
+                    || !"http://schemas.openxmlformats.org/package/2006/content-types".equals(types.getDocumentElement().getNamespaceURI())
+                    || !"http://schemas.openxmlformats.org/package/2006/relationships".equals(relationships.getDocumentElement().getNamespaceURI())
+                    || !"http://schemas.openxmlformats.org/wordprocessingml/2006/main".equals(content.getDocumentElement().getNamespaceURI())
+                    || !hasDocxPart(types, "Override", "PartName", "/word/document.xml",
+                            "ContentType", "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml")
+                    || !hasDocxPart(relationships, "Relationship", "Target", "word/document.xml",
+                            "Type", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument")) {
+                throw new IllegalArgumentException("Invalid DOCX package structure.");
+            }
         } catch (ZipException e) {
             throw new IllegalArgumentException("Invalid DOCX archive.", e);
+        }
+    }
+
+    private Document parseDocxPart(ZipFile zip, String name) throws IOException {
+        try {
+            var factory = DocumentBuilderFactory.newInstance();
+            factory.setNamespaceAware(true);
+            factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+            factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
+            factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+            factory.setXIncludeAware(false);
+            factory.setExpandEntityReferences(false);
+            try (InputStream input = zip.getInputStream(zip.getEntry(name))) {
+                return factory.newDocumentBuilder().parse(input);
+            }
+        } catch (ParserConfigurationException | SAXException e) {
+            throw new IllegalArgumentException("Invalid DOCX XML content.", e);
+        }
+    }
+
+    private boolean hasDocxPart(Document document, String element, String firstAttribute, String firstExpected,
+                                String secondAttribute, String secondExpected) {
+        var nodes = document.getElementsByTagNameNS(document.getDocumentElement().getNamespaceURI(), element);
+        for (int index = 0; index < nodes.getLength(); index++) {
+            var attributes = nodes.item(index).getAttributes();
+            var first = attributes.getNamedItem(firstAttribute);
+            var second = attributes.getNamedItem(secondAttribute);
+            if (first != null && second != null && firstExpected.equals(first.getNodeValue())
+                    && secondExpected.equals(second.getNodeValue())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void validatePdf(Path file) {
+        try (var document = Loader.loadPDF(file.toFile())) {
+            if (document.getNumberOfPages() == 0 || document.isEncrypted()) {
+                throw new IllegalArgumentException("PDF must contain pages and must not be encrypted.");
+            }
+        } catch (IOException e) {
+            throw new IllegalArgumentException("Invalid PDF document.", e);
         }
     }
 

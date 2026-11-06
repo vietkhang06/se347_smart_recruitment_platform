@@ -39,7 +39,7 @@ management:
         enabled: true
       group:
         readiness:
-          include: readinessState,db,pgVector
+          include: readinessState,db,pgVector,aiWorker
 
 security:
   jwt:
