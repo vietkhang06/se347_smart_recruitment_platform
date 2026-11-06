@@ -17,7 +17,6 @@ import com.matchajob.matching.model.MatchResult;
 import com.matchajob.matching.repository.MatchResultRepository;
 import com.matchajob.processing.model.ProcessingJob;
 import com.matchajob.processing.repository.ProcessingJobRepository;
-import com.matchajob.processing.service.ProcessingJobService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,6 +32,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
@@ -64,9 +64,6 @@ class MatchingServiceTest {
     private ProcessingJobRepository processingJobRepository;
 
     @Mock
-    private ProcessingJobService processingJobService;
-
-    @Mock
     private MatchingPersistenceService persistence;
 
     private MatchingService service;
@@ -85,7 +82,6 @@ class MatchingServiceTest {
                 applicationCvSnapshotRepository,
                 jobRepository,
                 processingJobRepository,
-                processingJobService,
                 persistence
         );
     }
@@ -133,15 +129,12 @@ class MatchingServiceTest {
         ProcessingJob claimedJob = ProcessingJob.builder()
                 .id(UUID.randomUUID())
                 .status("PROCESSING")
+                .jobType("APPLICATION_MATCHING")
+                .entityType("application")
+                .entityId(applicationId)
+                .leaseToken("lease-test-token")
+                .leaseExpiresAt(java.time.Instant.now().plusSeconds(120))
                 .build();
-
-        when(processingJobRepository
-                .findFirstByJobTypeAndEntityTypeAndEntityIdOrderByCreatedAtDesc(
-                        "APPLICATION_MATCHING",
-                        "application",
-                        applicationId
-                ))
-                .thenReturn(Optional.empty());
 
         when(matchResultRepository.findByApplicationId(applicationId))
                 .thenReturn(Optional.empty());
@@ -194,6 +187,104 @@ class MatchingServiceTest {
                 eq(claimedJob),
                 any(MatchResult.class)
         );
+    }
+
+    @Test
+    void evaluatesAlreadyClaimedSchedulerLeaseWithoutClaimingAgain() {
+        UUID applicationId = UUID.randomUUID();
+        UUID jobId = UUID.randomUUID();
+        UUID cvVersionId = UUID.randomUUID();
+
+        ProcessingJob lease = ProcessingJob.builder()
+                .id(UUID.randomUUID())
+                .jobType("APPLICATION_MATCHING")
+                .entityType("application")
+                .entityId(applicationId)
+                .status("PROCESSING")
+                .leaseToken("scheduler-lease-token")
+                .leaseExpiresAt(java.time.Instant.now().plusSeconds(120))
+                .attemptCount(1)
+                .maxAttempts(3)
+                .build();
+
+        ApplicationEntity application = ApplicationEntity.builder()
+                .id(applicationId)
+                .jobId(jobId)
+                .build();
+        CvVersion cv = CvVersion.builder()
+                .id(cvVersionId)
+                .rawText("Candidate experienced in Java and Spring Boot")
+                .parsedData("{\"skills\":[\"Java\",\"Spring Boot\"]}")
+                .build();
+        ApplicationCvSnapshot snapshot = ApplicationCvSnapshot.builder()
+                .applicationId(applicationId)
+                .cvVersion(cv)
+                .build();
+        Job job = Job.builder()
+                .id(jobId)
+                .title("Backend Engineer")
+                .requirements("Java, Spring Boot")
+                .build();
+        MatchScoreResponse score = MatchScoreResponse.builder()
+                .overallScore(86)
+                .skillsScore(90)
+                .experienceScore(82)
+                .breakdown(Map.of("skills", 90))
+                .rationale("Relevant experience")
+                .build();
+
+        when(matchResultRepository.findByApplicationId(applicationId)).thenReturn(Optional.empty());
+        when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
+        when(applicationCvSnapshotRepository.findWithCvVersionByApplicationId(applicationId))
+                .thenReturn(Optional.of(snapshot));
+        when(jobRepository.findByIdAndDeletedAtIsNull(jobId)).thenReturn(Optional.of(job));
+        when(aiWorkerClient.calculateMatchScore(any(MatchScoreRequest.class))).thenReturn(score);
+        when(persistence.complete(eq(lease), any(MatchResult.class)))
+                .thenAnswer(invocation -> invocation.getArgument(1));
+
+        MatchResult result = service.evaluateApplicationMatch(lease);
+
+        assertThat(result.getApplicationId()).isEqualTo(applicationId);
+        assertThat(result.getOverallScore()).isEqualTo((short) 86);
+        verify(persistence, never()).claim(applicationId);
+        verify(persistence).complete(eq(lease), any(MatchResult.class));
+        verify(persistence, never()).fail(any(ProcessingJob.class), anyString(), anyBoolean());
+    }
+
+    @Test
+    void defersClaimedJobWhenCvSnapshotIsNotReadyAndPersistsRetryableFailureOnce() {
+        UUID applicationId = UUID.randomUUID();
+        ProcessingJob lease = ProcessingJob.builder()
+                .id(UUID.randomUUID())
+                .jobType("APPLICATION_MATCHING")
+                .entityType("application")
+                .entityId(applicationId)
+                .status("PROCESSING")
+                .leaseToken("scheduler-lease-token")
+                .leaseExpiresAt(java.time.Instant.now().plusSeconds(120))
+                .attemptCount(1)
+                .maxAttempts(3)
+                .build();
+        ApplicationEntity application = ApplicationEntity.builder()
+                .id(applicationId)
+                .jobId(UUID.randomUUID())
+                .build();
+
+        when(matchResultRepository.findByApplicationId(applicationId)).thenReturn(Optional.empty());
+        when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
+        when(applicationCvSnapshotRepository.findWithCvVersionByApplicationId(applicationId))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.evaluateApplicationMatch(lease))
+                .isInstanceOf(MatchingService.MatchNotReadyException.class);
+
+        verify(persistence).fail(
+                eq(lease),
+                eq("CV snapshot for this application is not available yet."),
+                eq(true)
+        );
+        verify(persistence, never()).claim(applicationId);
+        verify(aiWorkerClient, never()).calculateMatchScore(any());
     }
 
     @Test
@@ -264,15 +355,12 @@ class MatchingServiceTest {
         ProcessingJob claimedJob = ProcessingJob.builder()
                 .id(UUID.randomUUID())
                 .status("PROCESSING")
+                .jobType("APPLICATION_MATCHING")
+                .entityType("application")
+                .entityId(applicationId)
+                .leaseToken("lease-test-token")
+                .leaseExpiresAt(java.time.Instant.now().plusSeconds(120))
                 .build();
-
-        when(processingJobRepository
-                .findFirstByJobTypeAndEntityTypeAndEntityIdOrderByCreatedAtDesc(
-                        "APPLICATION_MATCHING",
-                        "application",
-                        applicationId
-                ))
-                .thenReturn(Optional.empty());
 
         when(matchResultRepository.findByApplicationId(applicationId))
                 .thenReturn(Optional.empty());
@@ -365,7 +453,12 @@ class MatchingServiceTest {
 
         ProcessingJob claimedJob = ProcessingJob.builder()
                 .id(UUID.randomUUID())
+                .jobType("APPLICATION_MATCHING")
+                .entityType("application")
+                .entityId(applicationId)
                 .status("PROCESSING")
+                .leaseToken("lease-test-token")
+                .leaseExpiresAt(java.time.Instant.now().plusSeconds(120))
                 .attemptCount(1)
                 .maxAttempts(3)
                 .build();
@@ -392,14 +485,6 @@ class MatchingServiceTest {
 
         when(matchResultRepository.findByApplicationId(applicationId))
                 .thenReturn(Optional.empty());
-
-        when(processingJobRepository
-                .findFirstByJobTypeAndEntityTypeAndEntityIdOrderByCreatedAtDesc(
-                        "APPLICATION_MATCHING",
-                        "application",
-                        applicationId
-                ))
-                .thenReturn(Optional.of(claimedJob));
 
         when(applicationRepository.findById(applicationId))
                 .thenReturn(Optional.of(application));
