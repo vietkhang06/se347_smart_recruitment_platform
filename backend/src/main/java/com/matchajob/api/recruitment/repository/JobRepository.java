@@ -31,7 +31,7 @@ public interface JobRepository extends JpaRepository<Job, UUID>, JpaSpecificatio
 
     boolean existsBySlug(String slug);
 
-    boolean existsByCategoryId(Long categoryId);
+    boolean existsByCategoryId(UUID categoryId);
 
     @Query("SELECT j.status, COUNT(j) FROM Job j WHERE j.status NOT IN ('DRAFT', 'CLOSED') GROUP BY j.status")
     List<Object[]> countPublicJobsByStatus();

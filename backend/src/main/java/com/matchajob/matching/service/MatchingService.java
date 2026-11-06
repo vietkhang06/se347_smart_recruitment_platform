@@ -81,6 +81,10 @@ public class MatchingService {
      * Client-supplied job title/requirements/CV IDs are deliberately not trusted as source data.
      */
     public MatchResult evaluateApplicationMatch(UUID applicationId) {
+        return evaluateApplicationMatch(applicationId, null);
+    }
+
+    public MatchResult evaluateApplicationMatch(UUID applicationId, String leaseToken) {
         Optional<ProcessingJob> processingJob = findMatchingProcessingJob(applicationId);
         MatchResult existing = matchResultRepository.findByApplicationId(applicationId).orElse(null);
 
@@ -127,7 +131,14 @@ public class MatchingService {
 
         List<String> candidateSkills = extractCandidateSkills(cv.getParsedData());
 
-        Optional<ProcessingJob> claim = persistence.claim(applicationId);
+        Optional<ProcessingJob> claim = leaseToken == null ? persistence.claim(applicationId)
+                : processingJob.filter(claimedJob -> "PROCESSING".equals(claimedJob.getStatus())
+                        && leaseToken.equals(claimedJob.getLeaseToken()));
+
+        if (leaseToken != null && claim.isEmpty()) {
+            throw new MatchingException(org.springframework.http.HttpStatus.CONFLICT,
+                    "MATCHING_LEASE_LOST", "The matching attempt no longer owns this job.", false, null);
+        }
 
         if (claim.isEmpty()) {
             return matchResultRepository.findByApplicationId(applicationId)
