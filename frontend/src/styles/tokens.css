@@ -2011,3 +2011,14 @@ main {
     min-height: 32px;
   }
 }
+
+/* Candidate CV picker: avoid the browser-native truncated filename on narrow screens. */
+.candidate-cv-picker-button {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+.candidate-cv-file-input:focus-visible + .candidate-cv-picker-button {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}
