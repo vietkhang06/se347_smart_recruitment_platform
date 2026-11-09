@@ -163,8 +163,8 @@ class MatchingSchedulerTest {
                 ));
 
         doThrow(new RuntimeException("worker failed"))
-                .when(matchingService)
-                .evaluateApplicationMatch(any());
+        .when(matchingService)
+        .evaluateApplicationMatch(any(ProcessingJob.class));
 
         scheduler.poll();
 
