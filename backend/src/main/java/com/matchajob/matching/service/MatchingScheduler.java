@@ -1,5 +1,7 @@
+
 package com.matchajob.matching.service;
 
+import com.matchajob.processing.model.ProcessingJob;
 import com.matchajob.processing.service.ProcessingJobService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -7,8 +9,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.HttpStatusCodeException;
-import org.springframework.web.client.ResourceAccessException;
 
 /**
  * Background scheduler that polls PENDING APPLICATION_MATCHING jobs
@@ -21,65 +21,91 @@ import org.springframework.web.client.ResourceAccessException;
 @Component
 @EnableScheduling
 @ConditionalOnProperty(
-    name = "matchajob.matching.processing.enabled",
-    havingValue = "true",
-    matchIfMissing = true
+        name = "matchajob.matching.processing.enabled",
+        havingValue = "true",
+        matchIfMissing = true
 )
 public class MatchingScheduler {
 
-    private static final Logger log = LoggerFactory.getLogger(MatchingScheduler.class);
+    private static final Logger log =
+            LoggerFactory.getLogger(MatchingScheduler.class);
 
     private final ProcessingJobService processingJobService;
     private final MatchingService matchingService;
 
-    public MatchingScheduler(ProcessingJobService processingJobService,
-                             MatchingService matchingService) {
+    public MatchingScheduler(
+            ProcessingJobService processingJobService,
+            MatchingService matchingService
+    ) {
         this.processingJobService = processingJobService;
         this.matchingService = matchingService;
     }
 
-    /** Poll for pending APPLICATION_MATCHING jobs with lease acquisition. */
-    @Scheduled(fixedDelayString = "${matchajob.matching.processing.poll-delay-ms:3000}")
+    /**
+     * Polls the matching queue.
+     *
+     * ProcessingJobService is the single owner of queue acquisition.
+     * MatchingService receives the exact claimed job and its lease token
+     * and must not claim the job again.
+     */
+    @Scheduled(
+            fixedDelayString =
+                    "${matchajob.matching.processing.poll-delay-ms:3000}"
+    )
     public void poll() {
         try {
             processingJobService.recoverExpiredMatchingLeases();
-            processingJobService.claimNextMatchingJob().ifPresent(job -> {
-                log.info("Claimed APPLICATION_MATCHING job: {} (attempt {})",
-                         job.getId(), job.getAttemptCount());
-                try {
-                    matchingService.evaluateApplicationMatch(job.getEntityId(), job.getLeaseToken());
-                } catch (MatchingService.MatchNotReadyException e) {
-                    log.warn("Matching job {} deferred (not ready): {}",
-                             job.getId(), e.getMessage());
-                    processingJobService.markJobFailed(job.getId(), e.getMessage(), true);
-                } catch (Exception e) {
-                    boolean retryable = isRetryable(e);
-                    log.warn("Matching job {} failed (retryable={}): {}",
-                             job.getId(), retryable, e.getClass().getSimpleName());
-                    if (processingJobService.getJob(job.getId())
-                            .map(current -> "PROCESSING".equals(current.getStatus())).orElse(true)) {
-                        processingJobService.markJobFailed(job.getId(), toSafeMessage(e), retryable);
-                    }
-                }
-            });
+
+            processingJobService.claimNextMatchingJob()
+                    .ifPresent(this::processClaimedJob);
+
         } catch (Exception e) {
-            log.warn("Matching queue poll failed; cause={}", e.getClass().getSimpleName());
+            log.warn(
+                    "Matching queue poll failed; cause={}",
+                    e.getClass().getSimpleName(),
+                    e
+            );
         }
     }
 
-    private boolean isRetryable(Exception e) {
-        return e instanceof ResourceAccessException
-            || (e instanceof HttpStatusCodeException http
-                && http.getStatusCode().is5xxServerError());
-    }
+    /**
+     * Processes a job that has already been claimed by ProcessingJobService.
+     *
+     * MatchingService owns failure persistence and retry scheduling.
+     * The scheduler must not update the same job state a second time.
+     */
+    private void processClaimedJob(ProcessingJob job) {
 
-    private String toSafeMessage(Exception e) {
-        if (e instanceof ResourceAccessException) {
-            return "AI Worker is temporarily unavailable.";
+        log.info(
+                "Claimed APPLICATION_MATCHING job: {} (attempt {})",
+                job.getId(),
+                job.getAttemptCount()
+        );
+
+        try {
+            matchingService.evaluateApplicationMatch(job);
+
+        } catch (MatchingException e) {
+            // MatchingService owns failure persistence and retry scheduling.
+            // The scheduler only reports the outcome.
+            log.warn(
+                    "Matching job {} stopped (code={}, retryable={}): {}",
+                    job.getId(),
+                    e.getCode(),
+                    e.isRetryable(),
+                    e.getMessage()
+            );
+
+        } catch (Exception e) {
+            // Unexpected exceptions are logged here.
+            // Normal RuntimeException paths are persisted by MatchingService
+            // before they are rethrown.
+            log.error(
+                    "Matching job {} terminated unexpectedly; cause={}",
+                    job.getId(),
+                    e.getClass().getSimpleName(),
+                    e
+            );
         }
-        if (e instanceof HttpStatusCodeException http) {
-            return "AI Worker returned HTTP " + http.getStatusCode().value() + ".";
-        }
-        return "Matching evaluation failed.";
     }
 }
