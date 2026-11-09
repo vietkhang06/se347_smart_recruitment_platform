@@ -18,49 +18,38 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class TaxonomyService {
-
     private final CategoryRepository categoryRepository;
     private final SkillRepository skillRepository;
     private final JobRepository jobRepository;
 
     public List<CategoryResponse> getAllCategories() {
         return categoryRepository.findByDeletedAtIsNullOrderBySortOrderAscNameAsc().stream()
-                .map(CategoryResponse::from)
-                .toList();
+                .map(CategoryResponse::from).toList();
     }
 
     public Category createCategory(Category category) {
         if (category.getName() != null && categoryRepository.findByNameIgnoreCase(category.getName()).isPresent()) {
-            throw new IllegalArgumentException("Category with name " + category.getName() + " already exists");
+            throw new IllegalArgumentException("Category already exists.");
         }
         return categoryRepository.save(category);
     }
 
     public void deleteCategory(UUID id) {
-        Category category = categoryRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Category not found with id: " + id));
-        categoryRepository.delete(category);
+        if (jobRepository.existsByCategoryId(id)) {
+            throw new IllegalStateException("Cannot delete category currently in use.");
+        }
+        categoryRepository.deleteById(id);
     }
 
     public List<String> getWorkTypes() {
-        return Arrays.stream(WorkType.values())
-                .map(WorkType::getValue)
-                .toList();
+        return Arrays.stream(WorkType.values()).map(WorkType::getValue).toList();
     }
 
     public List<String> getLevels() {
-        return Arrays.stream(JobLevel.values())
-                .map(JobLevel::getValue)
-                .toList();
+        return Arrays.stream(JobLevel.values()).map(JobLevel::getValue).toList();
     }
 
     public List<String> getSkills() {
-        List<String> skills = skillRepository.findByDeletedAtIsNullOrderByNameAsc().stream()
-                .map(Skill::getName)
-                .toList();
-        if (skills.isEmpty()) {
-            return List.of("Java", "Spring Boot", "React", "PostgreSQL", "Docker", "Kubernetes", "Python");
-        }
-        return skills;
+        return skillRepository.findByDeletedAtIsNullOrderByNameAsc().stream().map(Skill::getName).toList();
     }
 }
