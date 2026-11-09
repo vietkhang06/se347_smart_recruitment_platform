@@ -32,11 +32,19 @@ export default function ApiCvManager({ candidateId, selectedId, onSelect, onBusy
     {error && <Alert variant="danger">{error}</Alert>}
     {notice && <Alert variant="success" role="status">{notice}</Alert>}
     <Form.Group controlId="api-cv-upload" className="mb-3">
-      <Form.Label>Tải CV mới (PDF, DOCX; tối đa 10 MB)</Form.Label>
-      <Form.Control type="file" accept=".pdf,.docx" disabled={busy || loading} onChange={event => {
-        const file = event.target.files?.[0]; event.target.value = "";
-        if (file) run(async () => { const result = await candidateApi.upload(candidateId, file); selectedRef.current = result.cv_version_id; selectRef.current?.(result.cv_version_id); }, "Đã tải CV. Bạn có thể dùng CV này để ứng tuyển; kết quả phân tích AI được xử lý riêng.");
-      }} />
+      <Form.Label className="d-block">
+        Tải CV mới (PDF, DOCX; tối đa 10 MB)
+        <Form.Control className="visually-hidden candidate-cv-file-input" type="file" accept=".pdf,.docx" disabled={busy || loading} onChange={event => {
+          const file = event.target.files?.[0]; event.target.value = "";
+          if (file) run(async () => { const result = await candidateApi.upload(candidateId, file); selectedRef.current = result.cv_version_id; selectRef.current?.(result.cv_version_id); }, "Đã tải CV. Bạn có thể dùng CV này để ứng tuyển; kết quả phân tích AI được xử lý riêng.");
+        }} />
+        <span
+          className={`btn btn-sm btn-outline-success d-block w-100 mt-2 candidate-cv-picker-button${busy || loading ? " disabled" : ""}`}
+          aria-hidden="true"
+        >
+          {busy ? "Đang tải CV…" : "Chọn tệp CV từ máy"}
+        </span>
+      </Form.Label>
     </Form.Group>
     {loading ? <p role="status">Đang tải danh sách CV…</p> : !cvs.length && <p className="text-muted">Chưa có CV trên hệ thống.</p>}
     {!loading && cvs.map(cv => <div className="border rounded p-3 mb-2" key={cv.id}>
