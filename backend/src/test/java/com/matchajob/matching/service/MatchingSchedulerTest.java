@@ -16,29 +16,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
-import org.springframework.web.client.ResourceAccessException;
-
-import java.util.Optional;
-package com.matchajob.matching.service;
-
-import com.matchajob.processing.model.ProcessingJob;
-import com.matchajob.processing.service.ProcessingJobService;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.web.client.ResourceAccessException;
-
-import java.util.Optional;
-import java.util.UUID;
-
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -117,11 +94,9 @@ class MatchingSchedulerTest {
         when(processingJobService.claimNextMatchingJob())
                 .thenReturn(Optional.of(job));
 
-        doThrow(
-                new MatchingService.MatchNotReadyException(
-                        "CV extraction not complete"
-                )
-        ).when(matchingService).evaluateApplicationMatch(job);
+        doThrow(new MatchingService.MatchNotReadyException(
+                "CV extraction not complete"
+        )).when(matchingService).evaluateApplicationMatch(job);
 
         scheduler.poll();
 
@@ -152,9 +127,9 @@ class MatchingSchedulerTest {
         when(processingJobService.claimNextMatchingJob())
                 .thenReturn(Optional.of(job));
 
-        doThrow(
-                new ResourceAccessException("Connection refused")
-        ).when(matchingService).evaluateApplicationMatch(job);
+        doThrow(new ResourceAccessException("Connection refused"))
+                .when(matchingService)
+                .evaluateApplicationMatch(job);
 
         scheduler.poll();
 
@@ -169,16 +144,32 @@ class MatchingSchedulerTest {
     void poll_doesNotFailJobTwiceWhenMatchingServiceAlreadyRescheduledIt() {
         UUID jobId = UUID.randomUUID();
         UUID applicationId = UUID.randomUUID();
-        ProcessingJob claimed = ProcessingJob.builder().id(jobId).entityId(applicationId).leaseToken("lease").build();
-        when(processingJobService.claimNextMatchingJob()).thenReturn(Optional.of(claimed));
-        when(processingJobService.getJob(jobId)).thenReturn(Optional.of(
-                ProcessingJob.builder().id(jobId).status("PENDING").build()));
+
+        ProcessingJob claimed = ProcessingJob.builder()
+                .id(jobId)
+                .entityId(applicationId)
+                .leaseToken("lease")
+                .build();
+
+        when(processingJobService.claimNextMatchingJob())
+                .thenReturn(Optional.of(claimed));
+
+        when(processingJobService.getJob(jobId))
+                .thenReturn(Optional.of(
+                        ProcessingJob.builder()
+                                .id(jobId)
+                                .status("PENDING")
+                                .build()
+                ));
+
         doThrow(new RuntimeException("worker failed"))
-                .when(matchingService).evaluateApplicationMatch(any());
+                .when(matchingService)
+                .evaluateApplicationMatch(any());
 
         scheduler.poll();
 
-        verify(processingJobService, never()).markJobFailed(any(), anyString(), anyBoolean());
+        verify(processingJobService, never())
+                .markJobFailed(any(), anyString(), anyBoolean());
     }
 
     @Test
@@ -198,4 +189,3 @@ class MatchingSchedulerTest {
                 .evaluateApplicationMatch(any(ProcessingJob.class));
     }
 }
-import static org.mockito.ArgumentMatchers.any;
