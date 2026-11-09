@@ -36,13 +36,15 @@ def extract_cv_text(filename: str, content: bytes, content_type: str = "") -> Tu
     if not content:
         raise ValueError("File content is empty.")
 
-    lower_filename = filename.lower()
-    is_pdf = lower_filename.endswith(".pdf") or "pdf" in content_type.lower()
-    is_docx = lower_filename.endswith(".docx") or "wordprocessingml" in content_type.lower()
+    lower_filename = filename.replace("\\", "/").split("/")[-1].lower()
+    if lower_filename.count(".") != 1:
+        raise ValueError("Unsupported file format. Only PDF (.pdf) and Word (.docx) files are supported.")
+    is_pdf = lower_filename.endswith(".pdf")
+    is_docx = lower_filename.endswith(".docx")
 
     if is_pdf:
         # Validate PDF magic bytes
-        if b"%PDF" not in content[:1024]:
+        if not content.startswith(b"%PDF"):
             raise ValueError("Corrupted or invalid PDF header.")
 
         try:
@@ -64,7 +66,7 @@ def extract_cv_text(filename: str, content: bytes, content_type: str = "") -> Tu
         except Exception as e:
             if "pages limit" in str(e):
                 raise
-            raise ValueError(f"Failed to parse PDF document: {str(e)}")
+            raise ValueError("Failed to parse PDF document.") from e
 
     elif is_docx:
         # Validate DOCX PK zip magic bytes
@@ -87,7 +89,7 @@ def extract_cv_text(filename: str, content: bytes, content_type: str = "") -> Tu
                 raw_text = "CV Document (Empty Word document)"
             return raw_text, 1
         except Exception as e:
-            raise ValueError(f"Failed to parse DOCX document: {str(e)}")
+            raise ValueError("Failed to parse DOCX document.") from e
 
     else:
         raise ValueError("Unsupported file format. Only PDF (.pdf) and Word (.docx) files are supported.")

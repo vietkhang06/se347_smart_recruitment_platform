@@ -35,5 +35,9 @@
   "explanation": "Fixture minh họa: hồ sơ thể hiện Java và Spring Boot; cần xác minh thêm Kubernetes và mức kinh nghiệm phù hợp với vị trí.",
   "processingJobId": null,
   "evaluatedAt": "2026-10-18T10:00:00Z",
-  "message": "Fixture demo only; this is not a live AI evaluation."
+  "message": "Fixture demo only; this is not a live AI evaluation.",
+  "retryable": false,
+  "retryAfter": null,
+  "attemptCount": null,
+  "maxAttempts": null
 }

@@ -138,7 +138,13 @@ class DeterministicTestProvider(AIProvider):
         if skills_required and experience_required:
             # Both criteria are required by the job
             verified_skills_points = 0.6 * skills_score if skills_score is not None else 0.0
-            verified_exp_points = 0.4 * experience_score if experience_score is not None else 0.0
+            # Gating policy: When technical skills are explicitly required by the JD,
+            # generic experience duration is only credited if at least one required skill is verified.
+            # An applicant with zero matched skills cannot claim role-relevant experience.
+            if required_matched:
+                verified_exp_points = 0.4 * experience_score if experience_score is not None else 0.0
+            else:
+                verified_exp_points = 0.0
             overall_score = int(round(verified_skills_points + verified_exp_points))
         elif skills_required and not experience_required:
             # Job only requires skills (experience not specified in JD)

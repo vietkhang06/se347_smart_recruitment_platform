@@ -1798,7 +1798,7 @@ export default function JobComposerModal({
         )}
       </Modal.Body>
 
-      <Modal.Footer className="border-top d-flex justify-content-between pe-4">
+      <Modal.Footer className="border-top d-flex flex-wrap justify-content-between align-items-center gap-2 pe-4">
         <span className="text-muted small">
           {mode === "edit"
             ? `Đang chỉnh sửa tin: ${jobToEdit?.id || ""}`

@@ -79,10 +79,12 @@ class CvProcessingIT {
     @org.junit.jupiter.api.BeforeEach
     void setUp() {
         jdbcClient.sql("DELETE FROM embeddings WHERE entity_type = 'cv_version'").update();
+        jdbcClient.sql("DELETE FROM processing_jobs WHERE entity_type = 'cv_version'").update();
+        org.mockito.Mockito.reset(aiWorkerClient);
     }
 
     private byte[] createSamplePdfBytes() {
-        return "%PDF-1.4 Mock PDF content for test extraction".getBytes(StandardCharsets.UTF_8);
+        return TestPdf.bytes();
     }
 
     private UUID createTestCandidateProfile() {

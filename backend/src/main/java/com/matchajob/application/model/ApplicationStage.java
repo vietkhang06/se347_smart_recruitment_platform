@@ -27,10 +27,10 @@ public enum ApplicationStage {
     static {
         VALID_TRANSITIONS = new EnumMap<>(ApplicationStage.class);
         VALID_TRANSITIONS.put(NEW, EnumSet.of(SCREENING, REJECTED));
-        VALID_TRANSITIONS.put(SCREENING, EnumSet.of(TESTING, INTERVIEW, REJECTED));
-        VALID_TRANSITIONS.put(TESTING, EnumSet.of(INTERVIEW, REJECTED));
-        VALID_TRANSITIONS.put(INTERVIEW, EnumSet.of(OFFER, REJECTED));
-        VALID_TRANSITIONS.put(OFFER, EnumSet.of(HIRED, REJECTED));
+        VALID_TRANSITIONS.put(SCREENING, EnumSet.of(NEW, TESTING, INTERVIEW, REJECTED));
+        VALID_TRANSITIONS.put(TESTING, EnumSet.of(SCREENING, INTERVIEW, REJECTED));
+        VALID_TRANSITIONS.put(INTERVIEW, EnumSet.of(TESTING, SCREENING, OFFER, REJECTED));
+        VALID_TRANSITIONS.put(OFFER, EnumSet.of(INTERVIEW, HIRED, REJECTED));
         // Terminal states — no further transitions allowed
         VALID_TRANSITIONS.put(HIRED, EnumSet.noneOf(ApplicationStage.class));
         VALID_TRANSITIONS.put(REJECTED, EnumSet.noneOf(ApplicationStage.class));

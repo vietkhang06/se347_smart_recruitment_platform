@@ -140,11 +140,26 @@ class ApplicationStateMachineTest {
         }
 
         @Test
-        @DisplayName("Backward transition (e.g. INTERVIEW -> SCREENING) throws IllegalStateException")
-        void backwardTransition_throwsException() {
-            assertThatThrownBy(() -> stateMachine.validateTransition(ApplicationStage.INTERVIEW, ApplicationStage.SCREENING))
+        @DisplayName("Invalid backward skipping transition (e.g. OFFER -> NEW) throws IllegalStateException")
+        void invalidBackwardSkipping_throwsException() {
+            assertThatThrownBy(() -> stateMachine.validateTransition(ApplicationStage.OFFER, ApplicationStage.NEW))
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining("Invalid stage transition");
+        }
+
+        @Test
+        @DisplayName("Valid rollback/backward transitions between consecutive active stages")
+        void validBackwardRollbackTransitions() {
+            assertThatCode(() -> stateMachine.validateTransition(ApplicationStage.OFFER, ApplicationStage.INTERVIEW))
+                    .doesNotThrowAnyException();
+            assertThatCode(() -> stateMachine.validateTransition(ApplicationStage.INTERVIEW, ApplicationStage.TESTING))
+                    .doesNotThrowAnyException();
+            assertThatCode(() -> stateMachine.validateTransition(ApplicationStage.INTERVIEW, ApplicationStage.SCREENING))
+                    .doesNotThrowAnyException();
+            assertThatCode(() -> stateMachine.validateTransition(ApplicationStage.TESTING, ApplicationStage.SCREENING))
+                    .doesNotThrowAnyException();
+            assertThatCode(() -> stateMachine.validateTransition(ApplicationStage.SCREENING, ApplicationStage.NEW))
+                    .doesNotThrowAnyException();
         }
 
         @Test

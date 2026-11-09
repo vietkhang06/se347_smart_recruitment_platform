@@ -1,5 +1,6 @@
 import { apiJobService } from "./apiJobService";
 import { apiApplicationService } from "./apiApplicationService";
+import { apiInterviewService } from "./apiInterviewService";
 import { toEmployerStatisticsViewModel, toAdminStatisticsViewModel } from "../../mappers/statisticsMapper";
 import { mockStatisticsService } from "../mock/mockStatisticsService";
 
@@ -12,9 +13,12 @@ import { mockStatisticsService } from "../mock/mockStatisticsService";
 export const apiStatisticsService = {
   async getEmployerStatistics(companyId = "COMP-01") {
     try {
-      const jobs = await apiJobService.getEmployerJobs(companyId);
-      const apps = await apiApplicationService.getApplications(companyId);
-      return toEmployerStatisticsViewModel(jobs, apps);
+      const [jobs, apps, interviews] = await Promise.all([
+        apiJobService.getEmployerJobs(companyId),
+        apiApplicationService.getApplications(companyId),
+        apiInterviewService.getInterviews(companyId).catch(() => [])
+      ]);
+      return toEmployerStatisticsViewModel(jobs, apps, interviews);
     } catch {
       return mockStatisticsService.getEmployerStatistics(companyId);
     }

@@ -35,7 +35,7 @@ public class SecurityConfig {
     public SecurityConfig(
             JwtAuthenticationFilter jwtAuthenticationFilter,
             @Value("${springdoc.api-docs.enabled:false}") boolean springdocEnabled,
-            @Value("${app.cors.allowed-origins:http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000}") String allowedOriginsStr
+            @Value("${app.cors.allowed-origins:http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174,http://localhost:3000}") String allowedOriginsStr
     ) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.springdocEnabled = springdocEnabled;
@@ -84,6 +84,9 @@ public class SecurityConfig {
                     auth.requestMatchers(HttpMethod.GET, "/v1/jobs/*/applications", "/v1/jobs/*/applications/**").hasRole("EMPLOYER");
                     auth.requestMatchers(HttpMethod.GET, "/v1/jobs/*/applications/ranking").hasRole("EMPLOYER");
                     auth.requestMatchers("/v1/interviews", "/v1/interviews/**").authenticated();
+
+                    // Role-protected endpoints: Admin (must precede anyRequest)
+                    auth.requestMatchers("/v1/admin", "/v1/admin/**").hasRole("ADMIN");
 
                     // Role-protected endpoints: Candidate
                     auth.requestMatchers("/v1/candidates/profile", "/v1/candidates/profile/**").hasRole("CANDIDATE");

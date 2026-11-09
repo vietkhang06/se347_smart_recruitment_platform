@@ -1,9 +1,5 @@
 package com.matchajob.api.recruitment.model;
 
-import com.matchajob.api.recruitment.model.enums.JobLevel;
-import com.matchajob.api.recruitment.model.enums.JobStatus;
-import com.matchajob.api.recruitment.model.enums.SalaryMode;
-import com.matchajob.api.recruitment.model.enums.WorkType;
 import jakarta.persistence.*;
 import lombok.*;
 
