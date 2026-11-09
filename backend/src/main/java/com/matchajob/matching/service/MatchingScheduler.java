@@ -56,7 +56,10 @@ public class MatchingScheduler {
                     boolean retryable = isRetryable(e);
                     log.warn("Matching job {} failed (retryable={}): {}",
                              job.getId(), retryable, e.getClass().getSimpleName());
-                    processingJobService.markJobFailed(job.getId(), toSafeMessage(e), retryable);
+                    if (processingJobService.getJob(job.getId())
+                            .map(current -> "PROCESSING".equals(current.getStatus())).orElse(true)) {
+                        processingJobService.markJobFailed(job.getId(), toSafeMessage(e), retryable);
+                    }
                 }
             });
         } catch (Exception e) {

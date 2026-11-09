@@ -9,7 +9,7 @@ from app.schemas.ai import (
     MatchScoreRequest,
     MatchScoreResponse,
 )
-from app.services.extractor import extract_cv_text
+from app.services.extractor import MAX_FILE_SIZE_BYTES, extract_cv_text
 from app.services.providers import get_ai_provider
 
 
@@ -29,7 +29,8 @@ async def extract_cv(file: UploadFile = File(...)):
             detail="Filename is missing.",
         )
 
-    content = await file.read()
+    content = await file.read(MAX_FILE_SIZE_BYTES + 1)
+    await file.close()
     try:
         raw_text, page_count = extract_cv_text(
             filename=file.filename,

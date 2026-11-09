@@ -12,13 +12,7 @@ import Button from 'react-bootstrap/Button';
 ChartJS.register(ArcElement, Tooltip, Legend);
 
 export default function SourceDistributionChart({ sourcesData, isLoading = false, error = null, onRetry }) {
-  let isDark = false;
-  try {
-    const themeContext = useTheme ? useTheme() : null;
-    isDark = themeContext?.theme === 'dark';
-  } catch {
-    isDark = false;
-  }
+  const isDark = useTheme()?.theme === 'dark';
 
   const textColor = isDark ? '#94a3b8' : '#64748b';
 
