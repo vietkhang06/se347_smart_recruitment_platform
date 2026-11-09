@@ -104,3 +104,4 @@ scratch/
 .matching-evidence/
 matching-live-evidence/
 !docs/MATCHING_TASK_COPY_GUIDE_VI.md
+.worktrees/
