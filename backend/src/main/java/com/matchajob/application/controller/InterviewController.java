@@ -38,7 +38,7 @@ public class InterviewController {
         try {
             List<InterviewResponse> interviews = interviewService.getEmployerInterviews(userId, companyId, status);
             return ResponseEntity.ok(interviews);
-        } catch (Exception ex) {
+        } catch (IllegalArgumentException ex) {
             log.error("Error fetching interviews: {}", ex.getMessage());
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
         }

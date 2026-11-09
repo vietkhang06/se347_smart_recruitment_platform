@@ -31,7 +31,7 @@ public class Job {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id")
-    private CategoryEntity category;
+    private Category category;
 
     @Column(name = "created_by", nullable = false)
     private UUID createdBy;
@@ -57,7 +57,6 @@ public class Job {
     @Column(columnDefinition = "TEXT")
     private String address;
 
-<<<<<<< HEAD
     @Column(name = "map_link", length = 500)
     private String mapLink;
 
@@ -132,11 +131,3 @@ public class Job {
     @Builder.Default
     private List<JobSkill> jobSkills = new ArrayList<>();
 }
-=======
-    @ManyToOne
-    @JoinColumn(name = "category_id")
-    private CategoryEntity category;
-
-    private LocalDateTime createdAt = LocalDateTime.now();
-}
->>>>>>> ea49ab9 (fix: resolve PR review feedback and address database migration blockers)

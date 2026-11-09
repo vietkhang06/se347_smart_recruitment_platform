@@ -1,14 +1,15 @@
 package com.matchajob.api.recruitment.controller;
 
 import com.matchajob.api.recruitment.dto.CategoryResponse;
+import com.matchajob.api.recruitment.model.Category;
 import com.matchajob.api.recruitment.service.TaxonomyService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/recruitment/taxonomies")
@@ -23,16 +24,18 @@ public class TaxonomyController {
     }
 
     @PostMapping("/categories")
-    public ResponseEntity<CategoryEntity> createCategory(@RequestBody CategoryEntity category) {
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<CategoryResponse> createCategory(@RequestBody Category category) {
         try {
-            return ResponseEntity.ok(taxonomyService.createCategory(category));
+            return ResponseEntity.ok(CategoryResponse.from(taxonomyService.createCategory(category)));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().build();
         }
     }
 
     @DeleteMapping("/categories/{id}")
-    public ResponseEntity<Void> deleteCategory(@PathVariable Long id) {
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> deleteCategory(@PathVariable UUID id) {
         try {
             taxonomyService.deleteCategory(id);
             return ResponseEntity.noContent().build();

@@ -83,10 +83,12 @@ public class SecurityConfig {
                     auth.requestMatchers(HttpMethod.PATCH, "/v1/applications/*/stage", "/v1/applications/{id}/stage").hasRole("EMPLOYER");
                     auth.requestMatchers(HttpMethod.GET, "/v1/jobs/*/applications", "/v1/jobs/*/applications/**").hasRole("EMPLOYER");
                     auth.requestMatchers(HttpMethod.GET, "/v1/jobs/*/applications/ranking").hasRole("EMPLOYER");
-                    auth.requestMatchers("/v1/interviews", "/v1/interviews/**").authenticated();
+                    auth.requestMatchers("/v1/interviews", "/v1/interviews/**").hasRole("EMPLOYER");
 
                     // Role-protected endpoints: Admin (must precede anyRequest)
                     auth.requestMatchers("/v1/admin", "/v1/admin/**").hasRole("ADMIN");
+                    auth.requestMatchers(HttpMethod.POST, "/api/v1/recruitment/taxonomies", "/api/v1/recruitment/taxonomies/**").hasRole("ADMIN");
+                    auth.requestMatchers(HttpMethod.DELETE, "/api/v1/recruitment/taxonomies", "/api/v1/recruitment/taxonomies/**").hasRole("ADMIN");
 
                     // Role-protected endpoints: Candidate
                     auth.requestMatchers("/v1/candidates/profile", "/v1/candidates/profile/**").hasRole("CANDIDATE");

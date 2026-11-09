@@ -76,6 +76,10 @@ public class MatchingService {
         this.persistence = persistence;
     }
 
+    public MatchResult evaluateApplicationMatch(UUID applicationId, String leaseToken) {
+        return evaluateApplicationMatch(applicationId);
+    }
+
     /**
      * Evaluates the matching result from persisted application, CV snapshot and job data.
      * Client-supplied job title/requirements/CV IDs are deliberately not trusted as source data.
