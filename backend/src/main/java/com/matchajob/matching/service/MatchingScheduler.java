@@ -1,3 +1,4 @@
+
 package com.matchajob.matching.service;
 
 import com.matchajob.processing.model.ProcessingJob;
@@ -20,54 +21,91 @@ import org.springframework.stereotype.Component;
 @Component
 @EnableScheduling
 @ConditionalOnProperty(
-    name = "matchajob.matching.processing.enabled",
-    havingValue = "true",
-    matchIfMissing = true
+        name = "matchajob.matching.processing.enabled",
+        havingValue = "true",
+        matchIfMissing = true
 )
 public class MatchingScheduler {
 
-    private static final Logger log = LoggerFactory.getLogger(MatchingScheduler.class);
+    private static final Logger log =
+            LoggerFactory.getLogger(MatchingScheduler.class);
 
     private final ProcessingJobService processingJobService;
     private final MatchingService matchingService;
 
-    public MatchingScheduler(ProcessingJobService processingJobService,
-                             MatchingService matchingService) {
+    public MatchingScheduler(
+            ProcessingJobService processingJobService,
+            MatchingService matchingService
+    ) {
         this.processingJobService = processingJobService;
         this.matchingService = matchingService;
     }
 
     /**
-     * Polls the matching queue. ProcessingJobService is the single owner of queue
-     * acquisition; MatchingService receives that exact lease and must not claim again.
+     * Polls the matching queue.
+     *
+     * ProcessingJobService is the single owner of queue acquisition.
+     * MatchingService receives the exact claimed job and its lease token
+     * and must not claim the job again.
      */
-    @Scheduled(fixedDelayString = "${matchajob.matching.processing.poll-delay-ms:3000}")
+    @Scheduled(
+            fixedDelayString =
+                    "${matchajob.matching.processing.poll-delay-ms:3000}"
+    )
     public void poll() {
         try {
             processingJobService.recoverExpiredMatchingLeases();
-            processingJobService.claimNextMatchingJob().ifPresent(this::processClaimedJob);
+
+            processingJobService.claimNextMatchingJob()
+                    .ifPresent(this::processClaimedJob);
+
         } catch (Exception e) {
-            log.warn("Matching queue poll failed; cause={}", e.getClass().getSimpleName());
+            log.warn(
+                    "Matching queue poll failed; cause={}",
+                    e.getClass().getSimpleName(),
+                    e
+            );
         }
     }
 
+    /**
+     * Processes a job that has already been claimed by ProcessingJobService.
+     *
+     * MatchingService owns failure persistence and retry scheduling.
+     * The scheduler must not update the same job state a second time.
+     */
     private void processClaimedJob(ProcessingJob job) {
-        log.info("Claimed APPLICATION_MATCHING job: {} (attempt {})",
-                job.getId(), job.getAttemptCount());
+
+        log.info(
+                "Claimed APPLICATION_MATCHING job: {} (attempt {})",
+                job.getId(),
+                job.getAttemptCount()
+        );
 
         try {
             matchingService.evaluateApplicationMatch(job);
+
         } catch (MatchingException e) {
             // MatchingService owns failure persistence and retry scheduling.
-            // The scheduler only reports the outcome; it must not fail the same lease again.
-            log.warn("Matching job {} stopped (code={}, retryable={}): {}",
-                    job.getId(), e.getCode(), e.isRetryable(), e.getMessage());
+            // The scheduler only reports the outcome.
+            log.warn(
+                    "Matching job {} stopped (code={}, retryable={}): {}",
+                    job.getId(),
+                    e.getCode(),
+                    e.isRetryable(),
+                    e.getMessage()
+            );
+
         } catch (Exception e) {
-            // Unexpected exceptions are logged here. Normal RuntimeException paths are
-            // persisted by MatchingService before they are rethrown.
-            log.error("Matching job {} terminated unexpectedly; cause={}",
-                    job.getId(), e.getClass().getSimpleName(), e);
+            // Unexpected exceptions are logged here.
+            // Normal RuntimeException paths are persisted by MatchingService
+            // before they are rethrown.
+            log.error(
+                    "Matching job {} terminated unexpectedly; cause={}",
+                    job.getId(),
+                    e.getClass().getSimpleName(),
+                    e
+            );
         }
     }
-
 }
