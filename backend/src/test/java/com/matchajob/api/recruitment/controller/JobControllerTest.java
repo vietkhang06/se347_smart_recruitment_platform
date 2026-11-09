@@ -7,6 +7,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
@@ -24,24 +25,22 @@ public class JobControllerTest {
 
     @Test
     public void testUnauthorizedJobModification() throws Exception {
-        when(jobService.updateJobStatus(anyLong(), anyString(), anyLong(), anyBoolean()))
+        when(jobService.updateJobStatus(any(UUID.class), anyString()))
                 .thenThrow(new SecurityException("Unauthorized"));
 
-        mockMvc.perform(patch("/api/v1/recruitment/jobs/1/status")
+        mockMvc.perform(patch("/api/v1/recruitment/jobs/00000000-0000-0000-0000-000000000000/status")
                 .param("status", "PAUSED")
-                .param("employerId", "2")
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isForbidden());
     }
 
     @Test
     public void testInvalidStatusTransition() throws Exception {
-        when(jobService.updateJobStatus(anyLong(), anyString(), anyLong(), anyBoolean()))
+        when(jobService.updateJobStatus(any(UUID.class), anyString()))
                 .thenThrow(new IllegalStateException("Invalid transition"));
 
-        mockMvc.perform(patch("/api/v1/recruitment/jobs/1/status")
+        mockMvc.perform(patch("/api/v1/recruitment/jobs/00000000-0000-0000-0000-000000000000/status")
                 .param("status", "ACTIVE")
-                .param("employerId", "1")
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest());
     }

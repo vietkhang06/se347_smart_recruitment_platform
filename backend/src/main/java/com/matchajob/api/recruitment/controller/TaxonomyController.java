@@ -1,14 +1,14 @@
 package com.matchajob.api.recruitment.controller;
 
 import com.matchajob.api.recruitment.dto.CategoryResponse;
+import com.matchajob.api.recruitment.model.Category;
 import com.matchajob.api.recruitment.service.TaxonomyService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/recruitment/taxonomies")
@@ -23,7 +23,7 @@ public class TaxonomyController {
     }
 
     @PostMapping("/categories")
-    public ResponseEntity<CategoryEntity> createCategory(@RequestBody CategoryEntity category) {
+    public ResponseEntity<Category> createCategory(@RequestBody Category category) {
         try {
             return ResponseEntity.ok(taxonomyService.createCategory(category));
         } catch (IllegalArgumentException e) {
@@ -32,7 +32,7 @@ public class TaxonomyController {
     }
 
     @DeleteMapping("/categories/{id}")
-    public ResponseEntity<Void> deleteCategory(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteCategory(@PathVariable UUID id) {
         try {
             taxonomyService.deleteCategory(id);
             return ResponseEntity.noContent().build();

@@ -50,7 +50,7 @@ class MatchingSchedulerTest {
         scheduler.poll();
 
         verify(processingJobService).recoverExpiredMatchingLeases();
-        verify(matchingService).evaluateApplicationMatch(applicationId, leaseToken);
+        verify(matchingService).evaluateApplicationMatch(applicationId);
         verify(processingJobService, never()).markJobFailed(any(), anyString(), anyBoolean());
     }
 
@@ -68,7 +68,7 @@ class MatchingSchedulerTest {
 
         when(processingJobService.claimNextMatchingJob()).thenReturn(Optional.of(job));
         doThrow(new MatchingService.MatchNotReadyException("CV extraction not complete"))
-                .when(matchingService).evaluateApplicationMatch(applicationId, leaseToken);
+                .when(matchingService).evaluateApplicationMatch(applicationId);
 
         scheduler.poll();
 
@@ -89,7 +89,7 @@ class MatchingSchedulerTest {
 
         when(processingJobService.claimNextMatchingJob()).thenReturn(Optional.of(job));
         doThrow(new ResourceAccessException("Connection refused"))
-                .when(matchingService).evaluateApplicationMatch(applicationId, leaseToken);
+                .when(matchingService).evaluateApplicationMatch(applicationId);
 
         scheduler.poll();
 
@@ -103,6 +103,6 @@ class MatchingSchedulerTest {
         scheduler.poll();
 
         verify(processingJobService).recoverExpiredMatchingLeases();
-        verify(matchingService, never()).evaluateApplicationMatch(any(), any());
+        verify(matchingService, never()).evaluateApplicationMatch(any());
     }
 }

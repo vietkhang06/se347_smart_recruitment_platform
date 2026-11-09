@@ -47,7 +47,7 @@ public class MatchingScheduler {
                 log.info("Claimed APPLICATION_MATCHING job: {} (attempt {})",
                          job.getId(), job.getAttemptCount());
                 try {
-                    matchingService.evaluateApplicationMatch(job.getEntityId(), job.getLeaseToken());
+                    matchingService.evaluateApplicationMatch(job.getEntityId());
                 } catch (MatchingService.MatchNotReadyException e) {
                     log.warn("Matching job {} deferred (not ready): {}",
                              job.getId(), e.getMessage());
