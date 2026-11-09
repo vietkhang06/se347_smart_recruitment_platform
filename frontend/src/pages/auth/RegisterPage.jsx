@@ -78,7 +78,7 @@ export default function RegisterPage() {
               {!IS_API && role === "employer" && <Form.Group className="mb-3" controlId="register-company">
                 <Form.Label>Tên doanh nghiệp</Form.Label><Form.Control required maxLength={150} value={companyName} onChange={e => setCompanyName(e.target.value)} />
               </Form.Group>}
-              <Form.Group className="mb-3">
+              <Form.Group className="mb-3" controlId="register-email">
                 <Form.Label className="small fw-semibold">Địa chỉ Email</Form.Label>
                 <Form.Control aria-label="Email" autoComplete="email" maxLength={255} disabled={busy || Boolean(success)}
                   type="email" 
@@ -89,7 +89,7 @@ export default function RegisterPage() {
                 />
               </Form.Group>
 
-              <Form.Group className="mb-3">
+              <Form.Group className="mb-3" controlId="register-password">
                 <Form.Label className="small fw-semibold">Mật khẩu (tối thiểu 8 ký tự)</Form.Label>
                 <Form.Control aria-label="Mật khẩu" autoComplete="new-password" disabled={busy || Boolean(success)}
                   type="password" 

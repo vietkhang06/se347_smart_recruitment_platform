@@ -46,7 +46,7 @@ class CvHttpContractTest {
 
     @Test
     void multipartUploadProduces202AndStreamingDownloadPreservesBytes() throws Exception {
-        byte[] bytes = "%PDF-1.4 synthetic HTTP test".getBytes();
+        byte[] bytes = TestPdf.bytes();
         when(registrations.register(eq(candidate), any())).thenAnswer(call -> {
             var stored = (CvStorageService.StorageResult) call.getArgument(1);
             CvVersion cv = CvVersion.builder().id(cvId).candidateId(candidate).fileName(stored.fileName())

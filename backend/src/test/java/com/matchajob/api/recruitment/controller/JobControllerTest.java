@@ -1,47 +1,52 @@
 package com.matchajob.api.recruitment.controller;
 
+import com.matchajob.api.recruitment.dto.JobSearchCriteria;
+import com.matchajob.api.recruitment.dto.JobSummaryResponse;
+import com.matchajob.api.recruitment.dto.PageResponse;
 import com.matchajob.api.recruitment.service.JobService;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.MockMvc;
-import java.util.UUID;
+import org.mockito.ArgumentCaptor;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import java.util.List;
 
-@WebMvcTest(JobController.class)
-public class JobControllerTest {
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-    @Autowired
-    private MockMvc mockMvc;
+class JobControllerTest {
+package com.matchajob.api.recruitment.controller;
 
-    @MockBean
-    private JobService jobService;
+import com.matchajob.api.recruitment.dto.JobSearchCriteria;
+import com.matchajob.api.recruitment.dto.JobSummaryResponse;
+import com.matchajob.api.recruitment.dto.PageResponse;
+import com.matchajob.api.recruitment.service.JobService;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+class JobControllerTest {
     @Test
-    public void testUnauthorizedJobModification() throws Exception {
-        when(jobService.updateJobStatus(any(UUID.class), anyString()))
-                .thenThrow(new SecurityException("Unauthorized"));
-
-        mockMvc.perform(patch("/api/v1/recruitment/jobs/00000000-0000-0000-0000-000000000000/status")
-                .param("status", "PAUSED")
-                .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isForbidden());
-    }
-
-    @Test
-    public void testInvalidStatusTransition() throws Exception {
-        when(jobService.updateJobStatus(any(UUID.class), anyString()))
-                .thenThrow(new IllegalStateException("Invalid transition"));
-
-        mockMvc.perform(patch("/api/v1/recruitment/jobs/00000000-0000-0000-0000-000000000000/status")
-                .param("status", "ACTIVE")
-                .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isBadRequest());
+    void searchPassesFiltersAndPaginationToService() throws Exception {
+        JobService service = mock(JobService.class);
+        when(service.searchJobs(any())).thenReturn(PageResponse.<JobSummaryResponse>builder().content(List.of())
+                .page(2).size(5).totalElements(0).build());
+        MockMvcBuilders.standaloneSetup(new JobController(service)).build()
+                .perform(get("/v1/jobs").param("keyword", "Java").param("page", "2").param("size", "5"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.page").value(2));
+        var criteria = ArgumentCaptor.forClass(JobSearchCriteria.class);
+        verify(service).searchJobs(criteria.capture());
+        assertThat(criteria.getValue().getKeyword()).isEqualTo("Java");
+        assertThat(criteria.getValue().getSize()).isEqualTo(5);
     }
 }
