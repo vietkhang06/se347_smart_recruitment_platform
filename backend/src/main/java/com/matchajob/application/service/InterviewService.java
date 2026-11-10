@@ -111,10 +111,19 @@ public class InterviewService {
      */
     @Transactional(readOnly = true)
     public List<InterviewResponse> getEmployerInterviews(UUID userId, UUID companyId, String status) {
+        if (userId == null) {
+            throw new AccessDeniedException("Access is denied: Full authentication is required");
+        }
+
+        // If employer explicitly requests interviews for a specific company, verify ownership
+        if (companyId != null) {
+            resourceOwnershipService.checkEmployerCompanyOwnership(userId, companyId);
+        }
+
         UUID effectiveCompanyId = companyId;
 
         // If companyId is not passed, resolve from user memberships
-        if (effectiveCompanyId == null && userId != null) {
+        if (effectiveCompanyId == null) {
             List<UUID> ownedCompanyIds = resourceOwnershipService.getEmployerCompanyIds(userId);
             if (!ownedCompanyIds.isEmpty()) {
                 effectiveCompanyId = ownedCompanyIds.get(0);
@@ -241,9 +250,10 @@ public class InterviewService {
         }
 
         InterviewResponse response = opt.get();
-        if (userId != null) {
-            resourceOwnershipService.checkApplicationAccess(userId, response.getApplicationId());
+        if (userId == null) {
+            throw new AccessDeniedException("Access is denied: Full authentication is required");
         }
+        resourceOwnershipService.checkApplicationAccess(userId, response.getApplicationId());
 
         return response;
     }
@@ -306,32 +316,16 @@ public class InterviewService {
                 .orElse(null);
         }
 
-        // Fallback: If mock or unmatched ID was passed, link to first available application
-        if (applicationId == null) {
-            applicationId = jdbcClient.sql("""
-                SELECT a.id FROM applications a
-                JOIN jobs j ON a.job_id = j.id
-                WHERE j.deleted_at IS NULL
-                ORDER BY a.applied_at DESC
-                LIMIT 1
-                """)
-                .query(UUID.class)
-                .optional()
-                .orElse(null);
-        }
-
         if (applicationId == null) {
             throw new IllegalArgumentException("Không tìm thấy hồ sơ ứng tuyển tương ứng để tạo lịch phỏng vấn.");
         }
 
-        // Verify employer ownership of the job
-        if (userId != null) {
-            try {
-                resourceOwnershipService.checkEmployerApplicationOwnership(userId, applicationId);
-            } catch (Exception ex) {
-                log.warn("Employer application ownership check bypassed for compatibility: {}", ex.getMessage());
-            }
+        if (userId == null) {
+            throw new AccessDeniedException("Access is denied: Full authentication is required");
         }
+
+        // Strictly verify employer ownership of the application / job
+        resourceOwnershipService.checkEmployerApplicationOwnership(userId, applicationId);
 
         Instant scheduledAt = parseScheduledAt(request.getScheduledAt(), request.getDate(), request.getTime());
 
@@ -395,12 +389,14 @@ public class InterviewService {
      */
     @Transactional
     public InterviewResponse updateInterview(UUID userId, UUID interviewId, InterviewUpdateRequest request) {
+        if (userId == null) {
+            throw new AccessDeniedException("Access is denied: Full authentication is required");
+        }
+
         InterviewEntity entity = interviewRepository.findById(interviewId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy lịch phỏng vấn: " + interviewId));
 
-        if (userId != null) {
-            resourceOwnershipService.checkEmployerApplicationOwnership(userId, entity.getApplicationId());
-        }
+        resourceOwnershipService.checkEmployerApplicationOwnership(userId, entity.getApplicationId());
 
         if (request.getScheduledAt() != null || (request.getDate() != null && !request.getDate().isBlank())) {
             Instant newSchedule = parseScheduledAt(request.getScheduledAt(), request.getDate(), request.getTime());
@@ -455,12 +451,14 @@ public class InterviewService {
      */
     @Transactional
     public InterviewResponse updateInterviewStatus(UUID userId, UUID interviewId, String newStatus, String reason) {
+        if (userId == null) {
+            throw new AccessDeniedException("Access is denied: Full authentication is required");
+        }
+
         InterviewEntity entity = interviewRepository.findById(interviewId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy lịch phỏng vấn: " + interviewId));
 
-        if (userId != null) {
-            resourceOwnershipService.checkEmployerApplicationOwnership(userId, entity.getApplicationId());
-        }
+        resourceOwnershipService.checkEmployerApplicationOwnership(userId, entity.getApplicationId());
 
         String dbStatus = mapToDbStatus(newStatus);
         entity.setStatus(dbStatus);

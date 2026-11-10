@@ -75,6 +75,10 @@ public class MatchingService {
         this.persistence = persistence;
     }
 
+    public MatchResult evaluateApplicationMatch(UUID applicationId, String leaseToken) {
+        return evaluateApplicationMatch(applicationId);
+    }
+
     /**
      * Synchronous compatibility entry point used by
      * POST /v1/applications/{id}/match.
