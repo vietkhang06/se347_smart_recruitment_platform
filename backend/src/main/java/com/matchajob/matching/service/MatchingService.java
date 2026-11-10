@@ -18,6 +18,7 @@ import com.matchajob.cv.model.CvVersion;
 import com.matchajob.cv.repository.CvVersionRepository;
 import com.matchajob.matching.model.MatchResult;
 import com.matchajob.matching.repository.MatchResultRepository;
+import com.matchajob.matching.repository.EmbeddingRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -50,6 +51,9 @@ public class MatchingService {
     private final JobRepository jobRepository;
     private final ProcessingJobRepository processingJobRepository;
     private final MatchingPersistenceService persistence;
+    private final EmbeddingRepository embeddingRepository;
+    private final JobEmbeddingService jobEmbeddingService;
+    private final MatchingScoringProperties scoringProperties;
 
     public MatchingService(
             CvVersionRepository cvVersionRepository,
@@ -63,6 +67,46 @@ public class MatchingService {
             ProcessingJobRepository processingJobRepository,
             MatchingPersistenceService persistence
     ) {
+        this(cvVersionRepository, matchResultRepository, aiWorkerClient, objectMapper, matchingResultMapper,
+                applicationRepository, applicationCvSnapshotRepository, jobRepository, processingJobRepository,
+                persistence, null, null, new MatchingScoringProperties());
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public MatchingService(
+            CvVersionRepository cvVersionRepository,
+            MatchResultRepository matchResultRepository,
+            AiWorkerClient aiWorkerClient,
+            ObjectMapper objectMapper,
+            MatchingResultMapper matchingResultMapper,
+            ApplicationRepository applicationRepository,
+            ApplicationCvSnapshotRepository applicationCvSnapshotRepository,
+            JobRepository jobRepository,
+            ProcessingJobRepository processingJobRepository,
+            MatchingPersistenceService persistence,
+            @org.springframework.beans.factory.annotation.Autowired(required = false) EmbeddingRepository embeddingRepository,
+            @org.springframework.beans.factory.annotation.Autowired(required = false) JobEmbeddingService jobEmbeddingService
+    ) {
+        this(cvVersionRepository, matchResultRepository, aiWorkerClient, objectMapper, matchingResultMapper,
+                applicationRepository, applicationCvSnapshotRepository, jobRepository, processingJobRepository,
+                persistence, embeddingRepository, jobEmbeddingService, new MatchingScoringProperties());
+    }
+
+    public MatchingService(
+            CvVersionRepository cvVersionRepository,
+            MatchResultRepository matchResultRepository,
+            AiWorkerClient aiWorkerClient,
+            ObjectMapper objectMapper,
+            MatchingResultMapper matchingResultMapper,
+            ApplicationRepository applicationRepository,
+            ApplicationCvSnapshotRepository applicationCvSnapshotRepository,
+            JobRepository jobRepository,
+            ProcessingJobRepository processingJobRepository,
+            MatchingPersistenceService persistence,
+            EmbeddingRepository embeddingRepository,
+            JobEmbeddingService jobEmbeddingService,
+            MatchingScoringProperties scoringProperties
+    ) {
         this.cvVersionRepository = cvVersionRepository;
         this.matchResultRepository = matchResultRepository;
         this.aiWorkerClient = aiWorkerClient;
@@ -73,6 +117,9 @@ public class MatchingService {
         this.jobRepository = jobRepository;
         this.processingJobRepository = processingJobRepository;
         this.persistence = persistence;
+        this.embeddingRepository = embeddingRepository;
+        this.jobEmbeddingService = jobEmbeddingService;
+        this.scoringProperties = scoringProperties != null ? scoringProperties : new MatchingScoringProperties();
     }
 
     public MatchResult evaluateApplicationMatch(UUID applicationId, String leaseToken) {
@@ -190,6 +237,10 @@ public class MatchingService {
             MatchScoreResponse score =
                     aiWorkerClient.calculateMatchScore(request);
 
+            validateScoreResponse(score);
+
+            // Integrate semantic vector similarity with rule-based score
+            score = integrateSemanticSimilarity(job.getId(), cv.getId(), score);
             validateScoreResponse(score);
 
             return persistence.complete(
@@ -663,12 +714,98 @@ public class MatchingService {
 
         validateScoreResponse(scoreResponse);
 
+        // Integrate semantic vector similarity with rule-based score
+        scoreResponse = integrateSemanticSimilarity(jobId, cvVersionId, scoreResponse);
+        validateScoreResponse(scoreResponse);
+
         return saveMatchResultTransaction(
                 applicationId,
                 jobId,
                 cvVersionId,
                 scoreResponse
         );
+    }
+
+    public MatchScoreResponse integrateSemanticSimilarity(UUID jobId, UUID cvVersionId, MatchScoreResponse baseResponse) {
+        if (baseResponse == null) {
+            return null;
+        }
+        if (embeddingRepository == null) {
+            return baseResponse;
+        }
+
+        Optional<Double> distanceOpt = Optional.empty();
+        try {
+            // Ensure JD embedding exists if possible
+            if (jobEmbeddingService != null && !embeddingRepository.hasEmbedding("job", jobId)) {
+                jobRepository.findById(jobId).ifPresent(jobEmbeddingService::generateAndSaveJobEmbedding);
+            }
+            distanceOpt = embeddingRepository.calculateCosineDistance("cv_version", cvVersionId, "job", jobId);
+        } catch (Exception ex) {
+            log.warn("Vector cosine distance query failed for cv {} and job {}: {}", cvVersionId, jobId, ex.getMessage());
+        }
+
+        Map<String, Object> breakdown = new java.util.LinkedHashMap<>();
+        if (baseResponse.getBreakdown() != null) {
+            breakdown.putAll(baseResponse.getBreakdown());
+        }
+
+        if (distanceOpt.isEmpty()) {
+            // FALLBACK POLICY:
+            // When vector embedding is unavailable, fall back cleanly to rule-based score.
+            // Do not invent a misleading 0 or arbitrary number.
+            breakdown.put("scoring_mode", "rule_based_fallback");
+            breakdown.put("config_version", scoringProperties.getConfigVersion());
+            breakdown.put("algorithm_id", scoringProperties.getAlgorithmId());
+            breakdown.put("shortlist_threshold", scoringProperties.getShortlistThreshold());
+            breakdown.put("semantic_similarity", null);
+            breakdown.put("semantic_score", null);
+            breakdown.put("rule_score", baseResponse.getOverallScore());
+
+            return MatchScoreResponse.builder()
+                    .overallScore(baseResponse.getOverallScore())
+                    .skillsScore(baseResponse.getSkillsScore())
+                    .experienceScore(baseResponse.getExperienceScore())
+                    .breakdown(breakdown)
+                    .rationale(baseResponse.getRationale())
+                    .build();
+        }
+
+        double distance = distanceOpt.get();
+        double semanticScore = EmbeddingRepository.normalizeCosineDistance(distance);
+
+        // Implementation default weights: 60% rule-based score, 40% semantic similarity
+        double ruleWeight = scoringProperties.getRuleWeight();
+        double semanticWeight = scoringProperties.getSemanticWeight();
+
+        int ruleScore = baseResponse.getOverallScore();
+        int hybridOverallScore = (int) Math.round((ruleWeight * ruleScore) + (semanticWeight * semanticScore));
+        hybridOverallScore = Math.max(0, Math.min(100, hybridOverallScore));
+
+        breakdown.put("scoring_mode", "hybrid");
+        breakdown.put("config_version", scoringProperties.getConfigVersion());
+        breakdown.put("algorithm_id", scoringProperties.getAlgorithmId());
+        breakdown.put("shortlist_threshold", scoringProperties.getShortlistThreshold());
+        breakdown.put("rule_score", ruleScore);
+        breakdown.put("rule_weight", ruleWeight);
+        breakdown.put("semantic_score", (int) Math.round(semanticScore));
+        breakdown.put("semantic_weight", semanticWeight);
+        breakdown.put("semantic_similarity", Math.round(semanticScore * 10.0) / 10.0);
+        breakdown.put("cosine_distance", Math.round(distance * 10000.0) / 10000.0);
+
+        String rationale = baseResponse.getRationale();
+        String semanticNote = String.format(Locale.ROOT,
+                " (Hybrid: rule %d%% [%d%% wt], semantic %d%% [%d%% wt] -> overall %d%%)",
+                ruleScore, (int)(ruleWeight * 100), (int) Math.round(semanticScore), (int)(semanticWeight * 100), hybridOverallScore);
+        String updatedRationale = (rationale != null && !rationale.isBlank()) ? (rationale + semanticNote) : semanticNote.trim();
+
+        return MatchScoreResponse.builder()
+                .overallScore(hybridOverallScore)
+                .skillsScore(baseResponse.getSkillsScore())
+                .experienceScore(baseResponse.getExperienceScore())
+                .breakdown(breakdown)
+                .rationale(updatedRationale)
+                .build();
     }
 
     @Transactional

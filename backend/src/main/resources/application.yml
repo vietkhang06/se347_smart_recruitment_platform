@@ -27,6 +27,12 @@ matchajob:
     processing:
       enabled: ${MATCHAJOB_MATCHING_PROCESSING_ENABLED:true}
       poll-delay-ms: ${MATCHAJOB_MATCHING_PROCESSING_POLL_DELAY_MS:3000}
+    scoring:
+      config-version: ${MATCHAJOB_SCORING_CONFIG_VERSION:v1.0-hybrid-60-40}
+      algorithm-id: ${MATCHAJOB_SCORING_ALGORITHM_ID:hybrid-rule-semantic-v1}
+      rule-weight: ${MATCHAJOB_SCORING_RULE_WEIGHT:0.60}
+      semantic-weight: ${MATCHAJOB_SCORING_SEMANTIC_WEIGHT:0.40}
+      shortlist-threshold: ${MATCHAJOB_SCORING_SHORTLIST_THRESHOLD:70}
 
 management:
   endpoints:

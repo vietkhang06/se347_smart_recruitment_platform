@@ -11,8 +11,8 @@ import com.matchajob.api.recruitment.repository.CategoryRepository;
 import com.matchajob.api.recruitment.repository.JobRepository;
 import com.matchajob.api.recruitment.repository.JobSpecification;
 import com.matchajob.api.recruitment.repository.SkillRepository;
+import com.matchajob.matching.service.JobEmbeddingService;
 import com.matchajob.security.ResourceOwnershipService;
-import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -20,6 +20,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.text.Normalizer;
 import java.time.Instant;
@@ -28,13 +30,29 @@ import java.util.*;
 import java.util.regex.Pattern;
 
 @Service
-@RequiredArgsConstructor
 public class JobService {
 
     private final JobRepository jobRepository;
     private final CategoryRepository categoryRepository;
     private final SkillRepository skillRepository;
     private final ResourceOwnershipService resourceOwnershipService;
+    private final JobEmbeddingService jobEmbeddingService;
+
+    public JobService(JobRepository jobRepository, CategoryRepository categoryRepository,
+                      SkillRepository skillRepository, ResourceOwnershipService resourceOwnershipService) {
+        this(jobRepository, categoryRepository, skillRepository, resourceOwnershipService, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public JobService(JobRepository jobRepository, CategoryRepository categoryRepository,
+                      SkillRepository skillRepository, ResourceOwnershipService resourceOwnershipService,
+                      JobEmbeddingService jobEmbeddingService) {
+        this.jobRepository = jobRepository;
+        this.categoryRepository = categoryRepository;
+        this.skillRepository = skillRepository;
+        this.resourceOwnershipService = resourceOwnershipService;
+        this.jobEmbeddingService = jobEmbeddingService;
+    }
 
     @Transactional(readOnly = true)
     public PageResponse<JobSummaryResponse> searchJobs(JobSearchCriteria criteria) {
@@ -201,6 +219,7 @@ public class JobService {
         attachSkills(job, request.getSkills());
 
         Job savedJob = jobRepository.saveAndFlush(job);
+        triggerJobEmbedding(savedJob);
         return JobDetailResponse.from(savedJob);
     }
 
@@ -280,7 +299,9 @@ public class JobService {
             attachSkills(job, request.getSkills());
         }
 
-        return JobDetailResponse.from(jobRepository.saveAndFlush(job));
+        Job savedJob = jobRepository.saveAndFlush(job);
+        triggerJobEmbedding(savedJob);
+        return JobDetailResponse.from(savedJob);
     }
 
     @Transactional
@@ -313,7 +334,11 @@ public class JobService {
         job.setStatus(statusEnum.getValue());
         job.setUpdatedAt(Instant.now());
 
-        return JobDetailResponse.from(jobRepository.saveAndFlush(job));
+        Job savedJob = jobRepository.saveAndFlush(job);
+        if (statusEnum == JobStatus.ACTIVE) {
+            triggerJobEmbedding(savedJob);
+        }
+        return JobDetailResponse.from(savedJob);
     }
 
     @Transactional
@@ -328,6 +353,7 @@ public class JobService {
                 .orElseThrow(() -> new JobNotFoundException(id));
         job.setDeletedAt(Instant.now());
         jobRepository.saveAndFlush(job);
+        triggerJobEmbeddingDeletion(id);
     }
 
     @Transactional
@@ -383,5 +409,37 @@ public class JobService {
             slug = base + "-" + counter++;
         }
         return slug;
+    }
+
+    private void triggerJobEmbedding(Job job) {
+        if (jobEmbeddingService == null || job == null) {
+            return;
+        }
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    jobEmbeddingService.generateAndSaveJobEmbedding(job);
+                }
+            });
+        } else {
+            jobEmbeddingService.generateAndSaveJobEmbedding(job);
+        }
+    }
+
+    private void triggerJobEmbeddingDeletion(UUID jobId) {
+        if (jobEmbeddingService == null || jobId == null) {
+            return;
+        }
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    jobEmbeddingService.deleteJobEmbedding(jobId);
+                }
+            });
+        } else {
+            jobEmbeddingService.deleteJobEmbedding(jobId);
+        }
     }
 }
