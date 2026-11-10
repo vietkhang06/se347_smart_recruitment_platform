@@ -23,8 +23,18 @@ export default function CandidateAvatar({ value, onChange }) {
     finally { URL.revokeObjectURL(url); setBusy(false); }
   }
   return <div className="mb-3">
-    <label className="small fw-semibold">Ảnh đại diện
-      <input type="file" className="form-control mt-1" accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={select} />
+    <label className="small fw-semibold d-block">Ảnh đại diện
+      <input
+        type="file"
+        className="visually-hidden candidate-cv-file-input"
+        aria-label="Ảnh đại diện"
+        accept="image/jpeg,image/png,image/webp"
+        disabled={busy}
+        onChange={select}
+      />
+      <span className="btn btn-sm btn-outline-success d-block w-100 mt-2 candidate-cv-picker-button" aria-hidden="true">
+        {busy ? "Đang xử lý ảnh…" : "Chọn ảnh từ máy"}
+      </span>
     </label>
     <div className="small text-muted">JPG, PNG, WebP · tối đa 2 MB. Chọn ảnh rồi bấm Lưu hồ sơ.</div>
     {value && <button type="button" className="btn btn-sm btn-outline-secondary mt-2" disabled={busy} onClick={() => onChange("")}>Bỏ ảnh</button>}

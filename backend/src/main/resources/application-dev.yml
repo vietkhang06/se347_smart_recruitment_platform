@@ -7,10 +7,10 @@ spring:
     hikari:
       pool-name: MatchaJobHikariPool
       maximum-pool-size: 10
-      minimum-idle: 10
+      minimum-idle: 1
       idle-timeout: 300000
       max-lifetime: 1800000
-      connection-timeout: 20000
+      connection-timeout: 3000
       leak-detection-threshold: 5000
 
   jpa:
