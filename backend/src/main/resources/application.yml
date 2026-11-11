@@ -3,7 +3,8 @@ server:
   servlet:
     context-path: /api
   error:
-    include-message: always
+    include-message: never
+    include-stacktrace: never
 
 spring:
   application:
@@ -26,6 +27,12 @@ matchajob:
     processing:
       enabled: ${MATCHAJOB_MATCHING_PROCESSING_ENABLED:true}
       poll-delay-ms: ${MATCHAJOB_MATCHING_PROCESSING_POLL_DELAY_MS:3000}
+    scoring:
+      config-version: ${MATCHAJOB_SCORING_CONFIG_VERSION:v1.0-hybrid-60-40}
+      algorithm-id: ${MATCHAJOB_SCORING_ALGORITHM_ID:hybrid-rule-semantic-v1}
+      rule-weight: ${MATCHAJOB_SCORING_RULE_WEIGHT:0.60}
+      semantic-weight: ${MATCHAJOB_SCORING_SEMANTIC_WEIGHT:0.40}
+      shortlist-threshold: ${MATCHAJOB_SCORING_SHORTLIST_THRESHOLD:70}
 
 management:
   endpoints:
@@ -48,3 +55,5 @@ security:
 app:
   auth:
     require-email-verification: ${REQUIRE_EMAIL_VERIFICATION:true}
+  cors:
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174,http://localhost:3000}

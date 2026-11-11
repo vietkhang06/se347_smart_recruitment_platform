@@ -3,6 +3,7 @@ package com.matchajob.api.recruitment.controller;
 import com.matchajob.api.recruitment.dto.*;
 import com.matchajob.api.recruitment.service.JobService;
 import com.matchajob.security.SecurityUtils;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -44,7 +45,7 @@ public class EmployerJobController {
     @PostMapping
     public ResponseEntity<JobDetailResponse> createJob(
             Authentication authentication,
-            @RequestBody JobCreateRequest request) {
+            @Valid @RequestBody JobCreateRequest request) {
         UUID userId = SecurityUtils.extractUserId(authentication);
         JobDetailResponse created = jobService.createJob(userId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
@@ -54,7 +55,7 @@ public class EmployerJobController {
     public ResponseEntity<JobDetailResponse> updateJob(
             Authentication authentication,
             @PathVariable UUID id,
-            @RequestBody JobUpdateRequest request) {
+            @Valid @RequestBody JobUpdateRequest request) {
         UUID userId = SecurityUtils.extractUserId(authentication);
         return ResponseEntity.ok(jobService.updateJob(userId, id, request));
     }
@@ -63,7 +64,7 @@ public class EmployerJobController {
     public ResponseEntity<JobDetailResponse> updateJobStatus(
             Authentication authentication,
             @PathVariable UUID id,
-            @RequestBody JobStatusUpdateRequest request) {
+            @Valid @RequestBody JobStatusUpdateRequest request) {
         UUID userId = SecurityUtils.extractUserId(authentication);
         return ResponseEntity.ok(jobService.updateJobStatus(userId, id, request.getStatus()));
     }
