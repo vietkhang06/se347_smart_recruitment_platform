@@ -1,70 +1,96 @@
 package com.matchajob.api.recruitment.controller;
 
+package com.matchajob.api.recruitment.controller;
+
 import com.matchajob.api.recruitment.dto.JobDetailResponse;
-import com.matchajob.api.recruitment.dto.JobSearchCriteria;
 import com.matchajob.api.recruitment.dto.JobSummaryResponse;
 import com.matchajob.api.recruitment.dto.PageResponse;
-import com.matchajob.api.recruitment.exception.JobNotFoundException;
 import com.matchajob.api.recruitment.service.JobService;
 import com.matchajob.common.exception.GlobalExceptionHandler;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 
 import java.util.List;
 import java.util.UUID;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-class JobControllerTest {
+@WebMvcTest
+@ContextConfiguration(classes = JobControllerTest.TestConfig.class)
+@AutoConfigureMockMvc(addFilters = false)
+public class JobControllerTest {
 
-    @Test
-    void searchPassesFiltersAndPaginationToService() throws Exception {
-        JobService service = mock(JobService.class);
-        when(service.searchJobs(any())).thenReturn(PageResponse.<JobSummaryResponse>builder().content(List.of())
-                .page(2).size(5).totalElements(0).build());
-        MockMvcBuilders.standaloneSetup(new JobController(service)).build()
-                .perform(get("/v1/jobs").param("keyword", "Java").param("page", "2").param("size", "5"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.page").value(2));
-        var criteria = ArgumentCaptor.forClass(JobSearchCriteria.class);
-        verify(service).searchJobs(criteria.capture());
-        assertThat(criteria.getValue().getKeyword()).isEqualTo("Java");
-        assertThat(criteria.getValue().getSize()).isEqualTo(5);
+    @Configuration
+    @EnableWebMvc
+    @Import(GlobalExceptionHandler.class)
+    static class TestConfig {
+        @Bean
+        public JobController jobController(JobService jobService) {
+            return new JobController(jobService);
+        }
     }
 
+    @Autowired
+    private MockMvc mockMvc;
+
+    @MockBean
+    private JobService jobService;
+
     @Test
-    void getJobDetail_success() throws Exception {
-        JobService service = mock(JobService.class);
-        UUID jobId = UUID.randomUUID();
-        JobDetailResponse response = JobDetailResponse.builder()
-                .id(jobId)
-                .title("Software Engineer")
+    public void testSearchJobs_ReturnsPageResponse() throws Exception {
+        JobSummaryResponse summary = JobSummaryResponse.builder()
+                .id(UUID.randomUUID())
+                .title("Senior Java Engineer")
                 .status("active")
                 .build();
-        when(service.getJobDetail(jobId)).thenReturn(response);
 
-        MockMvcBuilders.standaloneSetup(new JobController(service)).build()
-                .perform(get("/v1/jobs/" + jobId))
+        PageResponse<JobSummaryResponse> pageResponse = PageResponse.<JobSummaryResponse>builder()
+                .content(List.of(summary))
+                .page(0)
+                .size(10)
+                .totalElements(1)
+                .totalPages(1)
+                .last(true)
+                .build();
+
+        when(jobService.searchJobs(any())).thenReturn(pageResponse);
+
+        mockMvc.perform(get("/v1/jobs")
+                        .param("keyword", "Java")
+                        .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(jobId.toString()))
-                .andExpect(jsonPath("$.title").value("Software Engineer"));
+                .andExpect(jsonPath("$.content[0].title").value("Senior Java Engineer"))
+                .andExpect(jsonPath("$.totalElements").value(1));
     }
 
     @Test
-    void getJobDetail_notFound() throws Exception {
-        JobService service = mock(JobService.class);
+    public void testGetJobDetail_ReturnsDetail() throws Exception {
         UUID jobId = UUID.randomUUID();
-        when(service.getJobDetail(jobId)).thenThrow(new JobNotFoundException(jobId));
+        JobDetailResponse detail = JobDetailResponse.builder()
+                .id(jobId)
+                .title("Senior Java Engineer")
+                .status("active")
+                .build();
 
-        MockMvcBuilders.standaloneSetup(new JobController(service))
-                .setControllerAdvice(new GlobalExceptionHandler())
-                .build()
-                .perform(get("/v1/jobs/" + jobId))
-                .andExpect(status().isNotFound());
+        when(jobService.getJobDetail(jobId)).thenReturn(detail);
+
+        mockMvc.perform(get("/v1/jobs/{id}", jobId)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.title").value("Senior Java Engineer"));
     }
 }

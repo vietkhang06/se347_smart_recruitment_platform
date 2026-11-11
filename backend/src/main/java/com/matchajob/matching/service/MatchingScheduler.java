@@ -83,7 +83,7 @@ public class MatchingScheduler {
         );
 
         try {
-            matchingService.evaluateApplicationMatch(job);
+            matchingService.evaluateApplicationMatch(job.getEntityId());
 
         } catch (MatchingException e) {
             // MatchingService owns failure persistence and retry scheduling.

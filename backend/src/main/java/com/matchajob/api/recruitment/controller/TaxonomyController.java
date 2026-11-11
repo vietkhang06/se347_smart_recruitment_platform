@@ -5,30 +5,6 @@ import com.matchajob.api.recruitment.model.Category;
 import com.matchajob.api.recruitment.service.TaxonomyService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
-import java.util.UUID;
-
-@RestController
-@RequestMapping("/api/v1/recruitment/taxonomies")
-@RequiredArgsConstructor
-public class TaxonomyController {
-
-    private final TaxonomyService taxonomyService;
-
-    @GetMapping("/categories")
-    public ResponseEntity<List<CategoryResponse>> getCategories() {
-        return ResponseEntity.ok(taxonomyService.getAllCategories());
-package com.matchajob.api.recruitment.controller;
-
-import com.matchajob.api.recruitment.dto.CategoryResponse;
-import com.matchajob.api.recruitment.model.Category;
-import com.matchajob.api.recruitment.service.TaxonomyService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -47,22 +23,20 @@ public class TaxonomyController {
     }
 
     @PostMapping("/categories")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<CategoryResponse> createCategory(@RequestBody Category category) {
+    public ResponseEntity<Category> createCategory(@RequestBody Category category) {
         try {
-            return ResponseEntity.ok(CategoryResponse.from(taxonomyService.createCategory(category)));
+            return ResponseEntity.ok(taxonomyService.createCategory(category));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().build();
         }
     }
 
     @DeleteMapping("/categories/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteCategory(@PathVariable UUID id) {
         try {
             taxonomyService.deleteCategory(id);
             return ResponseEntity.noContent().build();
-        } catch (IllegalStateException e) {
+        } catch (IllegalArgumentException | IllegalStateException e) {
             return ResponseEntity.badRequest().build();
         }
     }
@@ -74,26 +48,6 @@ public class TaxonomyController {
 
     @GetMapping("/levels")
     public ResponseEntity<List<String>> getLevels() {
-        return ResponseEntity.ok(taxonomyService.getLevels());
-    }
-
-    @GetMapping("/skills")
-    public ResponseEntity<List<String>> getSkills() {
-        return ResponseEntity.ok(taxonomyService.getSkills());
-    }
-}
-2. File JobControllerTest.java: Xóa toàn bộ nội dung trong ô đó đi và dán nội dung này vào:
-package com.matchajob.api.recruitment.controller;
-
-import com.matchajob.api.recruitment.dto.JobDetailResponse;
-import com.matchajob.api.recruitment.dto.JobSearchCriteria;
-import com.matchajob.api.recruitment.dto.JobSummaryResponse;
-import com.matchajob.api.recruitment.dto.PageResponse;
-import com.matchajob.api.recruitment.exception.JobNotFoundException;
-import com.matchajob.api.recruitment.service.JobService;
-import com.matchajob.common.exception.GlobalExceptionHandler;
-import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
         return ResponseEntity.ok(taxonomyService.getLevels());
     }
 

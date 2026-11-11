@@ -1,4 +1,3 @@
-
 package com.matchajob.matching.service;
 
 import com.matchajob.processing.model.ProcessingJob;
@@ -40,13 +39,6 @@ class MatchingSchedulerTest {
         );
     }
 
-    /**
-     * Verifies that the scheduler passes the already-claimed ProcessingJob
-     * to MatchingService, including its lease token.
-     *
-     * The scheduler must not mark the job as failed because
-     * MatchingService owns the processing result.
-     */
     @Test
     void poll_whenJobAvailable_passesClaimedJobLeaseToMatchingService() {
         UUID jobId = UUID.randomUUID();
@@ -76,18 +68,12 @@ class MatchingSchedulerTest {
                 .claimNextMatchingJob();
 
         verify(matchingService)
-                .evaluateApplicationMatch(job);
+                .evaluateApplicationMatch(job.getEntityId());
 
         verify(processingJobService, never())
                 .markJobFailed(any(), anyString(), anyBoolean());
     }
 
-    /**
-     * Verifies that a MatchNotReadyException is handled without
-     * updating the job status a second time in the scheduler.
-     *
-     * MatchingService is responsible for processing state transitions.
-     */
     @Test
     void poll_whenMatchNotReady_doesNotMutateJobTwice() {
         UUID jobId = UUID.randomUUID();
@@ -108,27 +94,19 @@ class MatchingSchedulerTest {
         when(processingJobService.claimNextMatchingJob())
                 .thenReturn(Optional.of(job));
 
-        doThrow(
-                new MatchingService.MatchNotReadyException(
-                        "CV extraction not complete"
-                )
-        ).when(matchingService).evaluateApplicationMatch(job);
+        doThrow(new MatchingService.MatchNotReadyException(
+                "CV extraction not complete"
+        )).when(matchingService).evaluateApplicationMatch(job.getEntityId());
 
         scheduler.poll();
 
         verify(matchingService)
-                .evaluateApplicationMatch(job);
+                .evaluateApplicationMatch(job.getEntityId());
 
         verify(processingJobService, never())
                 .markJobFailed(any(), anyString(), anyBoolean());
     }
 
-    /**
-     * Verifies that an AI Worker connection failure does not cause
-     * the scheduler to update the job status a second time.
-     *
-     * Retry and failure handling belong to MatchingService.
-     */
     @Test
     void poll_whenAiWorkerConnectionFails_doesNotMutateJobTwice() {
         UUID jobId = UUID.randomUUID();
@@ -149,37 +127,73 @@ class MatchingSchedulerTest {
         when(processingJobService.claimNextMatchingJob())
                 .thenReturn(Optional.of(job));
 
-        doThrow(
-                new ResourceAccessException("Connection refused")
-        ).when(matchingService).evaluateApplicationMatch(job);
+        doThrow(new ResourceAccessException("Connection refused"))
+                .when(matchingService)
+                .evaluateApplicationMatch(job.getEntityId());
 
         scheduler.poll();
 
         verify(matchingService)
-                .evaluateApplicationMatch(job);
+                .evaluateApplicationMatch(job.getEntityId());
 
         verify(processingJobService, never())
                 .markJobFailed(any(), anyString(), anyBoolean());
     }
 
-    /**
-     * Verifies that the scheduler only recovers expired leases
-     * and does not invoke MatchingService when no pending job exists.
-     */
     @Test
     void poll_doesNotFailJobTwiceWhenMatchingServiceAlreadyRescheduledIt() {
         UUID jobId = UUID.randomUUID();
         UUID applicationId = UUID.randomUUID();
-        ProcessingJob claimed = ProcessingJob.builder().id(jobId).entityId(applicationId).leaseToken("lease").build();
-        when(processingJobService.claimNextMatchingJob()).thenReturn(Optional.of(claimed));
-        when(processingJobService.getJob(jobId)).thenReturn(Optional.of(
-                ProcessingJob.builder().id(jobId).status("PENDING").build()));
+
+        ProcessingJob claimed = ProcessingJob.builder()
+                .id(jobId)
+                .entityId(applicationId)
+                .leaseToken("lease")
+                .build();
+
+        when(processingJobService.claimNextMatchingJob())
+                .thenReturn(Optional.of(claimed));
+
         doThrow(new RuntimeException("worker failed"))
-                .when(matchingService).evaluateApplicationMatch(applicationId, "lease");
+                .when(matchingService)
+                .evaluateApplicationMatch(any());
 
         scheduler.poll();
 
-        verify(processingJobService, never()).markJobFailed(any(), anyString(), anyBoolean());
+        verify(processingJobService, never())
+                .markJobFailed(any(), anyString(), anyBoolean());
+    }
+
+    @Test
+    void poll_doesNotFailJobTwiceWhenMatchingServiceAlreadyRescheduledIt() {
+        UUID jobId = UUID.randomUUID();
+        UUID applicationId = UUID.randomUUID();
+
+        ProcessingJob claimed = ProcessingJob.builder()
+                .id(jobId)
+                .entityId(applicationId)
+                .leaseToken("lease")
+                .build();
+
+        when(processingJobService.claimNextMatchingJob())
+                .thenReturn(Optional.of(claimed));
+
+        when(processingJobService.getJob(jobId))
+                .thenReturn(Optional.of(
+                        ProcessingJob.builder()
+                                .id(jobId)
+                                .status("PENDING")
+                                .build()
+                ));
+
+        doThrow(new RuntimeException("worker failed"))
+        .when(matchingService)
+        .evaluateApplicationMatch(any(ProcessingJob.class));
+
+        scheduler.poll();
+
+        verify(processingJobService, never())
+                .markJobFailed(any(), anyString(), anyBoolean());
     }
 
     @Test
@@ -196,6 +210,6 @@ class MatchingSchedulerTest {
                 .claimNextMatchingJob();
 
         verify(matchingService, never())
-                .evaluateApplicationMatch(any(ProcessingJob.class));
+                .evaluateApplicationMatch(any(UUID.class));
     }
 }

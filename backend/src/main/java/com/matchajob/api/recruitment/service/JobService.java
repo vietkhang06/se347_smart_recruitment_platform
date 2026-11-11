@@ -83,7 +83,7 @@ public class JobService {
     public PageResponse<JobSummaryResponse> getEmployerJobs(UUID companyId, String status, int page, int size) {
         int safePage = Math.max(0, page);
         int safeSize = size > 0 ? Math.min(size, 50) : 10;
-        Pageable pageable = PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Pageable pageable = PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id")));
 
         Page<Job> jobPage;
         if (status != null && !status.isBlank() && !"all".equalsIgnoreCase(status)) {
@@ -116,7 +116,7 @@ public class JobService {
 
         int safePage = Math.max(0, page);
         int safeSize = size > 0 ? Math.min(size, 50) : 10;
-        Pageable pageable = PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Pageable pageable = PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id")));
 
         Page<Job> jobPage;
         if (status != null && !status.isBlank() && !"all".equalsIgnoreCase(status)) {
@@ -381,12 +381,14 @@ public class JobService {
     }
 
     private Sort resolveSort(String sortBy) {
-        if (sortBy == null) return Sort.by(Sort.Direction.DESC, "postedAt");
+        if (sortBy == null) {
+            return Sort.by(Sort.Direction.DESC, "postedAt").and(Sort.by(Sort.Direction.DESC, "id"));
+        }
         return switch (sortBy.toLowerCase()) {
-            case "salary_desc" -> Sort.by(Sort.Direction.DESC, "salaryMax");
-            case "title_asc" -> Sort.by(Sort.Direction.ASC, "title");
-            case "new", "postedat_desc" -> Sort.by(Sort.Direction.DESC, "postedAt");
-            default -> Sort.by(Sort.Direction.DESC, "createdAt");
+            case "salary_desc" -> Sort.by(Sort.Direction.DESC, "salaryMax").and(Sort.by(Sort.Direction.DESC, "id"));
+            case "title_asc" -> Sort.by(Sort.Direction.ASC, "title").and(Sort.by(Sort.Direction.ASC, "id"));
+            case "new", "postedat_desc" -> Sort.by(Sort.Direction.DESC, "postedAt").and(Sort.by(Sort.Direction.DESC, "id"));
+            default -> Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id"));
         };
     }
 
