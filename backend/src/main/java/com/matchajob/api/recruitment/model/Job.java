@@ -123,6 +123,7 @@ public class Job {
     @Column(name = "deleted_at")
     private Instant deletedAt;
 
+    @org.hibernate.annotations.BatchSize(size = 50)
     @OneToMany(mappedBy = "job", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<JobSkill> jobSkills = new ArrayList<>();

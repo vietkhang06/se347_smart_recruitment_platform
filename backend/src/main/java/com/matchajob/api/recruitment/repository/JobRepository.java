@@ -20,11 +20,16 @@ import java.util.UUID;
 public interface JobRepository extends JpaRepository<Job, UUID>, JpaSpecificationExecutor<Job> {
 
     @Override
+<<<<<<< Updated upstream
     @EntityGraph(attributePaths = {"category", "jobSkills", "jobSkills.skill"})
+=======
+    @EntityGraph(attributePaths = {"category"})
+>>>>>>> Stashed changes
     Page<Job> findAll(Specification<Job> spec, Pageable pageable);
 
     List<Job> findByCompanyIdAndDeletedAtIsNull(UUID companyId);
 
+<<<<<<< Updated upstream
     @EntityGraph(attributePaths = {"category", "jobSkills", "jobSkills.skill"})
     Page<Job> findByCompanyIdAndDeletedAtIsNull(UUID companyId, Pageable pageable);
 
@@ -41,6 +46,24 @@ public interface JobRepository extends JpaRepository<Job, UUID>, JpaSpecificatio
     Optional<Job> findByIdAndDeletedAtIsNull(UUID id);
 
     @EntityGraph(attributePaths = {"category", "jobSkills", "jobSkills.skill"})
+=======
+    @EntityGraph(attributePaths = {"category"})
+    Page<Job> findByCompanyIdAndDeletedAtIsNull(UUID companyId, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"category"})
+    Page<Job> findByCompanyIdAndStatusAndDeletedAtIsNull(UUID companyId, String status, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"category"})
+    Page<Job> findByCompanyIdInAndDeletedAtIsNull(Collection<UUID> companyIds, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"category"})
+    Page<Job> findByCompanyIdInAndStatusAndDeletedAtIsNull(Collection<UUID> companyIds, String status, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"category"})
+    Optional<Job> findByIdAndDeletedAtIsNull(UUID id);
+
+    @EntityGraph(attributePaths = {"category"})
+>>>>>>> Stashed changes
     Optional<Job> findBySlugAndDeletedAtIsNull(String slug);
 
     boolean existsBySlug(String slug);

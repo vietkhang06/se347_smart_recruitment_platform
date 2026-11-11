@@ -22,8 +22,13 @@ public class StatsService {
     public Map<String, Long> getJobCountByStatus() {
         List<KeyCountDto> results = jobRepository.countJobsByStatus();
         Map<String, Long> stats = new HashMap<>();
+<<<<<<< Updated upstream
         for (KeyCountDto row : results) {
             stats.put(row.getKey().toLowerCase(), row.getCount());
+=======
+        for (Object[] row : results) {
+            stats.put(((String) row[0]).toLowerCase(), ((Number) row[1]).longValue());
+>>>>>>> Stashed changes
         }
         return stats;
     }
