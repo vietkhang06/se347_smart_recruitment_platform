@@ -8,4 +8,4 @@ CREATE INDEX idx_jobs_status_deleted_at ON jobs(status, deleted_at);
 
 -- Indexes for JobSkill to optimize skill filtering
 CREATE INDEX idx_job_skills_job_id ON job_skills(job_id);
-CREATE INDEX idx_job_skills_skill_id ON job_skills(skill_id);
+CREATE INDEX IF NOT EXISTS idx_job_skills_skill_id ON job_skills(skill_id);
