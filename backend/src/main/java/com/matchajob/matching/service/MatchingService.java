@@ -134,8 +134,6 @@ public class MatchingService {
      * delegating to the same execution path used by the background scheduler.
      */
     public MatchResult evaluateApplicationMatch(UUID applicationId) {
-
-=======
         return evaluateApplicationMatch(applicationId, null);
     }
 
@@ -145,7 +143,6 @@ public class MatchingService {
     public MatchResult evaluateApplicationMatch(UUID applicationId, String leaseToken) {
         Optional<ProcessingJob> processingJob = findMatchingProcessingJob(applicationId);
         MatchResult existing = matchResultRepository.findByApplicationId(applicationId).orElse(null);
->>>>>>> Stashed changes
 
         if (applicationId == null) {
             throw new IllegalArgumentException("Application ID is required.");

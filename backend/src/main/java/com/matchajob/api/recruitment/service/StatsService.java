@@ -24,7 +24,7 @@ public class StatsService {
         Map<String, Long> stats = new HashMap<>();
         for (KeyCountDto row : results) {
             stats.put(row.getKey().toLowerCase(), row.getCount());
-        }        }
+        }
         return stats;
     }
 

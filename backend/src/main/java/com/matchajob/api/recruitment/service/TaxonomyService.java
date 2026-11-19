@@ -45,15 +45,11 @@ public class TaxonomyService {
     }
 
     public List<String> getWorkTypes() {
-        return Arrays.stream(WorkType.values())
-                .map(WorkType::getValue)
-                .toList();
+        return Arrays.stream(WorkType.values()).map(WorkType::getValue).toList();
     }
 
     public List<String> getLevels() {
-        return Arrays.stream(JobLevel.values())
-                .map(JobLevel::getValue)
-                .toList();
+        return Arrays.stream(JobLevel.values()).map(JobLevel::getValue).toList();
     }
 
     public List<String> getSkills() {
@@ -65,5 +61,4 @@ public class TaxonomyService {
         }
         return skills;
     }
-}
 }
