@@ -147,6 +147,18 @@ public class MatchingService {
         MatchResult existing = matchResultRepository.findByApplicationId(applicationId).orElse(null);
 >>>>>>> Stashed changes
 
+=======
+        return evaluateApplicationMatch(applicationId, null);
+    }
+
+    /**
+     * Overload supporting background schedulers holding an active lease token.
+     */
+    public MatchResult evaluateApplicationMatch(UUID applicationId, String leaseToken) {
+        Optional<ProcessingJob> processingJob = findMatchingProcessingJob(applicationId);
+        MatchResult existing = matchResultRepository.findByApplicationId(applicationId).orElse(null);
+>>>>>>> Stashed changes
+
         if (applicationId == null) {
             throw new IllegalArgumentException("Application ID is required.");
         }
