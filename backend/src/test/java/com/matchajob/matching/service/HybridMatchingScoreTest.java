@@ -11,7 +11,6 @@ import com.matchajob.matching.model.MatchResult;
 import com.matchajob.matching.repository.EmbeddingRepository;
 import com.matchajob.matching.repository.MatchResultRepository;
 import com.matchajob.processing.repository.ProcessingJobRepository;
-import com.matchajob.processing.service.ProcessingJobService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -48,7 +47,7 @@ class HybridMatchingScoreTest {
                 mock(ApplicationCvSnapshotRepository.class),
                 jobRepository,
                 mock(ProcessingJobRepository.class),
-                mock(ProcessingJobService.class),
+                mock(MatchingPersistenceService.class),
                 embeddingRepository,
                 jobEmbeddingService
         );
