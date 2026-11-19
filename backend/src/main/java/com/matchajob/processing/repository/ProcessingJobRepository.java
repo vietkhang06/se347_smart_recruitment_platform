@@ -19,6 +19,10 @@ public interface ProcessingJobRepository extends JpaRepository<ProcessingJob, UU
 
     Optional<ProcessingJob> findByIdempotencyKey(String idempotencyKey);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT job FROM ProcessingJob job WHERE job.idempotencyKey = :idempotencyKey")
+    Optional<ProcessingJob> findByIdempotencyKeyForUpdate(@Param("idempotencyKey") String idempotencyKey);
+
     Optional<ProcessingJob> findFirstByJobTypeAndEntityTypeAndEntityIdOrderByCreatedAtDesc(
             String jobType, String entityType, UUID entityId);
 

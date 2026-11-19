@@ -143,7 +143,7 @@ export default function LoginPage() {
                 Mật khẩu mẫu: <strong>Demo123!</strong>. Tài khoản tự đăng ký dùng mật khẩu bạn đã đặt.
               </div>}
                   {error && <div className="alert alert-danger" role="alert">{error}</div>}
-                  <Form.Group className="mb-3">
+                  <Form.Group className="mb-3" controlId="login-email">
                     <Form.Label className="small fw-semibold">Địa chỉ Email</Form.Label>
                     <Form.Control aria-label="Email" autoComplete="username" disabled={busy}
                       type="email" 
@@ -153,7 +153,7 @@ export default function LoginPage() {
                     />
                   </Form.Group>
 
-                  <Form.Group className="mb-3">
+                  <Form.Group className="mb-3" controlId="login-password">
                     <div className="d-flex justify-content-between">
                       <Form.Label className="small fw-semibold">Mật khẩu</Form.Label>
                       <Link to="/forgot-password" className="small text-success text-decoration-none">
@@ -171,6 +171,9 @@ export default function LoginPage() {
                         type="button" 
                         className="btn btn-link position-absolute end-0 top-50 translate-middle-y text-muted text-decoration-none"
                         onClick={() => setShowPassword(!showPassword)}
+                        aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                        aria-pressed={showPassword}
+                        disabled={busy}
                       >
                         <i className={`bi ${showPassword ? "bi-eye-slash" : "bi-eye"}`}></i>
                       </button>

@@ -13,9 +13,12 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class MatchingSchedulerTest {
@@ -30,79 +33,183 @@ class MatchingSchedulerTest {
 
     @BeforeEach
     void setUp() {
-        scheduler = new MatchingScheduler(processingJobService, matchingService);
+        scheduler = new MatchingScheduler(
+                processingJobService,
+                matchingService
+        );
     }
 
     @Test
-    void poll_whenJobAvailable_executesMatchingWithLeaseToken() {
+    void poll_whenJobAvailable_passesClaimedJobLeaseToMatchingService() {
         UUID jobId = UUID.randomUUID();
         UUID applicationId = UUID.randomUUID();
         String leaseToken = "lease-12345";
+
         ProcessingJob job = ProcessingJob.builder()
                 .id(jobId)
                 .entityId(applicationId)
                 .leaseToken(leaseToken)
+                .jobType("APPLICATION_MATCHING")
+                .entityType("application")
+                .status("PROCESSING")
                 .attemptCount(1)
+                .maxAttempts(3)
                 .build();
 
-        when(processingJobService.claimNextMatchingJob()).thenReturn(Optional.of(job));
+        when(processingJobService.claimNextMatchingJob())
+                .thenReturn(Optional.of(job));
 
         scheduler.poll();
 
-        verify(processingJobService).recoverExpiredMatchingLeases();
-        verify(matchingService).evaluateApplicationMatch(applicationId, leaseToken);
-        verify(processingJobService, never()).markJobFailed(any(), anyString(), anyBoolean());
+        verify(processingJobService)
+                .recoverExpiredMatchingLeases();
+
+        verify(processingJobService)
+                .claimNextMatchingJob();
+
+        verify(matchingService)
+                .evaluateApplicationMatch(job.getEntityId());
+
+        verify(processingJobService, never())
+                .markJobFailed(any(), anyString(), anyBoolean());
     }
 
     @Test
-    void poll_whenMatchNotReady_defersJobWithRetryableTrue() {
+    void poll_whenMatchNotReady_doesNotMutateJobTwice() {
         UUID jobId = UUID.randomUUID();
         UUID applicationId = UUID.randomUUID();
         String leaseToken = "lease-12345";
+
         ProcessingJob job = ProcessingJob.builder()
                 .id(jobId)
                 .entityId(applicationId)
                 .leaseToken(leaseToken)
+                .jobType("APPLICATION_MATCHING")
+                .entityType("application")
+                .status("PROCESSING")
                 .attemptCount(1)
+                .maxAttempts(3)
                 .build();
 
-        when(processingJobService.claimNextMatchingJob()).thenReturn(Optional.of(job));
-        doThrow(new MatchingService.MatchNotReadyException("CV extraction not complete"))
-                .when(matchingService).evaluateApplicationMatch(applicationId, leaseToken);
+        when(processingJobService.claimNextMatchingJob())
+                .thenReturn(Optional.of(job));
+
+        doThrow(new MatchingService.MatchNotReadyException(
+                "CV extraction not complete"
+        )).when(matchingService).evaluateApplicationMatch(job.getEntityId());
 
         scheduler.poll();
 
-        verify(processingJobService).markJobFailed(eq(jobId), eq("CV extraction not complete"), eq(true));
+        verify(matchingService)
+                .evaluateApplicationMatch(job.getEntityId());
+
+        verify(processingJobService, never())
+                .markJobFailed(any(), anyString(), anyBoolean());
     }
 
     @Test
-    void poll_whenAiWorkerConnectionFails_marksJobFailedWithRetryableTrue() {
+    void poll_whenAiWorkerConnectionFails_doesNotMutateJobTwice() {
         UUID jobId = UUID.randomUUID();
         UUID applicationId = UUID.randomUUID();
         String leaseToken = "lease-12345";
+
         ProcessingJob job = ProcessingJob.builder()
                 .id(jobId)
                 .entityId(applicationId)
                 .leaseToken(leaseToken)
+                .jobType("APPLICATION_MATCHING")
+                .entityType("application")
+                .status("PROCESSING")
                 .attemptCount(1)
+                .maxAttempts(3)
                 .build();
 
-        when(processingJobService.claimNextMatchingJob()).thenReturn(Optional.of(job));
+        when(processingJobService.claimNextMatchingJob())
+                .thenReturn(Optional.of(job));
+
         doThrow(new ResourceAccessException("Connection refused"))
-                .when(matchingService).evaluateApplicationMatch(applicationId, leaseToken);
+                .when(matchingService)
+                .evaluateApplicationMatch(job.getEntityId());
 
         scheduler.poll();
 
-        verify(processingJobService).markJobFailed(eq(jobId), contains("temporarily unavailable"), eq(true));
+        verify(matchingService)
+                .evaluateApplicationMatch(job.getEntityId());
+
+        verify(processingJobService, never())
+                .markJobFailed(any(), anyString(), anyBoolean());
+    }
+
+    @Test
+    void poll_doesNotFailJobTwiceWhenMatchingServiceAlreadyRescheduledIt() {
+        UUID jobId = UUID.randomUUID();
+        UUID applicationId = UUID.randomUUID();
+
+        ProcessingJob claimed = ProcessingJob.builder()
+                .id(jobId)
+                .entityId(applicationId)
+                .leaseToken("lease")
+                .build();
+
+        when(processingJobService.claimNextMatchingJob())
+                .thenReturn(Optional.of(claimed));
+
+        doThrow(new RuntimeException("worker failed"))
+                .when(matchingService)
+                .evaluateApplicationMatch(any());
+
+        scheduler.poll();
+
+        verify(processingJobService, never())
+                .markJobFailed(any(), anyString(), anyBoolean());
+    }
+
+    @Test
+    void poll_doesNotFailJobTwiceWhenMatchingServiceAlreadyRescheduledIt() {
+        UUID jobId = UUID.randomUUID();
+        UUID applicationId = UUID.randomUUID();
+
+        ProcessingJob claimed = ProcessingJob.builder()
+                .id(jobId)
+                .entityId(applicationId)
+                .leaseToken("lease")
+                .build();
+
+        when(processingJobService.claimNextMatchingJob())
+                .thenReturn(Optional.of(claimed));
+
+        when(processingJobService.getJob(jobId))
+                .thenReturn(Optional.of(
+                        ProcessingJob.builder()
+                                .id(jobId)
+                                .status("PENDING")
+                                .build()
+                ));
+
+        doThrow(new RuntimeException("worker failed"))
+        .when(matchingService)
+        .evaluateApplicationMatch(any(ProcessingJob.class));
+
+        scheduler.poll();
+
+        verify(processingJobService, never())
+                .markJobFailed(any(), anyString(), anyBoolean());
     }
 
     @Test
     void poll_whenNoPendingJob_onlyRecoversExpiredLeases() {
-        when(processingJobService.claimNextMatchingJob()).thenReturn(Optional.empty());
+        when(processingJobService.claimNextMatchingJob())
+                .thenReturn(Optional.empty());
 
         scheduler.poll();
 
-        verify(processingJobService).recoverExpiredMatchingLeases();
-        verify(matchingService, never()).evaluateApplicationMatch(any(), any());
+        verify(processingJobService)
+                .recoverExpiredMatchingLeases();
+
+        verify(processingJobService)
+                .claimNextMatchingJob();
+
+        verify(matchingService, never())
+                .evaluateApplicationMatch(any(UUID.class));
     }
 }

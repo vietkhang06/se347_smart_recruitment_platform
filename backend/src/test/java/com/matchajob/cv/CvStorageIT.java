@@ -15,7 +15,6 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
 
@@ -25,6 +24,7 @@ import static org.assertj.core.api.Assertions.*;
 @ActiveProfiles("test")
 @Transactional
 class CvStorageIT {
+    private static final byte[] PDF_BYTES = TestPdf.bytes();
     @Autowired CvController controller;
     @Autowired CvVersionRepository cvs;
     @Autowired JdbcClient jdbc;
@@ -120,6 +120,6 @@ class CvStorageIT {
         return new UsernamePasswordAuthenticationToken(id, null, List.of(new SimpleGrantedAuthority("ROLE_" + role)));
     }
     private MockMultipartFile pdf(String text) {
-        return new MockMultipartFile("file", text + ".pdf", "application/pdf", ("%PDF-1.4 " + text).getBytes(StandardCharsets.UTF_8));
+        return new MockMultipartFile("file", text + ".pdf", "application/pdf", PDF_BYTES);
     }
 }

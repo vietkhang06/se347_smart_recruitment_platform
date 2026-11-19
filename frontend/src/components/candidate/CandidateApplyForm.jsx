@@ -30,6 +30,8 @@ function ApplyForm({ job, onSuccess }) {
   const [uploading, setUploading] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [error, setError] = useState("");
+  const [phoneError, setPhoneError] = useState("");
+  const phoneRef = useRef(null);
 
   const [notice, setNotice] = useState(
     initial
@@ -92,6 +94,14 @@ function ApplyForm({ job, onSuccess }) {
       return;
     }
 
+    // Dùng cùng quy tắc kiểm tra số điện thoại với Candidate Profile.
+    if (!/^[+\d][\d\s().-]{7,19}$/.test(String(profile.phone || "").trim())) {
+      setPhoneError("Số điện thoại không hợp lệ (8–20 ký tự).");
+      phoneRef.current?.focus();
+      return;
+    }
+
+    setPhoneError("");
     sending.current = true;
     setBusy(true);
     setError("");
@@ -183,13 +193,22 @@ function ApplyForm({ job, onSuccess }) {
                 required
                 maxLength={key === "name" ? 100 : 20}
                 type={key === "phone" ? "tel" : "text"}
+                inputMode={key === "phone" ? "tel" : undefined}
+                ref={key === "phone" ? phoneRef : undefined}
+                aria-label={key === "phone" ? "Số điện thoại" : undefined}
+                aria-invalid={key === "phone" && Boolean(phoneError)}
+                aria-describedby={key === "phone" && phoneError ? "candidate-apply-phone-error" : undefined}
                 value={profile[key] || ""}
-                onChange={event =>
-                  changeProfile({
-                    [key]: event.target.value
-                  })
-                }
+                onChange={event => {
+                  changeProfile({ [key]: event.target.value });
+                  if (key === "phone") setPhoneError("");
+                }}
               />
+              {key === "phone" && phoneError && (
+                <span id="candidate-apply-phone-error" className="text-danger d-block mt-1" role="alert">
+                  {phoneError}
+                </span>
+              )}
             </label>
           ))}
         </div>

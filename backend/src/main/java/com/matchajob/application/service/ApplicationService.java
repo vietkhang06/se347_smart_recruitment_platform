@@ -309,7 +309,7 @@ public class ApplicationService {
             params.add(minScore);
         }
 
-        sql.append(" ORDER BY mr.overall_score DESC NULLS LAST, a.applied_at ASC");
+        sql.append(" ORDER BY mr.overall_score DESC NULLS LAST, a.applied_at ASC, a.id ASC");
 
         var query = jdbcClient.sql(sql.toString());
         for (Object param : params) {

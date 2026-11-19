@@ -53,7 +53,10 @@ def compute_stats(latencies_ms: List[float]) -> Dict[str, float]:
 def run_benchmark(warmup: int = 5, iterations: int = 50):
     print(f"=== MatchaJob AI Worker Processing Time Benchmark ===")
     print(f"Python: {sys.version.split()[0]} | Platform: {sys.platform}")
-    print(f"Warmup runs: {warmup} | Measured iterations: {iterations}\n")
+    print(f"Warmup runs: {warmup} | Measured iterations: {iterations}")
+    print("NOTE: Stages 1-4 benchmark real document extractors and rule normalizers.")
+    print("      Stage 5 reflects in-memory synthetic provider embeddings (SHA-256 derivation).")
+    print("      Stage 6 reflects local deterministic batch ranking simulation.\n")
 
     provider = DeterministicTestProvider()
 
@@ -84,6 +87,28 @@ def run_benchmark(warmup: int = 5, iterations: int = 50):
         job_requirements="Yêu cầu 3 năm kinh nghiệm với Java, Spring Boot, Docker, PostgreSQL.",
         cv_text=vi_cv_text,
     )
+
+    def rank_candidates_benchmark(p, base_req, count):
+        items = []
+        for i in range(count):
+            req = MatchScoreRequest(
+                job_id=base_req.job_id,
+                job_title=base_req.job_title,
+                job_description=base_req.job_description,
+                job_requirements=base_req.job_requirements,
+                cv_text=base_req.cv_text + (f" Additional experience: {i} years with Java" if i % 2 == 0 else ""),
+            )
+            score_resp = p.calculate_match(req)
+            items.append({
+                "id": f"app-{i:03d}",
+                "overall_score": score_resp.overall_score,
+                "applied_at": 1700000000 + i * 60,
+            })
+        # Stable deterministic sort: score DESC, applied_at ASC, id ASC
+        items.sort(key=lambda x: (-x["overall_score"], x["applied_at"], x["id"]))
+        for rank_idx, itm in enumerate(items, start=1):
+            itm["rank"] = rank_idx
+        return items
 
     stages = [
         # 1. Document Extraction
@@ -165,6 +190,38 @@ def run_benchmark(warmup: int = 5, iterations: int = 50):
                     cv_text=extract_cv_text("cv_vi_backend.docx", vi_docx_bytes)[0],
                 )
             ),
+        },
+        # 5. In-Memory Synthetic Embedding Generation
+        {
+            "stage": "Embedding (Synthetic)",
+            "name": "Synthetic 1536d SHA-256 (1 chunk)",
+            "fn": lambda: provider.generate_embeddings([en_cv_text]),
+        },
+        {
+            "stage": "Embedding (Synthetic)",
+            "name": "Synthetic 1536d SHA-256 (Batch 10 chunks)",
+            "fn": lambda: provider.generate_embeddings([en_cv_text + f" chunk {i}" for i in range(10)]),
+        },
+        {
+            "stage": "Embedding (Synthetic)",
+            "name": "Synthetic 1536d SHA-256 (Batch 50 chunks)",
+            "fn": lambda: provider.generate_embeddings([en_cv_text + f" chunk {i}" for i in range(50)]),
+        },
+        # 6. Local Batch Ranking Simulation (Score + Deterministic Tie-Break)
+        {
+            "stage": "Batch Rank (Local Sim)",
+            "name": "Local Simulation (1 candidate vs 1 JD)",
+            "fn": lambda: rank_candidates_benchmark(provider, en_match_req, 1),
+        },
+        {
+            "stage": "Batch Rank (Local Sim)",
+            "name": "Local Simulation (10 candidates vs 1 JD)",
+            "fn": lambda: rank_candidates_benchmark(provider, en_match_req, 10),
+        },
+        {
+            "stage": "Batch Rank (Local Sim)",
+            "name": "Local Simulation (50 candidates vs 1 JD)",
+            "fn": lambda: rank_candidates_benchmark(provider, en_match_req, 50),
         },
     ]
 

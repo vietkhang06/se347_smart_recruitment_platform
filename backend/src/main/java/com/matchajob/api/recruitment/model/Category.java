@@ -13,6 +13,7 @@ import java.util.UUID;
 @Builder
 @Entity
 @Table(name = "categories")
+@org.hibernate.annotations.BatchSize(size = 50)
 public class Category {
 
     @Id

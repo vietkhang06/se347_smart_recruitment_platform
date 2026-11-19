@@ -1,5 +1,29 @@
 # MatchaJob - Nền Tảng Tuyển Dụng Thông Minh (SE347)
 
+## Demo Compose (4 service)
+
+Yêu cầu: Docker Desktop (Linux engine), Docker Compose v2, cổng host 5173 và 8081 còn trống. Các service gồm frontend, backend, ai-worker và PostgreSQL/pgvector. DB và AI chỉ nằm trong mạng Compose. Dữ liệu DB và CV nằm ở hai named volume riêng theo project name.
+
+Trong PowerShell tại thư mục repository:
+
+```powershell
+Copy-Item .env.example .env
+# Đổi POSTGRES_PASSWORD và JWT_SECRET trong .env trước khi dùng ngoài máy demo riêng.
+docker compose --env-file .env up -d --build --wait
+.\scripts\smoke-demo.ps1
+docker compose --env-file .env ps
+docker compose --env-file .env logs --tail=100 backend ai-worker
+docker compose --env-file .env down
+```
+
+`down` giữ nguyên volume; không dùng `down -v`. Nếu cổng đã dùng, sửa `FRONTEND_HOST_PORT`, `BACKEND_HOST_PORT` và URL `VITE_API_BASE_URL` trong `.env` cùng nhau. Mở frontend ở `http://localhost:<FRONTEND_HOST_PORT>`; backend readiness ở `http://localhost:<BACKEND_HOST_PORT>/api/actuator/health/readiness`. Nếu health lỗi, xem `docker compose ps` và logs; DB readiness phản ánh DB/pgvector, backend readiness kiểm tra cả AI. Khi thay mật khẩu DB cho volume đã có, biến môi trường mới không đổi mật khẩu trong DB cũ: dùng đúng mật khẩu ban đầu hoặc tạo project demo mới, không xóa volume cũ.
+
+CV riêng tư chỉ nhận PDF/DOCX tối đa 10 MB mặc định. Server kiểm tra tên, nội dung và quyền sở hữu; download/preview qua API có xác thực, `nosniff` và `no-store`. AI worker không publish ra host. Không bật provider trả phí trong demo mặc định.
+
+Kiểm tra tương đương CI tại local: `cd frontend; npm ci; npm run lint; npm test; npm run build`; `cd backend; mvn verify` (cần PostgreSQL/pgvector test riêng ở `localhost:5433`, database `matchajob_test`, user/password `matchajob_user`/`matchajob_password`; có thể đổi bằng `SPRING_TEST_DATASOURCE_URL`, `SPRING_TEST_DATASOURCE_USERNAME`, `SPRING_TEST_DATASOURCE_PASSWORD`); `cd ai-worker; python -m pip install -r requirements.txt; python -m pytest -q tests`; tại root chạy `docker compose --env-file .env.example config -q`. Compose config chỉ kiểm tra cú pháp, còn `up --wait` và smoke test mới xác nhận container chạy.
+
+Để kiểm thử cô lập khi máy đã có MatchaJob khác, tạo một env riêng từ `.env.example`, đặt `COMPOSE_PROJECT_NAME` riêng và chọn cổng host khác. Truyền `-ProjectName` tương ứng cho smoke script.
+
 Dự án nền tảng kết nối ứng viên và nhà tuyển dụng thông minh **MatchaJob** (SE347), được xây dựng bằng **React.js 19 + Bootstrap 5 + Chart.js + AOS** với cấu trúc module hóa sạch sẽ, khả năng mở rộng cao và trải nghiệm người dùng hiện đại.
 
 ---

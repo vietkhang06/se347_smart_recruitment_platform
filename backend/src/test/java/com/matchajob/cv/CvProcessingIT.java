@@ -84,7 +84,7 @@ class CvProcessingIT {
     }
 
     private byte[] createSamplePdfBytes() {
-        return "%PDF-1.4 Mock PDF content for test extraction".getBytes(StandardCharsets.UTF_8);
+        return TestPdf.bytes();
     }
 
     private UUID createTestCandidateProfile() {

@@ -1,5 +1,7 @@
 package com.matchajob.api.recruitment.dto;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -14,9 +16,11 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class JobCreateRequest {
+    @NotNull(message = "Company ID is required")
     private UUID companyId;
     private UUID categoryId;
     private UUID createdBy;
+    @NotBlank(message = "Job title is required")
     private String title;
     private String department;
     private String level;

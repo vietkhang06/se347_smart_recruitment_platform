@@ -34,7 +34,7 @@ export default function CandidateCV({
 
   return (
     <div className="border rounded-3 p-3 bg-surface-2">
-      <div className="fw-semibold mb-2">
+      <div className="fw-semibold mb-2" style={{ overflowWrap: "anywhere" }}>
         <i className="bi bi-file-earmark-person text-success me-2" />
         {value.cvName || "Chưa đính kèm CV"}
       </div>
@@ -59,12 +59,19 @@ export default function CandidateCV({
         {busy ? "Đang lưu CV…" : "Chọn hoặc thay CV"}
 
         <input
-          className="form-control mt-2"
+          aria-label="Chọn hoặc thay CV"
+          className="visually-hidden candidate-cv-file-input"
           type="file"
           accept=".pdf,.doc,.docx"
           disabled={busy}
           onChange={select}
         />
+        <span
+          className="btn btn-sm btn-outline-success d-block w-100 mt-2 candidate-cv-picker-button"
+          aria-hidden="true"
+        >
+          {busy ? "Đang tải CV…" : "Chọn tệp CV từ máy"}
+        </span>
       </label>
 
       <div className="small text-muted mt-2">

@@ -85,6 +85,25 @@ def test_cv_extract_corrupt_pdf(client: TestClient):
     assert "Corrupted or invalid PDF header" in response.json()["detail"]
 
 
+def test_cv_extract_ignores_spoofed_content_type_and_rejects_double_extension(client: TestClient):
+    valid = create_sample_pdf()
+    for name, data, mime in [
+        ("resume.txt", valid, "application/pdf"),
+        ("resume.exe.pdf", valid, "application/pdf"),
+        ("resume.pdf", b"", "application/pdf"),
+        ("resume.pdf", b"%PDF-1.4 fake", "application/pdf"),
+    ]:
+        response = client.post("/api/v1/cv/extract", files={"file": (name, data, mime)})
+        assert response.status_code == 400
+
+
+def test_cv_extract_rejects_oversized_stream(client: TestClient):
+    response = client.post("/api/v1/cv/extract", files={
+        "file": ("resume.pdf", b"%PDF" + b"x" * (10 * 1024 * 1024), "application/pdf")
+    })
+    assert response.status_code == 413
+
+
 def test_embeddings_generation_deterministic(client: TestClient):
     payload = {
         "texts": [

@@ -11,6 +11,7 @@ import com.matchajob.client.dto.MatchScoreResponse;
 import com.matchajob.cv.controller.CvController;
 import com.matchajob.cv.model.CvVersion;
 import com.matchajob.cv.repository.CvVersionRepository;
+import com.matchajob.cv.TestPdf;
 import com.matchajob.matching.model.MatchResult;
 import com.matchajob.matching.repository.MatchResultRepository;
 import com.matchajob.matching.service.MatchingScheduler;
@@ -40,7 +41,6 @@ import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.ResourceAccessException;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -96,6 +96,7 @@ class ApplicationMatchingRecoveryIT {
 
     @BeforeEach
     void setUp() {
+        jdbcClient.sql("DELETE FROM processing_jobs WHERE job_type = 'APPLICATION_MATCHING'").update();
         matchingScheduler = new MatchingScheduler(processingJobService, matchingService);
         reset(aiWorkerClient);
     }
@@ -169,7 +170,7 @@ class ApplicationMatchingRecoveryIT {
                     "file",
                     fileName,
                     "application/pdf",
-                    ("%PDF-1.4 " + rawText).getBytes(StandardCharsets.UTF_8)
+                    TestPdf.bytes()
             );
 
             var uploadResponse = cvController.uploadCv(candidateId, auth, file, false);

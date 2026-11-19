@@ -82,11 +82,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             // User must exist and not be soft-deleted
             if (user != null && user.getDeletedAt() == null) {
-                boolean isSuspended = "suspended".equalsIgnoreCase(user.getStatus());
+                boolean isActive = "active".equalsIgnoreCase(user.getStatus());
                 boolean isUnverified = requireEmailVerification && Boolean.FALSE.equals(user.getIsVerified());
 
-                // Deny suspended or unverified accounts
-                if (!isSuspended && !isUnverified) {
+                // Allowlist: strictly require "active" status and email verification (when required)
+                if (isActive && !isUnverified) {
                     // Authority is derived authoritative from DB, NEVER trusting token claim
                     String userRole = user.getRole();
                     if (userRole == null || !VALID_ROLES.contains(userRole.toUpperCase())) {
@@ -101,7 +101,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         SecurityContextHolder.getContext().setAuthentication(authentication);
                     }
                 } else {
-                    log.debug("User {} denied: suspended={}, unverified={}", userId, isSuspended, isUnverified);
+                    log.debug("User {} denied: active={}, unverified={}", userId, isActive, isUnverified);
                 }
             } else {
                 log.debug("User {} not found or soft-deleted", userId);

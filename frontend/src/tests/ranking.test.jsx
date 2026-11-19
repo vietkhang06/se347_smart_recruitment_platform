@@ -47,7 +47,8 @@ describe("Ranking Mapper & ViewModel", () => {
     const vm = toRankingViewModel(null);
     expect(vm.ranking).toBe(1);
     expect(vm.candidateName).toBe("");
-    expect(vm.overallScore).toBe(0);
+    expect(vm.overallScore).toBeNull();
+    expect(vm.scoreLevel).toBe("pending");
     expect(vm.candidateInitials).toBe("UV");
   });
 

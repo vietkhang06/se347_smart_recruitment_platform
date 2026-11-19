@@ -166,6 +166,46 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
+    @DisplayName("4b. Banned or inactive user in DB does not authenticate")
+    void doFilter_bannedOrInactiveUser_denied() throws ServletException, IOException {
+        UUID userId = UUID.randomUUID();
+        String token = jwtTokenProvider.generateToken(userId, "user@example.com", "candidate");
+
+        User bannedUser = User.builder()
+                .id(userId)
+                .email("user@example.com")
+                .role("candidate")
+                .status("banned")
+                .isVerified(true)
+                .build();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(bannedUser));
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("Authorization", "Bearer " + token);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+
+        // Also verify inactive status
+        User inactiveUser = User.builder()
+                .id(userId)
+                .email("user@example.com")
+                .role("candidate")
+                .status("inactive")
+                .isVerified(true)
+                .build();
+        when(userRepository.findById(userId)).thenReturn(Optional.of(inactiveUser));
+        SecurityContextHolder.clearContext();
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+    }
+
+    @Test
     @DisplayName("5. Unverified user when verification is required does not authenticate")
     void doFilter_unverifiedUser_deniedWhenVerificationRequired() throws ServletException, IOException {
         UUID userId = UUID.randomUUID();

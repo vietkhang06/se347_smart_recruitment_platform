@@ -6,6 +6,7 @@ import com.matchajob.api.recruitment.model.JobSkill;
 import jakarta.persistence.criteria.*;
 import org.springframework.data.jpa.domain.Specification;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -18,9 +19,17 @@ public class JobSpecification {
             // 1. Luôn chỉ lấy jobs chưa bị soft-delete
             predicates.add(cb.isNull(root.get("deletedAt")));
 
-            // 2. Lọc theo status
+            // 2. Lọc theo status và loại bỏ tin hết hạn khi lọc tin active
             if (criteria.getStatus() != null && !criteria.getStatus().isBlank()) {
-                predicates.add(cb.equal(cb.lower(root.get("status")), criteria.getStatus().toLowerCase()));
+                String targetStatus = criteria.getStatus().toLowerCase().trim();
+                predicates.add(cb.equal(cb.lower(root.get("status")), targetStatus));
+                if ("active".equals(targetStatus)) {
+                    // Tin đang tuyển (active) phải còn hạn nộp hồ sơ
+                    predicates.add(cb.or(
+                            cb.isNull(root.get("deadline")),
+                            cb.greaterThanOrEqualTo(root.get("deadline"), LocalDate.now())
+                    ));
+                }
             }
 
             // 3. Keyword search (title hoặc location)

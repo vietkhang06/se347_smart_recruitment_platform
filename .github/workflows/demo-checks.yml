@@ -1,0 +1,83 @@
+name: Demo checks
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: matchajob_test
+          POSTGRES_USER: matchajob_user
+          POSTGRES_PASSWORD: matchajob_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U matchajob_user -d matchajob_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      SPRING_TEST_DATASOURCE_URL: jdbc:postgresql://localhost:5432/matchajob_test
+      SPRING_TEST_DATASOURCE_USERNAME: matchajob_user
+      SPRING_TEST_DATASOURCE_PASSWORD: matchajob_password
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: backend/pom.xml
+      - run: mvn -B verify
+        working-directory: backend
+
+  ai-worker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: ai-worker/requirements.txt
+      - run: pip install -r requirements.txt
+        working-directory: ai-worker
+      - run: pytest -q tests
+        working-directory: ai-worker
+        env:
+          AI_PROVIDER: deterministic
+
+  compose-config:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose --env-file .env.example config -q

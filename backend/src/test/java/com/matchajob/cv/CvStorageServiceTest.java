@@ -28,7 +28,7 @@ class CvStorageServiceTest {
     void storeCreatesCandidateScopedObjectKeyAndPreservesContent() throws Exception {
         CvStorageService service = serviceWithLimit(DataSize.ofMegabytes(10));
         UUID candidateId = UUID.randomUUID();
-        byte[] content = "%PDF-1.4 synthetic CV".getBytes(StandardCharsets.UTF_8);
+        byte[] content = TestPdf.bytes();
 
         CvStorageService.StorageResult result = service.store(
                 candidateId,
@@ -113,6 +113,20 @@ class CvStorageServiceTest {
     }
 
     @Test
+    void rejectsPdfWithOnlyValidHeaderAndDoubleExtensionWithoutLeavingFiles() throws Exception {
+        CvStorageService service = serviceWithLimit(DataSize.ofMegabytes(10));
+        assertThatThrownBy(() -> service.store(UUID.randomUUID(), new MockMultipartFile(
+                "file", "fake.pdf", "application/pdf", "%PDF-1.4 fake".getBytes())))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("Invalid PDF");
+        assertThatThrownBy(() -> service.store(UUID.randomUUID(), new MockMultipartFile(
+                "file", "fake.exe.pdf", "application/pdf", TestPdf.bytes())))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("extension");
+        try (var files = Files.walk(storageDirectory)) {
+            assertThat(files.filter(Files::isRegularFile)).isEmpty();
+        }
+    }
+
+    @Test
     void rejectsOrdinaryZipRenamedToDocx() throws Exception {
         ByteArrayOutputStream buffer = new ByteArrayOutputStream();
         try (ZipOutputStream zip = new ZipOutputStream(buffer)) {
@@ -126,10 +140,28 @@ class CvStorageServiceTest {
     }
 
     @Test
+    void rejectsDocxWithRequiredEntriesButBrokenXml() throws Exception {
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        try (ZipOutputStream zip = new ZipOutputStream(buffer)) {
+            for (String name : new String[]{"[Content_Types].xml", "_rels/.rels", "word/document.xml"}) {
+                zip.putNextEntry(new ZipEntry(name));
+                zip.write("<broken".getBytes(StandardCharsets.UTF_8));
+                zip.closeEntry();
+            }
+        }
+        assertThatThrownBy(() -> serviceWithLimit(DataSize.ofMegabytes(10)).store(UUID.randomUUID(),
+                new MockMultipartFile("file", "fake.docx", "application/octet-stream", buffer.toByteArray())))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("DOCX XML");
+        try (var files = Files.walk(storageDirectory)) {
+            assertThat(files.filter(Files::isRegularFile)).isEmpty();
+        }
+    }
+
+    @Test
     void repeatUploadsNeverOverwriteAndRemainReadableFromNewServiceInstance() throws Exception {
         CvStorageService service = serviceWithLimit(DataSize.ofMegabytes(10));
         UUID candidateId = UUID.randomUUID();
-        byte[] content = "%PDF-1.4 synthetic".getBytes(StandardCharsets.UTF_8);
+        byte[] content = TestPdf.bytes();
         MockMultipartFile file = new MockMultipartFile("file", "same.pdf", "application/pdf", content);
         var first = service.store(candidateId, file);
         var second = service.store(candidateId, file);
