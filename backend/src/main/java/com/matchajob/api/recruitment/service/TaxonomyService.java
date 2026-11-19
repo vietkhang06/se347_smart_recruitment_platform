@@ -24,46 +24,23 @@ public class TaxonomyService {
 
     public List<CategoryResponse> getAllCategories() {
         return categoryRepository.findByDeletedAtIsNullOrderBySortOrderAscNameAsc().stream()
-<<<<<<< Updated upstream
-                .map(CategoryResponse::from).toList();
-=======
                 .map(CategoryResponse::from)
                 .toList();
->>>>>>> Stashed changes
     }
 
     public Category createCategory(Category category) {
         if (category.getName() != null && categoryRepository.findByNameIgnoreCase(category.getName()).isPresent()) {
-<<<<<<< Updated upstream
-            throw new IllegalArgumentException("Category already exists.");
-=======
             throw new IllegalArgumentException("Category with name " + category.getName() + " already exists");
->>>>>>> Stashed changes
         }
         return categoryRepository.save(category);
     }
 
     public void deleteCategory(UUID id) {
-<<<<<<< Updated upstream
+        Category category = categoryRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Category not found with id: " + id));
         if (jobRepository.existsByCategoryId(id)) {
             throw new IllegalStateException("Cannot delete category currently in use.");
         }
-        categoryRepository.deleteById(id);
-    }
-
-    public List<String> getWorkTypes() {
-        return Arrays.stream(WorkType.values()).map(WorkType::getValue).toList();
-    }
-
-    public List<String> getLevels() {
-        return Arrays.stream(JobLevel.values()).map(JobLevel::getValue).toList();
-    }
-
-    public List<String> getSkills() {
-        return skillRepository.findByDeletedAtIsNullOrderByNameAsc().stream().map(Skill::getName).toList();
-=======
-        Category category = categoryRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Category not found with id: " + id));
         categoryRepository.delete(category);
     }
 
@@ -87,6 +64,6 @@ public class TaxonomyService {
             return List.of("Java", "Spring Boot", "React", "PostgreSQL", "Docker", "Kubernetes", "Python");
         }
         return skills;
->>>>>>> Stashed changes
     }
+}
 }

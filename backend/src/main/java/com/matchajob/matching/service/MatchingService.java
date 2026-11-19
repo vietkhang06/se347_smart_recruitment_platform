@@ -134,7 +134,7 @@ public class MatchingService {
      * delegating to the same execution path used by the background scheduler.
      */
     public MatchResult evaluateApplicationMatch(UUID applicationId) {
-<<<<<<< Updated upstream
+
 =======
         return evaluateApplicationMatch(applicationId, null);
     }
