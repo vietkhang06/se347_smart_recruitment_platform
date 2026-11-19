@@ -122,10 +122,6 @@ public class MatchingService {
         this.scoringProperties = scoringProperties != null ? scoringProperties : new MatchingScoringProperties();
     }
 
-    public MatchResult evaluateApplicationMatch(UUID applicationId, String leaseToken) {
-        return evaluateApplicationMatch(applicationId);
-    }
-
     /**
      * Synchronous compatibility entry point used by
      * POST /v1/applications/{id}/match.
@@ -134,7 +130,7 @@ public class MatchingService {
      * delegating to the same execution path used by the background scheduler.
      */
     public MatchResult evaluateApplicationMatch(UUID applicationId) {
-        return evaluateApplicationMatch(applicationId, null);
+        return evaluateApplicationMatch(applicationId, (String) null);
     }
 
     /**
