@@ -1,7 +1,5 @@
 package com.matchajob.api.recruitment.controller;
 
-package com.matchajob.api.recruitment.controller;
-
 import com.matchajob.api.recruitment.dto.JobDetailResponse;
 import com.matchajob.api.recruitment.dto.JobSummaryResponse;
 import com.matchajob.api.recruitment.dto.PageResponse;

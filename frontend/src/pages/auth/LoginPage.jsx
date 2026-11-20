@@ -127,19 +127,12 @@ export default function LoginPage() {
                     >
                       Nhà tuyển dụng
                     </Button>
-                    <Button 
-                      variant={role === "admin" ? "dark" : "outline-secondary"} 
-                      size="sm"
-                      onClick={() => setRole("admin")}
-                    >
-                      Admin
-                    </Button>
                   </ButtonGroup>
                 </div>
 
                 <Form onSubmit={handleSubmit}>
               {!IS_API && <div className="alert alert-info small">
-                <strong>Tài khoản demo</strong><br />Ứng viên: ankhang@example.com<br />HR: talent@fpt.com<br />Admin: admin@matchajob.vn<br />
+                <strong>Tài khoản demo</strong><br />Ứng viên: ankhang@example.com<br />HR: talent@fpt.com<br />
                 Mật khẩu mẫu: <strong>Demo123!</strong>. Tài khoản tự đăng ký dùng mật khẩu bạn đã đặt.
               </div>}
                   {error && <div className="alert alert-danger" role="alert">{error}</div>}

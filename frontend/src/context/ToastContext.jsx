@@ -57,7 +57,7 @@ export function ToastProvider({ children }) {
   return (
     <ToastContext.Provider value={{ showToast }}>
       {children}
-      <ToastContainer position="top-end" className="p-3" style={{ zIndex: 9999 }}>
+      <ToastContainer className="p-3 position-fixed end-0" style={{ zIndex: 1090, top: "72px" }}>
         {toasts.map(toast => {
           const header = getHeaderStyle(toast.type);
           const isWarning = toast.type === "warning";

@@ -403,32 +403,24 @@ export default function PipelineView({
                           {stage === "Phỏng vấn" && (
                             <div className="mb-2">
                               {activeInterview ? (
-                                <Badge
-                                  bg="success"
-                                  className="bg-opacity-15 text-success border border-success-subtle fw-normal d-inline-flex align-items-center gap-1"
+                                <span
+                                  className="status-badge status-badge-success fw-medium d-inline-flex align-items-center gap-1"
                                   style={{ fontSize: "11px" }}
                                   title={`Thời gian: ${activeInterview.time || ""} ${activeInterview.date || ""}`}
                                 >
                                   <i className="bi bi-calendar-check" /> Đã có lịch hẹn
-                                </Badge>
+                                </span>
                               ) : completedInterview ? (
-                                <Badge
-                                  bg="info"
-                                  className="bg-opacity-15 text-info border border-info-subtle fw-normal d-inline-flex align-items-center gap-1"
+                                <span
+                                  className="status-badge status-badge-info fw-medium d-inline-flex align-items-center gap-1"
                                   style={{ fontSize: "11px" }}
                                 >
                                   <i className="bi bi-check2-circle" /> Đã phỏng vấn V1
-                                </Badge>
+                                </span>
                               ) : (
                                 <span
-                                  className="d-inline-flex align-items-center gap-1 fw-normal rounded px-1"
-                                  style={{
-                                    fontSize: "11px",
-                                    backgroundColor: "rgba(217,119,6,0.15)",
-                                    color: "var(--warning)",
-                                    border: "1px solid rgba(217,119,6,0.3)",
-                                    padding: "2px 6px"
-                                  }}
+                                  className="status-badge status-badge-warning fw-medium d-inline-flex align-items-center gap-1"
+                                  style={{ fontSize: "11px" }}
                                 >
                                   <i className="bi bi-exclamation-circle" /> Chưa có lịch phỏng vấn
                                 </span>

@@ -28,7 +28,7 @@ if (-not $failed) {
         $frontPort = ((docker compose --env-file $EnvFile -p $ProjectName port frontend 5173) -split ':')[-1]
         $backPort = ((docker compose --env-file $EnvFile -p $ProjectName port backend 8080) -split ':')[-1]
         if (-not $frontPort -or -not $backPort) { throw 'published ports not found' }
-        $front = Invoke-WebRequest -Uri "http://127.0.0.1:$frontPort/" -TimeoutSec 5
+        $front = Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:$frontPort/" -TimeoutSec 5
         if ($front.StatusCode -ne 200 -or $front.Content -notmatch '<html') { throw 'frontend response invalid' }
         Write-Output 'PASS frontend HTTP'
         $mode = docker compose --env-file $EnvFile -p $ProjectName exec -T frontend printenv VITE_DATA_SOURCE

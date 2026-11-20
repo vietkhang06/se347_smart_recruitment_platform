@@ -586,12 +586,12 @@ export default function JobsView({
                       job.status === "Đang tuyển"
                         ? "status-badge-success"
                         : job.status === "Bản nháp"
-                          ? "status-badge-secondary bg-light text-muted border"
+                          ? "status-badge-secondary"
                           : job.status === "Chờ duyệt"
-                            ? "status-badge-warning"
+                            ? "status-badge-info"
                             : job.status === "Tạm dừng"
-                              ? "status-badge-secondary"
-                              : "status-badge-dark bg-dark text-white"
+                              ? "status-badge-warning"
+                              : "status-badge-danger"
                     }`}
                   >
                     {job.status}

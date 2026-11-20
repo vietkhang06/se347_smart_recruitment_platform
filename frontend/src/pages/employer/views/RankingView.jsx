@@ -8,7 +8,7 @@ import Badge from "react-bootstrap/Badge";
 import Spinner from "react-bootstrap/Spinner";
 import Alert from "react-bootstrap/Alert";
 import ProgressBar from "react-bootstrap/ProgressBar";
-import { apiApplicationService } from "../../../services/api/apiApplicationService";
+import { applicationService } from "../../../services";
 import { formatNumber, formatPercent } from "../../../utils/formatUtils";
 import { useToast } from "../../../context/ToastContext";
 
@@ -75,6 +75,16 @@ const getMedalBadge = (ranking) => {
   };
 };
 
+const pickDefaultRankingJobId = (jobs = []) => {
+  if (!Array.isArray(jobs) || jobs.length === 0) return "";
+  const preferred =
+    jobs.find((j) => (j.statusCode === "active" || j.status === "Đang tuyển") && Number(j.applicantCount || 0) > 0) ||
+    jobs.find((j) => Number(j.applicantCount || 0) > 0) ||
+    jobs.find((j) => j.statusCode === "active" || j.status === "Đang tuyển") ||
+    jobs[0];
+  return preferred ? String(preferred.id) : "";
+};
+
 export default function RankingView({
   jobs = [],
   candidates = [],
@@ -82,7 +92,7 @@ export default function RankingView({
   onInviteCandidate
 }) {
   const { showToast } = useToast();
-  const [selectedJobId, setSelectedJobId] = useState(() => (jobs.length > 0 ? String(jobs[0].id) : ""));
+  const [selectedJobId, setSelectedJobId] = useState(() => pickDefaultRankingJobId(jobs));
   const [rankingList, setRankingList] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -93,7 +103,7 @@ export default function RankingView({
   // Sync selectedJobId khi danh sách jobs thay đổi
   useEffect(() => {
     if (!selectedJobId && jobs.length > 0) {
-      setSelectedJobId(String(jobs[0].id));
+      setSelectedJobId(pickDefaultRankingJobId(jobs));
     }
   }, [jobs, selectedJobId]);
 
@@ -105,7 +115,7 @@ export default function RankingView({
     setLoading(true);
     setError(null);
     try {
-      const data = await apiApplicationService.getJobRanking(jobId);
+      const data = await applicationService.getJobRanking(jobId);
       setRankingList(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(err?.message || "Không thể tải bảng xếp hạng AI cho vị trí này.");

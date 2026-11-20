@@ -84,8 +84,8 @@ export const apiJobService = {
       }
       return toJobViewModel(created);
     } catch (err) {
-      // Nếu là lỗi nghiệp vụ từ backend (400, 403, validation) thì ném ra cho UI xử lý
-      if (err.status === 400 || err.status === 401 || err.status === 403 || err.status === 422) {
+      // Nếu là lỗi nghiệp vụ từ backend (400, 403, 409, validation) thì ném ra cho UI xử lý
+      if (err.status === 400 || err.status === 401 || err.status === 403 || err.status === 409 || err.status === 422) {
         throw err;
       }
       console.warn("[apiJobService] Lỗi kết nối tạo job qua API, fallback sang mock:", err.message);
@@ -108,7 +108,7 @@ export const apiJobService = {
       }
       return toJobViewModel(updated);
     } catch (err) {
-      if (err.status === 400 || err.status === 401 || err.status === 403 || err.status === 422) {
+      if (err.status === 400 || err.status === 401 || err.status === 403 || err.status === 409 || err.status === 422) {
         throw err;
       }
       console.warn(`[apiJobService] Lỗi cập nhật job ${jobId}, fallback sang mock:`, err.message);
@@ -138,7 +138,7 @@ export const apiJobService = {
       }
       return toJobViewModel(updated);
     } catch (err) {
-      if (err.status === 400 || err.status === 401 || err.status === 403 || err.status === 422) {
+      if (err.status === 400 || err.status === 401 || err.status === 403 || err.status === 409 || err.status === 422) {
         throw err;
       }
       console.warn(`[apiJobService] Lỗi đổi status job ${jobId}, fallback sang mock:`, err.message);

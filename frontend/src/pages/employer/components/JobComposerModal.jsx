@@ -26,12 +26,40 @@ const formatNumberWithCommas = (val) => {
   return Number(raw).toLocaleString("en-US");
 };
 
+const LEVEL_TEXT_TO_CODE = {
+  "Thực tập sinh": "intern",
+  "Thực tập": "intern",
+  "Fresher": "fresher",
+  "Junior": "junior",
+  "Nhân viên": "middle",
+  "Middle": "middle",
+  "Senior": "senior",
+  "Trưởng nhóm": "lead",
+  "Trưởng/Phó phòng": "lead",
+  "Quản lý / Giám sát": "lead",
+  "Trưởng chi nhánh": "lead",
+  "Phó giám đốc": "director",
+  "Giám đốc": "director"
+};
+
+const WORK_TYPE_TEXT_TO_CODE = {
+  "Toàn thời gian": "full_time",
+  "Bán thời gian": "part_time",
+  "Hybrid": "hybrid",
+  "Từ xa": "remote",
+  "Thực tập": "contract",
+  "Hợp đồng": "contract",
+  "Khác": "contract"
+};
+
 export default function JobComposerModal({
   show,
   onHide,
   onJobCreated,
   onJobUpdated,
   onNavigateProfile,
+  companyId = null,
+  company = null,
   mode = "create", // "create" | "edit"
   jobToEdit = null
 }) {
@@ -83,15 +111,22 @@ export default function JobComposerModal({
   const [team, setTeam] = useState(template.team);
   const [categoryId, setCategoryId] = useState("");
   const [categories, setCategories] = useState([]);
+  const [availableSkills, setAvailableSkills] = useState([]);
 
-  // Fetch taxonomy categories
+  // Fetch taxonomy categories and skills
   useEffect(() => {
     let isMounted = true;
     async function fetchTaxonomy() {
       try {
-        const cats = await jobService.getCategories();
+        const [cats, sks] = await Promise.all([
+          jobService.getCategories(),
+          typeof jobService.getSkills === "function" ? jobService.getSkills().catch(() => []) : Promise.resolve([])
+        ]);
         if (isMounted && Array.isArray(cats)) {
           setCategories(cats);
+        }
+        if (isMounted && Array.isArray(sks)) {
+          setAvailableSkills(sks);
         }
       } catch (err) {
         console.warn("Could not fetch categories:", err);
@@ -200,8 +235,9 @@ export default function JobComposerModal({
       setWorkType(jobToEdit.workType || "Toàn thời gian");
       setTeam(jobToEdit.department || jobToEdit.team || "Engineering");
       setCategoryId(jobToEdit.categoryId || "");
-      setSalaryMode(jobToEdit.salaryMode || "range");
-      setSalaryCurrency(jobToEdit.salaryCurrency || "Triệu VNĐ");
+      setSalaryMode(jobToEdit.salaryMode === "single" ? "from" : (jobToEdit.salaryMode || "range"));
+      const editCur = String(jobToEdit.salaryCurrency || "VND").toUpperCase();
+      setSalaryCurrency(editCur.includes("USD") ? "USD ($)" : "VNĐ");
       setSalaryMin(formatNumberWithCommas(jobToEdit.salaryMin));
       setSalaryMax(formatNumberWithCommas(jobToEdit.salaryMax));
       setSalarySingle(formatNumberWithCommas(jobToEdit.salarySingle || jobToEdit.salaryMin));
@@ -709,11 +745,17 @@ export default function JobComposerModal({
       }
     }
 
-    const skillsWithRequirement = specTags.map((tag) => ({
-      skillId: tag,
-      name: tag,
-      isRequired: skillRequirements[tag] !== false
-    }));
+    const existingSkills = Array.isArray(jobToEdit?.skillsWithRequirement) ? jobToEdit.skillsWithRequirement : [];
+    const skillsWithRequirement = specTags.map((tag) => {
+      const normalizedTag = String(tag || "").trim().toLowerCase();
+      const matchedApiSkill = availableSkills.find((s) => String(s.name || "").trim().toLowerCase() === normalizedTag);
+      const matchedExisting = existingSkills.find((s) => String(s.name || s.skillName || "").trim().toLowerCase() === normalizedTag);
+      return {
+        skillId: matchedApiSkill?.id || matchedExisting?.skillId || null,
+        name: tag,
+        isRequired: skillRequirements[tag] !== false
+      };
+    });
 
     const finalStatusText = targetStatus === "draft"
       ? "Bản nháp"
@@ -727,22 +769,30 @@ export default function JobComposerModal({
         ? jobToEdit.statusCode
         : "active";
 
+    const resolvedCompanyId = company?.id || companyId || jobToEdit?.companyId || "COMP-01";
+    const resolvedCompanyName = company?.name || jobToEdit?.companyName || "MatchaJob Enterprise";
+    const resolvedCompanyLogo = company?.shortName || company?.logo || resolvedCompanyName.slice(0, 2).toUpperCase();
+    const parsedMin = salaryMin ? Number(String(salaryMin).replace(/\D/g, "")) : null;
+    const parsedMax = salaryMax ? Number(String(salaryMax).replace(/\D/g, "")) : null;
+    const parsedSingle = salarySingle ? Number(String(salarySingle).replace(/\D/g, "")) : null;
+
     const jobData = {
+      companyId: resolvedCompanyId,
       title,
       team,
       department: team,
       location: city,
       address,
       jobLevel,
-      levelCode: jobLevel === "Trưởng nhóm" ? "lead" : jobLevel === "Giám đốc" ? "director" : jobLevel === "Thực tập sinh" ? "intern" : "middle",
+      levelCode: LEVEL_TEXT_TO_CODE[jobLevel] || "middle",
       workType,
-      workTypeCode: workType === "Bán thời gian" ? "part_time" : workType === "Khác" ? "contract" : "full_time",
-      categoryId: categoryId || (categories[0]?.id || "CAT-01"),
+      workTypeCode: WORK_TYPE_TEXT_TO_CODE[workType] || "full_time",
+      categoryId: categoryId || (categories[0]?.id || null),
       salaryMode,
       salaryCurrency,
-      salaryMin: salaryMin ? Number(String(salaryMin).replace(/\D/g, "")) : null,
-      salaryMax: salaryMax ? Number(String(salaryMax).replace(/\D/g, "")) : null,
-      salarySingle: salarySingle ? Number(String(salarySingle).replace(/\D/g, "")) : null,
+      salaryMin: salaryMode === "range" ? parsedMin : (["from", "under", "single"].includes(salaryMode) ? parsedSingle : null),
+      salaryMax: salaryMode === "range" ? parsedMax : null,
+      salarySingle: parsedSingle,
       salary: getSalaryDisplay(),
       deadline,
       experience,
@@ -763,8 +813,9 @@ export default function JobComposerModal({
         preferred: sumPreferred
       },
       mapLink,
-      company: "FPT Digital Talent",
-      logo: "FP",
+      company: resolvedCompanyName,
+      companyName: resolvedCompanyName,
+      logo: resolvedCompanyLogo,
       contact: hrProfile,
       status: finalStatusText,
       statusCode: finalStatusCode
@@ -777,7 +828,7 @@ export default function JobComposerModal({
         if (onJobUpdated) onJobUpdated(updated);
         showToast(`Đã cập nhật tin tuyển dụng: ${title}`);
       } else {
-        const created = await jobService.createJob(jobData);
+        const created = await jobService.createJob(jobData, resolvedCompanyId);
         if (onJobCreated) onJobCreated(created);
         mockStore.clearJobDraft();
         setHasDraft(false);
@@ -889,14 +940,14 @@ export default function JobComposerModal({
           <div className="btn-group btn-group-sm">
             <button
               type="button"
-              className={`btn ${activeTab === "edit" ? "btn-success" : "btn-outline-secondary"}`}
+              className={`btn ${activeTab === "edit" ? "btn-success text-white fw-semibold" : "btn-outline-secondary"}`}
               onClick={handleSwitchToEdit}
             >
               <i className="bi bi-pencil-square me-1"></i>Soạn thảo
             </button>
             <button
               type="button"
-              className={`btn ${activeTab === "preview" ? "btn-success" : "btn-outline-secondary"}`}
+              className={`btn ${activeTab === "preview" ? "btn-success text-white fw-semibold" : "btn-outline-secondary"}`}
               onClick={handleSwitchToPreview}
             >
               <i className="bi bi-eye me-1"></i>Xem trước tin đăng
@@ -981,14 +1032,19 @@ export default function JobComposerModal({
                   <Col sm={4}>
                     <Form.Label className="small fw-semibold">Cấp bậc</Form.Label>
                     <Form.Select value={jobLevel} onChange={(e) => setJobLevel(e.target.value)}>
+                      <option value="Thực tập sinh">Thực tập sinh</option>
+                      <option value="Thực tập">Thực tập</option>
+                      <option value="Fresher">Fresher</option>
+                      <option value="Junior">Junior</option>
                       <option value="Nhân viên">Nhân viên</option>
+                      <option value="Middle">Middle</option>
+                      <option value="Senior">Senior</option>
                       <option value="Trưởng nhóm">Trưởng nhóm</option>
                       <option value="Trưởng/Phó phòng">Trưởng/Phó phòng</option>
                       <option value="Quản lý / Giám sát">Quản lý / Giám sát</option>
                       <option value="Trưởng chi nhánh">Trưởng chi nhánh</option>
                       <option value="Phó giám đốc">Phó giám đốc</option>
                       <option value="Giám đốc">Giám đốc</option>
-                      <option value="Thực tập sinh">Thực tập sinh</option>
                     </Form.Select>
                   </Col>
 
@@ -997,7 +1053,10 @@ export default function JobComposerModal({
                     <Form.Select value={workType} onChange={(e) => setWorkType(e.target.value)}>
                       <option value="Toàn thời gian">Toàn thời gian</option>
                       <option value="Bán thời gian">Bán thời gian</option>
+                      <option value="Hybrid">Hybrid</option>
+                      <option value="Từ xa">Từ xa</option>
                       <option value="Thực tập">Thực tập</option>
+                      <option value="Hợp đồng">Hợp đồng</option>
                       <option value="Khác">Khác</option>
                     </Form.Select>
                   </Col>
@@ -1672,12 +1731,12 @@ export default function JobComposerModal({
                   className="rounded-3 d-flex align-items-center justify-content-center fw-bold text-white fs-3 shadow-sm flex-shrink-0"
                   style={{ width: "64px", height: "64px", backgroundColor: "var(--primary)" }}
                 >
-                  FP
+                  {company?.shortName || (company?.name || "MJ").slice(0, 2).toUpperCase()}
                 </div>
                 <div>
                   <h1 className="h3 fw-bold mb-1 text-body">{title || "Chưa nhập tiêu đề việc làm"}</h1>
                   <div className="text-muted fs-6">
-                    <span className="fw-semibold text-muted">FPT Digital Talent</span> · <span>{city || "Toàn quốc"}</span>
+                    <span className="fw-semibold text-muted">{company?.name || jobToEdit?.companyName || "Doanh nghiệp"}</span> · <span>{city || "Toàn quốc"}</span>
                   </div>
                 </div>
               </div>
