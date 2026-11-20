@@ -8,6 +8,7 @@ import {
   Form,
   Alert
 } from "react-bootstrap";
+import { IS_API } from "../../../services/dataMode";
 import { saveAdminUser } from "../../../services/adminUsers";
 import { useToast } from "../../../context/ToastContext";
 
@@ -226,21 +227,23 @@ export default function UserDetailModal({
               ))}
             </Row>
 
-            <div className="d-flex justify-content-end">
-              <Button
-                size="sm"
-                variant="outline-primary"
-                onClick={() => {
-                  setForm({
-                    name: user.name || user.fullName || "",
-                    phone: user.phone || ""
-                  });
-                  setEditing(true);
-                }}
-              >
-                Sửa thông tin tài khoản
-              </Button>
-            </div>
+            {!IS_API && (
+              <div className="d-flex justify-content-end">
+                <Button
+                  size="sm"
+                  variant="outline-primary"
+                  onClick={() => {
+                    setForm({
+                      name: user.name || user.fullName || "",
+                      phone: user.phone || ""
+                    });
+                    setEditing(true);
+                  }}
+                >
+                  Sửa thông tin tài khoản
+                </Button>
+              </div>
+            )}
           </>
         )}
       </Modal.Body>

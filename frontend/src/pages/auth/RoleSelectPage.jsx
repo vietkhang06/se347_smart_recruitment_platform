@@ -22,14 +22,6 @@ export default function RoleSelectPage() {
       icon: "bi-buildings",
       color: "#2563eb",
       target: "/login?role=employer"
-    },
-    {
-      key: "admin",
-      title: "Quản trị viên hệ thống",
-      desc: "Giám sát vận hành toàn hệ thống, kiểm duyệt nội dung tin đăng, quản lý người dùng và xử lý báo cáo.",
-      icon: "bi-shield-check",
-      color: "#7c3aed",
-      target: "/login?role=admin"
     }
   ];
 
@@ -43,7 +35,7 @@ export default function RoleSelectPage() {
 
       <Row className="g-4 justify-content-center">
         {roles.map((r, idx) => (
-          <Col lg={4} md={6} key={r.key}>
+          <Col lg={5} md={6} key={r.key}>
             <Card 
               className="matcha-card p-4 h-100 border-0 shadow-sm text-center d-flex flex-column align-items-center"
               data-aos="fade-up"

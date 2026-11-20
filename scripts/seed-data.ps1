@@ -1,4 +1,4 @@
-# ==============================================================================
+﻿# ==============================================================================
 # MATCHA JOB - DATABASE SEED RUNNER SCRIPT
 # scripts/seed-data.ps1
 # ==============================================================================
@@ -50,6 +50,24 @@ try {
     }
 } catch {
     $containerRunning = $false
+}
+
+if (-not $containerRunning) {
+    try {
+        $composeDbId = docker compose --env-file .env ps -q database 2>$null
+        if (-not $composeDbId) {
+            $composeDbId = docker compose ps -q database 2>$null
+        }
+        if ($composeDbId) {
+            $ContainerName = ($composeDbId | Select-Object -First 1).Trim()
+            $inspectCompose = docker inspect --format='{{.State.Running}}' $ContainerName 2>$null
+            if ($inspectCompose -eq "true") {
+                $containerRunning = $true
+            }
+        }
+    } catch {
+        $containerRunning = $false
+    }
 }
 
 if ($containerRunning) {

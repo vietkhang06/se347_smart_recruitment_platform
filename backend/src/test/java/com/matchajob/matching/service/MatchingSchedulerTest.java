@@ -68,7 +68,7 @@ class MatchingSchedulerTest {
                 .claimNextMatchingJob();
 
         verify(matchingService)
-                .evaluateApplicationMatch(job.getEntityId());
+                .evaluateApplicationMatch(job);
 
         verify(processingJobService, never())
                 .markJobFailed(any(), anyString(), anyBoolean());
@@ -96,12 +96,12 @@ class MatchingSchedulerTest {
 
         doThrow(new MatchingService.MatchNotReadyException(
                 "CV extraction not complete"
-        )).when(matchingService).evaluateApplicationMatch(job.getEntityId());
+        )).when(matchingService).evaluateApplicationMatch(job);
 
         scheduler.poll();
 
         verify(matchingService)
-                .evaluateApplicationMatch(job.getEntityId());
+                .evaluateApplicationMatch(job);
 
         verify(processingJobService, never())
                 .markJobFailed(any(), anyString(), anyBoolean());
@@ -129,12 +129,12 @@ class MatchingSchedulerTest {
 
         doThrow(new ResourceAccessException("Connection refused"))
                 .when(matchingService)
-                .evaluateApplicationMatch(job.getEntityId());
+                .evaluateApplicationMatch(job);
 
         scheduler.poll();
 
         verify(matchingService)
-                .evaluateApplicationMatch(job.getEntityId());
+                .evaluateApplicationMatch(job);
 
         verify(processingJobService, never())
                 .markJobFailed(any(), anyString(), anyBoolean());
@@ -156,39 +156,7 @@ class MatchingSchedulerTest {
 
         doThrow(new RuntimeException("worker failed"))
                 .when(matchingService)
-                .evaluateApplicationMatch(any());
-
-        scheduler.poll();
-
-        verify(processingJobService, never())
-                .markJobFailed(any(), anyString(), anyBoolean());
-    }
-
-    @Test
-    void poll_doesNotFailJobTwiceWhenMatchingServiceAlreadyRescheduledIt() {
-        UUID jobId = UUID.randomUUID();
-        UUID applicationId = UUID.randomUUID();
-
-        ProcessingJob claimed = ProcessingJob.builder()
-                .id(jobId)
-                .entityId(applicationId)
-                .leaseToken("lease")
-                .build();
-
-        when(processingJobService.claimNextMatchingJob())
-                .thenReturn(Optional.of(claimed));
-
-        when(processingJobService.getJob(jobId))
-                .thenReturn(Optional.of(
-                        ProcessingJob.builder()
-                                .id(jobId)
-                                .status("PENDING")
-                                .build()
-                ));
-
-        doThrow(new RuntimeException("worker failed"))
-        .when(matchingService)
-        .evaluateApplicationMatch(any(ProcessingJob.class));
+                .evaluateApplicationMatch(any(ProcessingJob.class));
 
         scheduler.poll();
 

@@ -2,6 +2,7 @@ import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
+  BarElement,
   PointElement,
   LineElement,
   Title,
@@ -9,12 +10,13 @@ import {
   Legend,
   Filler
 } from 'chart.js';
-import { Line } from 'react-chartjs-2';
+import { Line, Bar } from 'react-chartjs-2';
 import { useTheme } from '../../context/ThemeContext';
 
 ChartJS.register(
   CategoryScale,
   LinearScale,
+  BarElement,
   PointElement,
   LineElement,
   Title,
@@ -23,12 +25,74 @@ ChartJS.register(
   Filler
 );
 
-export default function PlatformGrowthChart({ growthData }) {
+const STATUS_LABELS = {
+  active: 'Đang tuyển',
+  pending: 'Chờ duyệt',
+  paused: 'Tạm dừng',
+  draft: 'Bản nháp',
+  closed: 'Đã đóng'
+};
+
+export default function PlatformGrowthChart({ growthData, jobStats }) {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
 
   const textColor = isDark ? '#94a3b8' : '#64748b';
   const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)';
+
+  const categoryEntries = Object.entries(jobStats?.categoryBreakdown || {});
+  const statusEntries = Object.entries(jobStats?.statusBreakdown || {});
+  const hasRealBreakdown = categoryEntries.length > 0 || statusEntries.length > 0;
+
+  if (hasRealBreakdown) {
+    const entries = categoryEntries.length > 0
+      ? categoryEntries
+      : statusEntries.map(([k, v]) => [STATUS_LABELS[k] || k, v]);
+
+    const barData = {
+      labels: entries.map(([label]) => label),
+      datasets: [
+        {
+          label: 'Số tin tuyển dụng',
+          data: entries.map(([, count]) => Number(count) || 0),
+          backgroundColor: isDark ? '#3fb978' : '#2d8653',
+          borderRadius: 6
+        }
+      ]
+    };
+
+    const barOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'top',
+          labels: {
+            color: textColor,
+            font: { family: 'Inter', size: 12 },
+            usePointStyle: true
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: textColor },
+          grid: { display: false }
+        },
+        y: {
+          beginAtZero: true,
+          ticks: { color: textColor, precision: 0 },
+          grid: { color: gridColor }
+        }
+      }
+    };
+
+    return (
+      <div style={{ height: "260px", width: "100%" }}>
+        <Bar data={barData} options={barOptions} />
+      </div>
+    );
+  }
 
   const labels = growthData?.labels || ["Tháng 4", "Tháng 5", "Tháng 6", "Tháng 7", "Tháng 8", "Tháng 9"];
 

@@ -43,6 +43,44 @@ function exportCandidatesCSV(candidates) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+function isJobAcceptingApplications(job) {
+  if (!job || job.status !== "Đang tuyển") return false;
+  const match = String(job.deadline || "").match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!match) return true;
+  const deadline = new Date(Number(match[3]), Number(match[2]) - 1, Number(match[1]));
+  deadline.setHours(23, 59, 59, 999);
+  return deadline >= new Date();
+}
+
+function buildEmployerActivity(jobs = [], candidates = [], interviews = []) {
+  const events = [];
+  interviews.slice(0, 2).forEach((iv) => {
+    events.push({
+      time: iv.time || iv.date || "Lịch hẹn",
+      text: `Phỏng vấn: ${iv.candidate || iv.candidateName || "Ứng viên"} (${iv.role || iv.appliedJobTitle || "Vị trí"})`,
+      tone: "green"
+    });
+  });
+  const scoredCount = candidates.filter((c) => {
+    const score = c.matchScore ?? c.match;
+    return score != null && score !== "" && Number.isFinite(Number(score));
+  }).length;
+  if (scoredCount > 0) {
+    events.push({
+      time: "AI Ranking",
+      text: `Đã chấm điểm tương thích AI cho ${scoredCount}/${candidates.length} hồ sơ`,
+      tone: "purple"
+    });
+  }
+  const activeCount = jobs.filter(isJobAcceptingApplications).length;
+  events.push({
+    time: "Tổng hợp",
+    text: `Đang mở ${activeCount} tin · Tiếp nhận ${candidates.length} hồ sơ ứng tuyển`,
+    tone: "teal"
+  });
+  return events.slice(0, 4);
+}
+
 export default function EmployerPortal() {
   const { user } = useAuth();
   let companyId = user?.companyId || "";
@@ -114,12 +152,28 @@ function EmployerWorkspace({ companyId }) {
       applicationService.getApplications(companyId),
       interviewService.getInterviews(companyId)
     ]);
+    const resolvedCompany = results[0].status === "fulfilled" && results[0].value?.name ? results[0].value : null;
     const setters = [setCompany, setJobs, setCandidates, setInterviews];
     const labels = ["doanh nghiệp", "tin tuyển dụng", "ứng viên", "lịch phỏng vấn"];
     const errors = [];
     results.forEach((result, index) => {
       if (result.status === "fulfilled" && (index === 0 ? result.value?.name : Array.isArray(result.value))) {
-        setters[index](result.value);
+        if (index === 1 && resolvedCompany) {
+          const enrichedJobs = result.value.map((job) => ({
+            ...job,
+            companyName:
+              !job.companyName || job.companyName === "MatchaJob Enterprise"
+                ? resolvedCompany.name
+                : job.companyName,
+            companyLogo:
+              !job.companyLogo || job.companyLogo === "MJ"
+                ? (resolvedCompany.shortName || resolvedCompany.name.slice(0, 2).toUpperCase())
+                : job.companyLogo
+          }));
+          setJobs(enrichedJobs);
+        } else {
+          setters[index](result.value);
+        }
       } else {
         if (index === 2) setCandidates([]);
         errors.push(`Không tải được ${labels[index]}: ${result.status === "rejected" ? result.reason?.message || "Lỗi tải dữ liệu" : "Dữ liệu không hợp lệ"}`);
@@ -231,10 +285,9 @@ function EmployerWorkspace({ companyId }) {
   };
 
   const stats = toEmployerStatisticsViewModel(jobs, candidates, interviews);
+  const recentActivity = buildEmployerActivity(jobs, candidates, interviews);
 
-  const activeJobsCount = jobs.filter(
-    job => mockStore.isJobAcceptingApplications(job)
-  ).length;
+  const activeJobsCount = jobs.filter(isJobAcceptingApplications).length;
 
   const newCandidatesCount = candidates.filter(
     candidate =>
@@ -305,24 +358,11 @@ function EmployerWorkspace({ companyId }) {
             metrics: stats.summaryCards,
             interviews,
             candidates,
-            activity: [
-              {
-                time: "09:14",
-                text: "Nguyễn An Khang đã xác nhận lịch phỏng vấn",
-                tone: "green"
-              },
-              {
-                time: "Hôm qua",
-                text: "Hệ thống AI vừa cập nhật bảng xếp hạng ứng viên",
-                tone: "purple"
-              },
-              {
-                time: "Gần đây",
-                text: `Tiếp nhận tổng cộng ${candidates.length} hồ sơ ứng tuyển`,
-                tone: "teal"
-              }
-            ],
-            weeklyPerformance: stats.weeklyPerformance
+            activity: recentActivity,
+            weeklyPerformance: stats.weeklyPerformance,
+            isLoading: loading,
+            error: loadError,
+            onRetry: refreshStoreData
           }}
           onOpenComposer={handleOpenCreateJob}
           onOpenCandidate={handleOpenCandidate}
@@ -393,6 +433,9 @@ function EmployerWorkspace({ companyId }) {
             funnel: stats.recruitmentFunnel,
             sources: stats.sources
           }}
+          isLoading={loading}
+          error={loadError}
+          onRetry={refreshStoreData}
         />
       )}
 
@@ -418,6 +461,8 @@ function EmployerWorkspace({ companyId }) {
           setShowComposer(false);
           setComposerJobToEdit(null);
         }}
+        companyId={company?.id || companyId}
+        company={company}
         mode={composerMode}
         jobToEdit={composerJobToEdit}
         onJobCreated={handleJobCreated}
