@@ -43,7 +43,12 @@ public class ProcessingJobController {
             return ResponseEntity.notFound().build();
         }
 
-        if (authentication != null && resourceOwnershipService != null) {
+        if (authentication == null || !authentication.isAuthenticated()
+                || authentication instanceof org.springframework.security.authentication.AnonymousAuthenticationToken) {
+            throw new org.springframework.security.access.AccessDeniedException("Full authentication is required to view processing job status.");
+        }
+
+        if (resourceOwnershipService != null) {
             UUID userId = SecurityUtils.extractUserId(authentication);
             resourceOwnershipService.checkProcessingJobAccess(userId, id, job.getEntityType(), job.getEntityId());
         }
