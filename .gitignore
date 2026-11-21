@@ -62,6 +62,8 @@ docs/**
 !docs/contracts/**
 !docs/weekly/
 !docs/weekly/**
+!docs/qa/
+!docs/qa/**
 FE_WORKFLOW.md
 FE_UI_FLOW.md
 README_FE.md
