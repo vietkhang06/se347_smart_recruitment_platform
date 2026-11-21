@@ -117,7 +117,7 @@ def test_ndcg_at_3_computation():
 def test_evaluator_score_consistency_and_threshold_classification():
     """
     Ensures that every candidate score is identical between the per-candidate list
-    and the threshold sweeps, explicitly verifying pair-003 and pair-002 classification.
+    and the threshold sweeps, explicitly verifying pair-002, pair-003, pair-014, and pair-015.
     """
     from evaluation.evaluate_matching import evaluate_dataset, run_threshold_sweep, DATASET_PATH
     import json
@@ -125,25 +125,52 @@ def test_evaluator_score_consistency_and_threshold_classification():
     res_eval = evaluate_dataset(DATASET_PATH, rule_weight=0.60, semantic_weight=0.40, shortlist_threshold=70)
     raw_data = json.loads(DATASET_PATH.read_text(encoding="utf-8"))
 
-    # Verify per-job breakdown candidate scores
+    # Collect per-pair scores and ground-truth labels directly from per_job_breakdown
     pair_scores = {}
     for job_res in res_eval["per_job_breakdown"]:
-        # Find candidate hybrid scores in ranked candidates
-        pass
+        for cand in job_res["ranked_candidates"]:
+            pair_scores[cand["pair_id"]] = cand["hybrid_score"]
 
-    # Sweep thresholds and verify confusion matrix alignment
+    assert len(pair_scores) == len(raw_data["pairs"])
+    assert pair_scores["pair-014"] > pair_scores["pair-015"], (
+        "Fixed BI taxonomy (Power BI, Tableau, Data Warehousing) must disambiguate pair-014 above pair-015"
+    )
+    assert pair_scores["pair-002"] == 55
+    assert pair_scores["pair-003"] == 38
+    assert pair_scores["pair-014"] == 58
+    assert pair_scores["pair-015"] == 51
+
+    labels_by_pair = {p["pair_id"]: p["shortlist_eligible"] for p in raw_data["pairs"]}
+
+    # Sweep thresholds and verify exact alignment with per-pair scores
     sweep = run_threshold_sweep(DATASET_PATH, rule_weight=0.60, semantic_weight=0.40, thresholds=[50, 60, 65, 70, 75, 80])
     sweep_by_th = {s["threshold"]: s for s in sweep}
 
+    for th, stats in sweep_by_th.items():
+        expected_tp = sum(1 for pid, lbl in labels_by_pair.items() if lbl is True and pair_scores[pid] >= th)
+        expected_fp = sum(1 for pid, lbl in labels_by_pair.items() if lbl is False and pair_scores[pid] >= th)
+        expected_tn = sum(1 for pid, lbl in labels_by_pair.items() if lbl is False and pair_scores[pid] < th)
+        expected_fn = sum(1 for pid, lbl in labels_by_pair.items() if lbl is True and pair_scores[pid] < th)
+        assert stats["TP"] == expected_tp
+        assert stats["FP"] == expected_fp
+        assert stats["TN"] == expected_tn
+        assert stats["FN"] == expected_fn
+
+    # Verify threshold 50 behavior (recall=1.0, only pair-015 at 51 is FP):
+    th50 = sweep_by_th[50]
+    assert th50["TP"] == 6
+    assert th50["FP"] == 1
+    assert th50["TN"] == 9
+    assert th50["FN"] == 0
+
     # Verify threshold 60 behavior:
-    # pair-002 (Grade 3, shortlist: True, hybrid: 55) is missed (FN)
-    # pair-003 (Grade 2, shortlist: False, hybrid: 38) is correctly rejected (TN)
-    # pair-015 (Grade 2, shortlist: False, hybrid: 62) is false positive (FP)
+    # pair-002 (Grade 3, shortlist: True, hybrid: 55) and pair-014 (Grade 3, shortlist: True, hybrid: 58) are FN
+    # pair-015 (Grade 2, shortlist: False, hybrid: 51) is correctly rejected (TN) -> 0 FP!
     th60 = sweep_by_th[60]
-    assert th60["TP"] == 5
-    assert th60["FP"] == 1
-    assert th60["TN"] == 9
-    assert th60["FN"] == 1
+    assert th60["TP"] == 4
+    assert th60["FP"] == 0
+    assert th60["TN"] == 10
+    assert th60["FN"] == 2
 
     # Verify threshold 70 behavior:
     th70 = sweep_by_th[70]

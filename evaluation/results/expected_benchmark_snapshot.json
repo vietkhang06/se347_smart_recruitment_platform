@@ -1,0 +1,4397 @@
+{
+  "seed": 20261120,
+  "frozen_versions": {
+    "ai_model_freeze_version": "1.0.0-demo-freeze",
+    "extractor_version": "extractor-v1.0.0",
+    "normalizer_version": "normalizer-v1.0.0",
+    "canonical_skill_entries": 116,
+    "canonical_skills_unique": 75,
+    "rule_algorithm_version": "baseline-rule-v1.0.0",
+    "rule_weights": {
+      "skills": 0.6,
+      "experience": 0.4
+    },
+    "hybrid_weights": {
+      "rule_weight": 0.6,
+      "semantic_weight": 0.4
+    },
+    "deterministic_embedding_model": "deterministic-sha256-1536d-v1"
+  },
+  "parsing_and_normalization": {
+    "total_checks": 13,
+    "passed_checks": 13,
+    "failed_checks": 0,
+    "all_passed": true,
+    "cases": [
+      {
+        "fixture": "cv_en_backend.pdf",
+        "kind": "CV",
+        "expected": {
+          "status": "OK",
+          "page_count": 1,
+          "full_name": "Johnathan Doe",
+          "email": "john.doe@example.test",
+          "experience_years": 4,
+          "required_skills_subset": [
+            "AWS",
+            "Docker",
+            "Java",
+            "Kubernetes",
+            "PostgreSQL",
+            "Spring Boot"
+          ]
+        },
+        "actual": {
+          "status": "OK",
+          "page_count": 1,
+          "char_count": 277,
+          "full_name": "Johnathan Doe",
+          "email": "john.doe@example.test",
+          "phone": "0901234567",
+          "experience_years": 4,
+          "skills": [
+            "AWS",
+            "Docker",
+            "Java",
+            "Kubernetes",
+            "PostgreSQL",
+            "Spring Boot"
+          ],
+          "languages": [],
+          "education": "Bachelor of Computer Science, University of Science"
+        },
+        "passed": true
+      },
+      {
+        "fixture": "cv_en_backend.docx",
+        "kind": "CV",
+        "expected": {
+          "status": "OK",
+          "page_count": 1,
+          "full_name": "Johnathan Doe",
+          "email": "john.doe@example.test",
+          "phone": "+84901234567",
+          "experience_years": 4,
+          "required_skills_subset": [
+            "AWS",
+            "Docker",
+            "Java",
+            "Kubernetes",
+            "PostgreSQL",
+            "Spring Boot"
+          ],
+          "languages": [
+            "English",
+            "Vietnamese"
+          ]
+        },
+        "actual": {
+          "status": "OK",
+          "page_count": 1,
+          "char_count": 542,
+          "full_name": "Johnathan Doe",
+          "email": "john.doe@example.test",
+          "phone": "+84901234567",
+          "experience_years": 4,
+          "skills": [
+            "AWS",
+            "CI/CD",
+            "Docker",
+            "Git",
+            "Java",
+            "Kubernetes",
+            "Microservices",
+            "PostgreSQL",
+            "REST API",
+            "Spring Boot"
+          ],
+          "languages": [
+            "English",
+            "Vietnamese"
+          ],
+          "education": "University of Technology, Bachelor of Computer Science, Graduated 2020"
+        },
+        "passed": true
+      },
+      {
+        "fixture": "cv_vi_backend.docx",
+        "kind": "CV",
+        "expected": {
+          "status": "OK",
+          "page_count": 1,
+          "full_name": "Nguyễn Văn An",
+          "email": "nguyen.van.an@example.test",
+          "phone": "0987654321",
+          "experience_years": 4,
+          "required_skills_subset": [
+            "Docker",
+            "Java",
+            "Microservices",
+            "PostgreSQL",
+            "Spring Boot"
+          ],
+          "languages": [
+            "English",
+            "Vietnamese"
+          ]
+        },
+        "actual": {
+          "status": "OK",
+          "page_count": 1,
+          "char_count": 409,
+          "full_name": "Nguyễn Văn An",
+          "email": "nguyen.van.an@example.test",
+          "phone": "0987654321",
+          "experience_years": 4,
+          "skills": [
+            "CI/CD",
+            "Docker",
+            "Git",
+            "Java",
+            "Microservices",
+            "PostgreSQL",
+            "Redis",
+            "Spring Boot"
+          ],
+          "languages": [
+            "English",
+            "Vietnamese"
+          ],
+          "education": "Đại học Bách Khoa, Kỹ sư Công nghệ Thông tin, tốt nghiệp 2020"
+        },
+        "passed": true
+      },
+      {
+        "fixture": "cv_minimal.docx",
+        "kind": "CV",
+        "expected": {
+          "status": "OK",
+          "page_count": 1,
+          "full_name": "Nguyen Minimal",
+          "email": "minimal@example.test",
+          "phone": null,
+          "skills": [],
+          "experience_years": null,
+          "education": null
+        },
+        "actual": {
+          "status": "OK",
+          "page_count": 1,
+          "char_count": 42,
+          "full_name": "Nguyen Minimal",
+          "email": "minimal@example.test",
+          "phone": null,
+          "experience_years": null,
+          "skills": [],
+          "languages": [],
+          "education": null
+        },
+        "passed": true
+      },
+      {
+        "fixture": "cv_minimal.pdf",
+        "kind": "CV",
+        "expected": {
+          "status": "OK",
+          "page_count": 1,
+          "full_name": "Candidate Name Only",
+          "email": null,
+          "phone": null,
+          "skills": [],
+          "experience_years": null
+        },
+        "actual": {
+          "status": "OK",
+          "page_count": 1,
+          "char_count": 19,
+          "full_name": "Candidate Name Only",
+          "email": null,
+          "phone": null,
+          "experience_years": null,
+          "skills": [],
+          "languages": [],
+          "education": null
+        },
+        "passed": true
+      },
+      {
+        "fixture": "cv_unrelated.docx",
+        "kind": "CV",
+        "expected": {
+          "status": "OK",
+          "page_count": 1,
+          "full_name": "Jane Designer",
+          "skills": [],
+          "experience_years": 3
+        },
+        "actual": {
+          "status": "OK",
+          "page_count": 1,
+          "char_count": 92,
+          "full_name": "Jane Designer",
+          "email": null,
+          "phone": null,
+          "experience_years": 3,
+          "skills": [],
+          "languages": [],
+          "education": null
+        },
+        "passed": true
+      },
+      {
+        "fixture": "corrupt.pdf",
+        "kind": "CV",
+        "expected": {
+          "status": "ERROR",
+          "error_contains": "Corrupted or invalid PDF header"
+        },
+        "actual": {
+          "status": "ERROR",
+          "error_type": "ValueError",
+          "error": "Corrupted or invalid PDF header."
+        },
+        "passed": true
+      },
+      {
+        "fixture": "corrupt.docx",
+        "kind": "CV",
+        "expected": {
+          "status": "ERROR",
+          "error_contains": "Corrupted or invalid DOCX header"
+        },
+        "actual": {
+          "status": "ERROR",
+          "error_type": "ValueError",
+          "error": "Corrupted or invalid DOCX header."
+        },
+        "passed": true
+      },
+      {
+        "fixture": "unsupported.txt",
+        "kind": "CV",
+        "expected": {
+          "status": "ERROR",
+          "error_contains": "Unsupported file format"
+        },
+        "actual": {
+          "status": "ERROR",
+          "error_type": "ValueError",
+          "error": "Unsupported file format. Only PDF (.pdf) and Word (.docx) files are supported."
+        },
+        "passed": true
+      },
+      {
+        "fixture": "jd_en_backend.json",
+        "kind": "JD_JSON",
+        "expected": {
+          "canonical_title": "Backend Developer",
+          "seniority": "Senior",
+          "required_skills": [
+            "AWS",
+            "Docker",
+            "Java",
+            "Kubernetes",
+            "PostgreSQL",
+            "Spring Boot"
+          ],
+          "required_experience_years": 4
+        },
+        "actual": {
+          "canonical_title": "Backend Developer",
+          "seniority": "Senior",
+          "required_skills": [
+            "AWS",
+            "Docker",
+            "Java",
+            "Kubernetes",
+            "PostgreSQL",
+            "Spring Boot"
+          ],
+          "preferred_skills": [],
+          "required_experience_years": 4
+        },
+        "passed": true
+      },
+      {
+        "fixture": "jd_vi_backend.json",
+        "kind": "JD_JSON",
+        "expected": {
+          "canonical_title": "Backend Developer",
+          "seniority": "Senior",
+          "required_skills": [
+            "Docker",
+            "Java",
+            "Microservices",
+            "PostgreSQL",
+            "Spring Boot"
+          ],
+          "required_experience_years": 3
+        },
+        "actual": {
+          "canonical_title": "Backend Developer",
+          "seniority": "Senior",
+          "required_skills": [
+            "Docker",
+            "Java",
+            "Microservices",
+            "PostgreSQL",
+            "Spring Boot"
+          ],
+          "preferred_skills": [],
+          "required_experience_years": 3
+        },
+        "passed": true
+      },
+      {
+        "fixture": "jd_en_freeform.txt",
+        "kind": "JD_TEXT",
+        "expected": {
+          "canonical_title": "Backend Developer",
+          "seniority": "Senior",
+          "required_skills_subset": [
+            "AWS",
+            "CI/CD",
+            "Docker",
+            "Java",
+            "Kubernetes",
+            "Microservices",
+            "PostgreSQL",
+            "REST API",
+            "Spring Boot"
+          ],
+          "preferred_skills_subset": [
+            "Kafka"
+          ],
+          "required_experience_years": 4
+        },
+        "actual": {
+          "canonical_title": "Backend Developer",
+          "seniority": "Senior",
+          "required_skills": [
+            "AWS",
+            "CI/CD",
+            "Docker",
+            "Java",
+            "Kubernetes",
+            "Microservices",
+            "PostgreSQL",
+            "REST API",
+            "Spring Boot"
+          ],
+          "preferred_skills": [
+            "Kafka"
+          ],
+          "required_experience_years": 4
+        },
+        "passed": true
+      },
+      {
+        "fixture": "jd_vi_freeform.txt",
+        "kind": "JD_TEXT",
+        "expected": {
+          "canonical_title": "Backend Developer",
+          "seniority": "Senior",
+          "required_skills_subset": [
+            "CI/CD",
+            "Docker",
+            "Java",
+            "Microservices",
+            "PostgreSQL",
+            "Spring Boot"
+          ],
+          "preferred_skills_subset": [
+            "Kafka",
+            "Redis"
+          ],
+          "required_experience_years": 3
+        },
+        "actual": {
+          "canonical_title": "Backend Developer",
+          "seniority": "Senior",
+          "required_skills": [
+            "CI/CD",
+            "Docker",
+            "Java",
+            "Microservices",
+            "PostgreSQL",
+            "Spring Boot"
+          ],
+          "preferred_skills": [
+            "Kafka",
+            "Redis"
+          ],
+          "required_experience_years": 3
+        },
+        "passed": true
+      }
+    ]
+  },
+  "matching_and_ranking": {
+    "dataset_version": "1.1.0-frozen",
+    "dataset_sha256": "a58d24cb9bfb74a20bab4855b75033decc16586136c021cb8d8a974078ae67f9",
+    "hybrid_demo_frozen_60_40": {
+      "config": {
+        "rule_weight": 0.6,
+        "semantic_weight": 0.4,
+        "shortlist_threshold": 70,
+        "config_fingerprint": "9ecefacd"
+      },
+      "overall_summary": {
+        "total_pairs_evaluated": 18,
+        "total_jobs_evaluated": 3,
+        "pairwise_ranking": {
+          "total_comparable_pairs": 42,
+          "total_concordant_pairs": 40,
+          "total_discordant_pairs": 0,
+          "total_tie_pairs": 2,
+          "formula": "(concordant + 0.5 * ties) / comparable",
+          "pooled_pairwise_accuracy": 0.9762,
+          "macro_pairwise_accuracy": 0.9867
+        },
+        "mean_ndcg_at_3": 1.0,
+        "mean_ndcg_at_3_expected": 1.0
+      },
+      "classification": {
+        "evaluated_pairs": 16,
+        "unresolved_pairs_pending_reviewer": 2,
+        "shortlist_threshold": 70,
+        "confusion_matrix": {
+          "TP": 3,
+          "FP": 0,
+          "TN": 10,
+          "FN": 3
+        },
+        "precision": 1.0,
+        "recall": 0.5,
+        "f1_score": 0.6667
+      },
+      "score_separation": {
+        "Grade_0": {
+          "count": 4,
+          "mean_score": 20.0,
+          "min_score": 20,
+          "max_score": 20
+        },
+        "Grade_1": {
+          "count": 3,
+          "mean_score": 22.7,
+          "min_score": 20,
+          "max_score": 27
+        },
+        "Grade_2": {
+          "count": 5,
+          "mean_score": 40.0,
+          "min_score": 32,
+          "max_score": 51
+        },
+        "Grade_3": {
+          "count": 3,
+          "mean_score": 58.3,
+          "min_score": 55,
+          "max_score": 62
+        },
+        "Grade_4": {
+          "count": 3,
+          "mean_score": 75.3,
+          "min_score": 72,
+          "max_score": 80
+        }
+      },
+      "per_job_breakdown": [
+        {
+          "job_id": "job-en-backend-sr",
+          "candidate_count": 8,
+          "comparable_pairs": 25,
+          "concordant_pairs": 23,
+          "discordant_pairs": 0,
+          "tie_pairs": 2,
+          "pairwise_accuracy": 0.96,
+          "ndcg_at_3": 1.0,
+          "ndcg_at_3_expected": 1.0,
+          "has_top_k_ties": false,
+          "ranked_candidates": [
+            {
+              "pair_id": "pair-001",
+              "jd_id": "job-en-backend-sr",
+              "cv_id": "cv-en-sr-java-perfect",
+              "relevance_grade": 4,
+              "expected_relative_order": 1,
+              "shortlist_eligible": true,
+              "rule_score": 86,
+              "skills_score": 86,
+              "experience_score": null,
+              "semantic_score": 57.0,
+              "hybrid_score": 74,
+              "required_skills": [
+                "Docker",
+                "Java",
+                "Kubernetes",
+                "Microservices",
+                "PostgreSQL",
+                "Spring Boot",
+                "System Design"
+              ],
+              "matched_skills": [
+                "Docker",
+                "Java",
+                "Kubernetes",
+                "Microservices",
+                "PostgreSQL",
+                "Spring Boot"
+              ],
+              "missing_skills": [
+                "System Design"
+              ],
+              "experience_gated": false,
+              "rationale": "Candidate matches 6 of 7 required skill(s) (with 5 year(s) of relevant experience). Missing skills: System Design.",
+              "predicted_rank": 1
+            },
+            {
+              "pair_id": "pair-018",
+              "jd_id": "job-en-backend-sr",
+              "cv_id": "cv-edge-excessive-length",
+              "relevance_grade": 3,
+              "expected_relative_order": 2,
+              "shortlist_eligible": true,
+              "rule_score": 71,
+              "skills_score": 71,
+              "experience_score": null,
+              "semantic_score": 49.4,
+              "hybrid_score": 62,
+              "required_skills": [
+                "Docker",
+                "Java",
+                "Kubernetes",
+                "Microservices",
+                "PostgreSQL",
+                "Spring Boot",
+                "System Design"
+              ],
+              "matched_skills": [
+                "Docker",
+                "Java",
+                "Microservices",
+                "PostgreSQL",
+                "Spring Boot"
+              ],
+              "missing_skills": [
+                "Kubernetes",
+                "System Design"
+              ],
+              "experience_gated": false,
+              "rationale": "Candidate matches 5 of 7 required skill(s) (with 5 year(s) of relevant experience). Missing skills: Kubernetes, System Design.",
+              "predicted_rank": 2
+            },
+            {
+              "pair_id": "pair-002",
+              "jd_id": "job-en-backend-sr",
+              "cv_id": "cv-en-sr-java-standard",
+              "relevance_grade": 3,
+              "expected_relative_order": 2,
+              "shortlist_eligible": true,
+              "rule_score": 57,
+              "skills_score": 57,
+              "experience_score": null,
+              "semantic_score": 51.1,
+              "hybrid_score": 55,
+              "required_skills": [
+                "Docker",
+                "Java",
+                "Kubernetes",
+                "Microservices",
+                "PostgreSQL",
+                "Spring Boot",
+                "System Design"
+              ],
+              "matched_skills": [
+                "Docker",
+                "Java",
+                "PostgreSQL",
+                "Spring Boot"
+              ],
+              "missing_skills": [
+                "Kubernetes",
+                "Microservices",
+                "System Design"
+              ],
+              "experience_gated": false,
+              "rationale": "Candidate matches 4 of 7 required skill(s) (with 4 year(s) of relevant experience). Missing skills: Kubernetes, Microservices, System Design.",
+              "predicted_rank": 3
+            },
+            {
+              "pair_id": "pair-003",
+              "jd_id": "job-en-backend-sr",
+              "cv_id": "cv-en-mid-java-partial",
+              "relevance_grade": 2,
+              "expected_relative_order": 3,
+              "shortlist_eligible": false,
+              "rule_score": 29,
+              "skills_score": 29,
+              "experience_score": null,
+              "semantic_score": 50.5,
+              "hybrid_score": 38,
+              "required_skills": [
+                "Docker",
+                "Java",
+                "Kubernetes",
+                "Microservices",
+                "PostgreSQL",
+                "Spring Boot",
+                "System Design"
+              ],
+              "matched_skills": [
+                "Java",
+                "Spring Boot"
+              ],
+              "missing_skills": [
+                "Docker",
+                "Kubernetes",
+                "Microservices",
+                "PostgreSQL",
+                "System Design"
+              ],
+              "experience_gated": false,
+              "rationale": "Candidate matches 2 of 7 required skill(s) (with 2 year(s) of relevant experience). Missing skills: Docker, Kubernetes, Microservices, PostgreSQL, System Design.",
+              "predicted_rank": 4
+            },
+            {
+              "pair_id": "pair-004",
+              "jd_id": "job-en-backend-sr",
+              "cv_id": "cv-en-frontend-react",
+              "relevance_grade": 1,
+              "expected_relative_order": 4,
+              "shortlist_eligible": false,
+              "rule_score": 0,
+              "skills_score": 0,
+              "experience_score": null,
+              "semantic_score": 52.5,
+              "hybrid_score": 21,
+              "required_skills": [
+                "Docker",
+                "Java",
+                "Kubernetes",
+                "Microservices",
+                "PostgreSQL",
+                "Spring Boot",
+                "System Design"
+              ],
+              "matched_skills": [],
+              "missing_skills": [
+                "Docker",
+                "Java",
+                "Kubernetes",
+                "Microservices",
+                "PostgreSQL",
+                "Spring Boot",
+                "System Design"
+              ],
+              "experience_gated": false,
+              "rationale": "Candidate matches 0 of 7 required skill(s) (with 3 year(s) of relevant experience). Missing skills: Docker, Java, Kubernetes, Microservices, PostgreSQL, Spring Boot, System Design.",
+              "predicted_rank": 5
+            },
+            {
+              "pair_id": "pair-005",
+              "jd_id": "job-en-backend-sr",
+              "cv_id": "cv-en-graphic-designer",
+              "relevance_grade": 0,
+              "expected_relative_order": 5,
+              "shortlist_eligible": false,
+              "rule_score": 0,
+              "skills_score": 0,
+              "experience_score": null,
+              "semantic_score": 49.7,
+              "hybrid_score": 20,
+              "required_skills": [
+                "Docker",
+                "Java",
+                "Kubernetes",
+                "Microservices",
+                "PostgreSQL",
+                "Spring Boot",
+                "System Design"
+              ],
+              "matched_skills": [],
+              "missing_skills": [
+                "Docker",
+                "Java",
+                "Kubernetes",
+                "Microservices",
+                "PostgreSQL",
+                "Spring Boot",
+                "System Design"
+              ],
+              "experience_gated": false,
+              "rationale": "Candidate matches 0 of 7 required skill(s) (with 6 year(s) of relevant experience). Missing skills: Docker, Java, Kubernetes, Microservices, PostgreSQL, Spring Boot, System Design.",
+              "predicted_rank": 6
+            },
+            {
+              "pair_id": "pair-006",
+              "jd_id": "job-en-backend-sr",
+              "cv_id": "cv-en-missing-skills-high-exp",
+              "relevance_grade": 1,
+              "expected_relative_order": 5,
+              "shortlist_eligible": false,
+              "rule_score": 0,
+              "skills_score": 0,
+              "experience_score": null,
+              "semantic_score": 49.5,
+              "hybrid_score": 20,
+              "required_skills": [
+                "Docker",
+                "Java",
+                "Kubernetes",
+                "Microservices",
+                "PostgreSQL",
+                "Spring Boot",
+                "System Design"
+              ],
+              "matched_skills": [],
+              "missing_skills": [
+                "Docker",
+                "Java",
+                "Kubernetes",
+                "Microservices",
+                "PostgreSQL",
+                "Spring Boot",
+                "System Design"
+              ],
+              "experience_gated": false,
+              "rationale": "Candidate matches 0 of 7 required skill(s) (with 10 year(s) of relevant experience). Missing skills: Docker, Java, Kubernetes, Microservices, PostgreSQL, Spring Boot, System Design.",
+              "predicted_rank": 7
+            },
+            {
+              "pair_id": "pair-007",
+              "jd_id": "job-en-backend-sr",
+              "cv_id": "cv-en-minimal-unspecified",
+              "relevance_grade": 0,
+              "expected_relative_order": 7,
+              "shortlist_eligible": false,
+              "rule_score": 0,
+              "skills_score": 0,
+              "experience_score": null,
+              "semantic_score": 48.9,
+              "hybrid_score": 20,
+              "required_skills": [
+                "Docker",
+                "Java",
+                "Kubernetes",
+                "Microservices",
+                "PostgreSQL",
+                "Spring Boot",
+                "System Design"
+              ],
+              "matched_skills": [],
+              "missing_skills": [
+                "Docker",
+                "Java",
+                "Kubernetes",
+                "Microservices",
+                "PostgreSQL",
+                "Spring Boot",
+                "System Design"
+              ],
+              "experience_gated": false,
+              "rationale": "Candidate matches 0 of 7 required skill(s) (experience duration unspecified in CV). Missing skills: Docker, Java, Kubernetes, Microservices, PostgreSQL, Spring Boot, System Design.",
+              "predicted_rank": 8
+            }
+          ]
+        },
+        {
+          "job_id": "job-vi-fullstack-mid",
+          "candidate_count": 5,
+          "comparable_pairs": 7,
+          "concordant_pairs": 7,
+          "discordant_pairs": 0,
+          "tie_pairs": 0,
+          "pairwise_accuracy": 1.0,
+          "ndcg_at_3": 1.0,
+          "ndcg_at_3_expected": 1.0,
+          "has_top_k_ties": false,
+          "ranked_candidates": [
+            {
+              "pair_id": "pair-008",
+              "jd_id": "job-vi-fullstack-mid",
+              "cv_id": "cv-vi-fullstack-excellent",
+              "relevance_grade": 4,
+              "expected_relative_order": 1,
+              "shortlist_eligible": true,
+              "rule_score": 87,
+              "skills_score": 78,
+              "experience_score": 100,
+              "semantic_score": 50.1,
+              "hybrid_score": 72,
+              "required_skills": [
+                "Git",
+                "Java",
+                "JavaScript",
+                "MySQL",
+                "PostgreSQL",
+                "REST API",
+                "React",
+                "Spring Boot",
+                "TypeScript"
+              ],
+              "matched_skills": [
+                "Git",
+                "Java",
+                "PostgreSQL",
+                "REST API",
+                "React",
+                "Spring Boot",
+                "TypeScript"
+              ],
+              "missing_skills": [
+                "JavaScript",
+                "MySQL"
+              ],
+              "experience_gated": false,
+              "rationale": "Candidate matches 7 of 9 required skill(s) with 4 of 3 required year(s) of experience. Missing skills: JavaScript, MySQL.",
+              "predicted_rank": 1
+            },
+            {
+              "pair_id": "pair-011",
+              "jd_id": "job-vi-fullstack-mid",
+              "cv_id": "cv-vi-junior-fullstack",
+              "relevance_grade": 2,
+              "expected_relative_order": 4,
+              "shortlist_eligible": false,
+              "rule_score": 40,
+              "skills_score": 44,
+              "experience_score": 33,
+              "semantic_score": 50.0,
+              "hybrid_score": 44,
+              "required_skills": [
+                "Git",
+                "Java",
+                "JavaScript",
+                "MySQL",
+                "PostgreSQL",
+                "REST API",
+                "React",
+                "Spring Boot",
+                "TypeScript"
+              ],
+              "matched_skills": [
+                "Java",
+                "MySQL",
+                "React",
+                "Spring Boot"
+              ],
+              "missing_skills": [
+                "Git",
+                "JavaScript",
+                "PostgreSQL",
+                "REST API",
+                "TypeScript"
+              ],
+              "experience_gated": false,
+              "rationale": "Candidate matches 4 of 9 required skill(s) with 1 of 3 required year(s) of experience. Missing skills: Git, JavaScript, PostgreSQL, REST API, TypeScript.",
+              "predicted_rank": 2
+            },
+            {
+              "pair_id": "pair-009",
+              "jd_id": "job-vi-fullstack-mid",
+              "cv_id": "cv-vi-backend-pure",
+              "relevance_grade": 2,
+              "expected_relative_order": 2,
+              "shortlist_eligible": null,
+              "rule_score": 26,
+              "skills_score": 44,
+              "experience_score": 0,
+              "semantic_score": 49.6,
+              "hybrid_score": 35,
+              "required_skills": [
+                "Git",
+                "Java",
+                "JavaScript",
+                "MySQL",
+                "PostgreSQL",
+                "REST API",
+                "React",
+                "Spring Boot",
+                "TypeScript"
+              ],
+              "matched_skills": [
+                "Java",
+                "PostgreSQL",
+                "React",
+                "Spring Boot"
+              ],
+              "missing_skills": [
+                "Git",
+                "JavaScript",
+                "MySQL",
+                "REST API",
+                "TypeScript"
+              ],
+              "experience_gated": false,
+              "rationale": "Candidate matches 4 of 9 required skill(s) with 0 of 3 required year(s) of experience. Missing skills: Git, JavaScript, MySQL, REST API, TypeScript.",
+              "predicted_rank": 3
+            },
+            {
+              "pair_id": "pair-010",
+              "jd_id": "job-vi-fullstack-mid",
+              "cv_id": "cv-vi-frontend-react-only",
+              "relevance_grade": 2,
+              "expected_relative_order": 3,
+              "shortlist_eligible": null,
+              "rule_score": 20,
+              "skills_score": 33,
+              "experience_score": 0,
+              "semantic_score": 50.0,
+              "hybrid_score": 32,
+              "required_skills": [
+                "Git",
+                "Java",
+                "JavaScript",
+                "MySQL",
+                "PostgreSQL",
+                "REST API",
+                "React",
+                "Spring Boot",
+                "TypeScript"
+              ],
+              "matched_skills": [
+                "Java",
+                "JavaScript",
+                "React"
+              ],
+              "missing_skills": [
+                "Git",
+                "MySQL",
+                "PostgreSQL",
+                "REST API",
+                "Spring Boot",
+                "TypeScript"
+              ],
+              "experience_gated": false,
+              "rationale": "Candidate matches 3 of 9 required skill(s) with 0 of 3 required year(s) of experience. Missing skills: Git, MySQL, PostgreSQL, REST API, Spring Boot, TypeScript.",
+              "predicted_rank": 4
+            },
+            {
+              "pair_id": "pair-012",
+              "jd_id": "job-vi-fullstack-mid",
+              "cv_id": "cv-vi-marketing-digital",
+              "relevance_grade": 0,
+              "expected_relative_order": 5,
+              "shortlist_eligible": false,
+              "rule_score": 0,
+              "skills_score": 0,
+              "experience_score": 0,
+              "semantic_score": 50.8,
+              "hybrid_score": 20,
+              "required_skills": [
+                "Git",
+                "Java",
+                "JavaScript",
+                "MySQL",
+                "PostgreSQL",
+                "REST API",
+                "React",
+                "Spring Boot",
+                "TypeScript"
+              ],
+              "matched_skills": [],
+              "missing_skills": [
+                "Git",
+                "Java",
+                "JavaScript",
+                "MySQL",
+                "PostgreSQL",
+                "REST API",
+                "React",
+                "Spring Boot",
+                "TypeScript"
+              ],
+              "experience_gated": true,
+              "rationale": "Candidate matches 0 of 9 required skill(s). Experience credit (4 of 3 year(s)) is gated to 0% because no required technical skills were verified. Missing skills: Git, Java, JavaScript, MySQL, PostgreSQL, REST API, React, Spring Boot, TypeScript.",
+              "predicted_rank": 5
+            }
+          ]
+        },
+        {
+          "job_id": "job-en-data-analyst",
+          "candidate_count": 5,
+          "comparable_pairs": 10,
+          "concordant_pairs": 10,
+          "discordant_pairs": 0,
+          "tie_pairs": 0,
+          "pairwise_accuracy": 1.0,
+          "ndcg_at_3": 1.0,
+          "ndcg_at_3_expected": 1.0,
+          "has_top_k_ties": false,
+          "ranked_candidates": [
+            {
+              "pair_id": "pair-013",
+              "jd_id": "job-en-data-analyst",
+              "cv_id": "cv-en-senior-bi-analyst",
+              "relevance_grade": 4,
+              "expected_relative_order": 1,
+              "shortlist_eligible": true,
+              "rule_score": 100,
+              "skills_score": 100,
+              "experience_score": 100,
+              "semantic_score": 49.5,
+              "hybrid_score": 80,
+              "required_skills": [
+                "Data Warehousing",
+                "Power BI",
+                "Python",
+                "SQL",
+                "Tableau"
+              ],
+              "matched_skills": [
+                "Data Warehousing",
+                "Power BI",
+                "Python",
+                "SQL",
+                "Tableau"
+              ],
+              "missing_skills": [],
+              "experience_gated": false,
+              "rationale": "Candidate matches all 5 required skill(s) with 4 of 2 required year(s) of experience.",
+              "predicted_rank": 1
+            },
+            {
+              "pair_id": "pair-014",
+              "jd_id": "job-en-data-analyst",
+              "cv_id": "cv-en-mid-sql-analyst",
+              "relevance_grade": 3,
+              "expected_relative_order": 2,
+              "shortlist_eligible": true,
+              "rule_score": 64,
+              "skills_score": 40,
+              "experience_score": 100,
+              "semantic_score": 50.2,
+              "hybrid_score": 58,
+              "required_skills": [
+                "Data Warehousing",
+                "Power BI",
+                "Python",
+                "SQL",
+                "Tableau"
+              ],
+              "matched_skills": [
+                "SQL",
+                "Tableau"
+              ],
+              "missing_skills": [
+                "Data Warehousing",
+                "Power BI",
+                "Python"
+              ],
+              "experience_gated": false,
+              "rationale": "Candidate matches 2 of 5 required skill(s) with 2 of 2 required year(s) of experience. Missing skills: Data Warehousing, Power BI, Python.",
+              "predicted_rank": 2
+            },
+            {
+              "pair_id": "pair-015",
+              "jd_id": "job-en-data-analyst",
+              "cv_id": "cv-en-python-backend-dev",
+              "relevance_grade": 2,
+              "expected_relative_order": 3,
+              "shortlist_eligible": false,
+              "rule_score": 52,
+              "skills_score": 20,
+              "experience_score": 100,
+              "semantic_score": 49.2,
+              "hybrid_score": 51,
+              "required_skills": [
+                "Data Warehousing",
+                "Power BI",
+                "Python",
+                "SQL",
+                "Tableau"
+              ],
+              "matched_skills": [
+                "Python"
+              ],
+              "missing_skills": [
+                "Data Warehousing",
+                "Power BI",
+                "SQL",
+                "Tableau"
+              ],
+              "experience_gated": false,
+              "rationale": "Candidate matches 1 of 5 required skill(s) with 3 of 2 required year(s) of experience. Missing skills: Data Warehousing, Power BI, SQL, Tableau.",
+              "predicted_rank": 3
+            },
+            {
+              "pair_id": "pair-016",
+              "jd_id": "job-en-data-analyst",
+              "cv_id": "cv-en-fresh-finance-grad",
+              "relevance_grade": 1,
+              "expected_relative_order": 4,
+              "shortlist_eligible": false,
+              "rule_score": 12,
+              "skills_score": 20,
+              "experience_score": null,
+              "semantic_score": 50.1,
+              "hybrid_score": 27,
+              "required_skills": [
+                "Data Warehousing",
+                "Power BI",
+                "Python",
+                "SQL",
+                "Tableau"
+              ],
+              "matched_skills": [
+                "SQL"
+              ],
+              "missing_skills": [
+                "Data Warehousing",
+                "Power BI",
+                "Python",
+                "Tableau"
+              ],
+              "experience_gated": false,
+              "rationale": "Candidate matches 1 of 5 required skill(s) (12% verified match). Required experience (2 year(s)) could not be verified from CV. Missing skills: Data Warehousing, Power BI, Python, Tableau.",
+              "predicted_rank": 4
+            },
+            {
+              "pair_id": "pair-017",
+              "jd_id": "job-en-data-analyst",
+              "cv_id": "cv-en-culinary-chef",
+              "relevance_grade": 0,
+              "expected_relative_order": 5,
+              "shortlist_eligible": false,
+              "rule_score": 0,
+              "skills_score": 0,
+              "experience_score": 0,
+              "semantic_score": 49.8,
+              "hybrid_score": 20,
+              "required_skills": [
+                "Data Warehousing",
+                "Power BI",
+                "Python",
+                "SQL",
+                "Tableau"
+              ],
+              "matched_skills": [],
+              "missing_skills": [
+                "Data Warehousing",
+                "Power BI",
+                "Python",
+                "SQL",
+                "Tableau"
+              ],
+              "experience_gated": true,
+              "rationale": "Candidate matches 0 of 5 required skill(s). Experience credit (8 of 2 year(s)) is gated to 0% because no required technical skills were verified. Missing skills: Data Warehousing, Power BI, Python, SQL, Tableau.",
+              "predicted_rank": 5
+            }
+          ]
+        }
+      ],
+      "per_pair_results": [
+        {
+          "pair_id": "pair-001",
+          "jd_id": "job-en-backend-sr",
+          "cv_id": "cv-en-sr-java-perfect",
+          "relevance_grade": 4,
+          "expected_relative_order": 1,
+          "shortlist_eligible": true,
+          "rule_score": 86,
+          "skills_score": 86,
+          "experience_score": null,
+          "semantic_score": 57.0,
+          "hybrid_score": 74,
+          "required_skills": [
+            "Docker",
+            "Java",
+            "Kubernetes",
+            "Microservices",
+            "PostgreSQL",
+            "Spring Boot",
+            "System Design"
+          ],
+          "matched_skills": [
+            "Docker",
+            "Java",
+            "Kubernetes",
+            "Microservices",
+            "PostgreSQL",
+            "Spring Boot"
+          ],
+          "missing_skills": [
+            "System Design"
+          ],
+          "experience_gated": false,
+          "rationale": "Candidate matches 6 of 7 required skill(s) (with 5 year(s) of relevant experience). Missing skills: System Design.",
+          "predicted_rank": 1
+        },
+        {
+          "pair_id": "pair-002",
+          "jd_id": "job-en-backend-sr",
+          "cv_id": "cv-en-sr-java-standard",
+          "relevance_grade": 3,
+          "expected_relative_order": 2,
+          "shortlist_eligible": true,
+          "rule_score": 57,
+          "skills_score": 57,
+          "experience_score": null,
+          "semantic_score": 51.1,
+          "hybrid_score": 55,
+          "required_skills": [
+            "Docker",
+            "Java",
+            "Kubernetes",
+            "Microservices",
+            "PostgreSQL",
+            "Spring Boot",
+            "System Design"
+          ],
+          "matched_skills": [
+            "Docker",
+            "Java",
+            "PostgreSQL",
+            "Spring Boot"
+          ],
+          "missing_skills": [
+            "Kubernetes",
+            "Microservices",
+            "System Design"
+          ],
+          "experience_gated": false,
+          "rationale": "Candidate matches 4 of 7 required skill(s) (with 4 year(s) of relevant experience). Missing skills: Kubernetes, Microservices, System Design.",
+          "predicted_rank": 3
+        },
+        {
+          "pair_id": "pair-003",
+          "jd_id": "job-en-backend-sr",
+          "cv_id": "cv-en-mid-java-partial",
+          "relevance_grade": 2,
+          "expected_relative_order": 3,
+          "shortlist_eligible": false,
+          "rule_score": 29,
+          "skills_score": 29,
+          "experience_score": null,
+          "semantic_score": 50.5,
+          "hybrid_score": 38,
+          "required_skills": [
+            "Docker",
+            "Java",
+            "Kubernetes",
+            "Microservices",
+            "PostgreSQL",
+            "Spring Boot",
+            "System Design"
+          ],
+          "matched_skills": [
+            "Java",
+            "Spring Boot"
+          ],
+          "missing_skills": [
+            "Docker",
+            "Kubernetes",
+            "Microservices",
+            "PostgreSQL",
+            "System Design"
+          ],
+          "experience_gated": false,
+          "rationale": "Candidate matches 2 of 7 required skill(s) (with 2 year(s) of relevant experience). Missing skills: Docker, Kubernetes, Microservices, PostgreSQL, System Design.",
+          "predicted_rank": 4
+        },
+        {
+          "pair_id": "pair-004",
+          "jd_id": "job-en-backend-sr",
+          "cv_id": "cv-en-frontend-react",
+          "relevance_grade": 1,
+          "expected_relative_order": 4,
+          "shortlist_eligible": false,
+          "rule_score": 0,
+          "skills_score": 0,
+          "experience_score": null,
+          "semantic_score": 52.5,
+          "hybrid_score": 21,
+          "required_skills": [
+            "Docker",
+            "Java",
+            "Kubernetes",
+            "Microservices",
+            "PostgreSQL",
+            "Spring Boot",
+            "System Design"
+          ],
+          "matched_skills": [],
+          "missing_skills": [
+            "Docker",
+            "Java",
+            "Kubernetes",
+            "Microservices",
+            "PostgreSQL",
+            "Spring Boot",
+            "System Design"
+          ],
+          "experience_gated": false,
+          "rationale": "Candidate matches 0 of 7 required skill(s) (with 3 year(s) of relevant experience). Missing skills: Docker, Java, Kubernetes, Microservices, PostgreSQL, Spring Boot, System Design.",
+          "predicted_rank": 5
+        },
+        {
+          "pair_id": "pair-005",
+          "jd_id": "job-en-backend-sr",
+          "cv_id": "cv-en-graphic-designer",
+          "relevance_grade": 0,
+          "expected_relative_order": 5,
+          "shortlist_eligible": false,
+          "rule_score": 0,
+          "skills_score": 0,
+          "experience_score": null,
+          "semantic_score": 49.7,
+          "hybrid_score": 20,
+          "required_skills": [
+            "Docker",
+            "Java",
+            "Kubernetes",
+            "Microservices",
+            "PostgreSQL",
+            "Spring Boot",
+            "System Design"
+          ],
+          "matched_skills": [],
+          "missing_skills": [
+            "Docker",
+            "Java",
+            "Kubernetes",
+            "Microservices",
+            "PostgreSQL",
+            "Spring Boot",
+            "System Design"
+          ],
+          "experience_gated": false,
+          "rationale": "Candidate matches 0 of 7 required skill(s) (with 6 year(s) of relevant experience). Missing skills: Docker, Java, Kubernetes, Microservices, PostgreSQL, Spring Boot, System Design.",
+          "predicted_rank": 6
+        },
+        {
+          "pair_id": "pair-006",
+          "jd_id": "job-en-backend-sr",
+          "cv_id": "cv-en-missing-skills-high-exp",
+          "relevance_grade": 1,
+          "expected_relative_order": 5,
+          "shortlist_eligible": false,
+          "rule_score": 0,
+          "skills_score": 0,
+          "experience_score": null,
+          "semantic_score": 49.5,
+          "hybrid_score": 20,
+          "required_skills": [
+            "Docker",
+            "Java",
+            "Kubernetes",
+            "Microservices",
+            "PostgreSQL",
+            "Spring Boot",
+            "System Design"
+          ],
+          "matched_skills": [],
+          "missing_skills": [
+            "Docker",
+            "Java",
+            "Kubernetes",
+            "Microservices",
+            "PostgreSQL",
+            "Spring Boot",
+            "System Design"
+          ],
+          "experience_gated": false,
+          "rationale": "Candidate matches 0 of 7 required skill(s) (with 10 year(s) of relevant experience). Missing skills: Docker, Java, Kubernetes, Microservices, PostgreSQL, Spring Boot, System Design.",
+          "predicted_rank": 7
+        },
+        {
+          "pair_id": "pair-007",
+          "jd_id": "job-en-backend-sr",
+          "cv_id": "cv-en-minimal-unspecified",
+          "relevance_grade": 0,
+          "expected_relative_order": 7,
+          "shortlist_eligible": false,
+          "rule_score": 0,
+          "skills_score": 0,
+          "experience_score": null,
+          "semantic_score": 48.9,
+          "hybrid_score": 20,
+          "required_skills": [
+            "Docker",
+            "Java",
+            "Kubernetes",
+            "Microservices",
+            "PostgreSQL",
+            "Spring Boot",
+            "System Design"
+          ],
+          "matched_skills": [],
+          "missing_skills": [
+            "Docker",
+            "Java",
+            "Kubernetes",
+            "Microservices",
+            "PostgreSQL",
+            "Spring Boot",
+            "System Design"
+          ],
+          "experience_gated": false,
+          "rationale": "Candidate matches 0 of 7 required skill(s) (experience duration unspecified in CV). Missing skills: Docker, Java, Kubernetes, Microservices, PostgreSQL, Spring Boot, System Design.",
+          "predicted_rank": 8
+        },
+        {
+          "pair_id": "pair-008",
+          "jd_id": "job-vi-fullstack-mid",
+          "cv_id": "cv-vi-fullstack-excellent",
+          "relevance_grade": 4,
+          "expected_relative_order": 1,
+          "shortlist_eligible": true,
+          "rule_score": 87,
+          "skills_score": 78,
+          "experience_score": 100,
+          "semantic_score": 50.1,
+          "hybrid_score": 72,
+          "required_skills": [
+            "Git",
+            "Java",
+            "JavaScript",
+            "MySQL",
+            "PostgreSQL",
+            "REST API",
+            "React",
+            "Spring Boot",
+            "TypeScript"
+          ],
+          "matched_skills": [
+            "Git",
+            "Java",
+            "PostgreSQL",
+            "REST API",
+            "React",
+            "Spring Boot",
+            "TypeScript"
+          ],
+          "missing_skills": [
+            "JavaScript",
+            "MySQL"
+          ],
+          "experience_gated": false,
+          "rationale": "Candidate matches 7 of 9 required skill(s) with 4 of 3 required year(s) of experience. Missing skills: JavaScript, MySQL.",
+          "predicted_rank": 1
+        },
+        {
+          "pair_id": "pair-009",
+          "jd_id": "job-vi-fullstack-mid",
+          "cv_id": "cv-vi-backend-pure",
+          "relevance_grade": 2,
+          "expected_relative_order": 2,
+          "shortlist_eligible": null,
+          "rule_score": 26,
+          "skills_score": 44,
+          "experience_score": 0,
+          "semantic_score": 49.6,
+          "hybrid_score": 35,
+          "required_skills": [
+            "Git",
+            "Java",
+            "JavaScript",
+            "MySQL",
+            "PostgreSQL",
+            "REST API",
+            "React",
+            "Spring Boot",
+            "TypeScript"
+          ],
+          "matched_skills": [
+            "Java",
+            "PostgreSQL",
+            "React",
+            "Spring Boot"
+          ],
+          "missing_skills": [
+            "Git",
+            "JavaScript",
+            "MySQL",
+            "REST API",
+            "TypeScript"
+          ],
+          "experience_gated": false,
+          "rationale": "Candidate matches 4 of 9 required skill(s) with 0 of 3 required year(s) of experience. Missing skills: Git, JavaScript, MySQL, REST API, TypeScript.",
+          "predicted_rank": 3
+        },
+        {
+          "pair_id": "pair-010",
+          "jd_id": "job-vi-fullstack-mid",
+          "cv_id": "cv-vi-frontend-react-only",
+          "relevance_grade": 2,
+          "expected_relative_order": 3,
+          "shortlist_eligible": null,
+          "rule_score": 20,
+          "skills_score": 33,
+          "experience_score": 0,
+          "semantic_score": 50.0,
+          "hybrid_score": 32,
+          "required_skills": [
+            "Git",
+            "Java",
+            "JavaScript",
+            "MySQL",
+            "PostgreSQL",
+            "REST API",
+            "React",
+            "Spring Boot",
+            "TypeScript"
+          ],
+          "matched_skills": [
+            "Java",
+            "JavaScript",
+            "React"
+          ],
+          "missing_skills": [
+            "Git",
+            "MySQL",
+            "PostgreSQL",
+            "REST API",
+            "Spring Boot",
+            "TypeScript"
+          ],
+          "experience_gated": false,
+          "rationale": "Candidate matches 3 of 9 required skill(s) with 0 of 3 required year(s) of experience. Missing skills: Git, MySQL, PostgreSQL, REST API, Spring Boot, TypeScript.",
+          "predicted_rank": 4
+        },
+        {
+          "pair_id": "pair-011",
+          "jd_id": "job-vi-fullstack-mid",
+          "cv_id": "cv-vi-junior-fullstack",
+          "relevance_grade": 2,
+          "expected_relative_order": 4,
+          "shortlist_eligible": false,
+          "rule_score": 40,
+          "skills_score": 44,
+          "experience_score": 33,
+          "semantic_score": 50.0,
+          "hybrid_score": 44,
+          "required_skills": [
+            "Git",
+            "Java",
+            "JavaScript",
+            "MySQL",
+            "PostgreSQL",
+            "REST API",
+            "React",
+            "Spring Boot",
+            "TypeScript"
+          ],
+          "matched_skills": [
+            "Java",
+            "MySQL",
+            "React",
+            "Spring Boot"
+          ],
+          "missing_skills": [
+            "Git",
+            "JavaScript",
+            "PostgreSQL",
+            "REST API",
+            "TypeScript"
+          ],
+          "experience_gated": false,
+          "rationale": "Candidate matches 4 of 9 required skill(s) with 1 of 3 required year(s) of experience. Missing skills: Git, JavaScript, PostgreSQL, REST API, TypeScript.",
+          "predicted_rank": 2
+        },
+        {
+          "pair_id": "pair-012",
+          "jd_id": "job-vi-fullstack-mid",
+          "cv_id": "cv-vi-marketing-digital",
+          "relevance_grade": 0,
+          "expected_relative_order": 5,
+          "shortlist_eligible": false,
+          "rule_score": 0,
+          "skills_score": 0,
+          "experience_score": 0,
+          "semantic_score": 50.8,
+          "hybrid_score": 20,
+          "required_skills": [
+            "Git",
+            "Java",
+            "JavaScript",
+            "MySQL",
+            "PostgreSQL",
+            "REST API",
+            "React",
+            "Spring Boot",
+            "TypeScript"
+          ],
+          "matched_skills": [],
+          "missing_skills": [
+            "Git",
+            "Java",
+            "JavaScript",
+            "MySQL",
+            "PostgreSQL",
+            "REST API",
+            "React",
+            "Spring Boot",
+            "TypeScript"
+          ],
+          "experience_gated": true,
+          "rationale": "Candidate matches 0 of 9 required skill(s). Experience credit (4 of 3 year(s)) is gated to 0% because no required technical skills were verified. Missing skills: Git, Java, JavaScript, MySQL, PostgreSQL, REST API, React, Spring Boot, TypeScript.",
+          "predicted_rank": 5
+        },
+        {
+          "pair_id": "pair-013",
+          "jd_id": "job-en-data-analyst",
+          "cv_id": "cv-en-senior-bi-analyst",
+          "relevance_grade": 4,
+          "expected_relative_order": 1,
+          "shortlist_eligible": true,
+          "rule_score": 100,
+          "skills_score": 100,
+          "experience_score": 100,
+          "semantic_score": 49.5,
+          "hybrid_score": 80,
+          "required_skills": [
+            "Data Warehousing",
+            "Power BI",
+            "Python",
+            "SQL",
+            "Tableau"
+          ],
+          "matched_skills": [
+            "Data Warehousing",
+            "Power BI",
+            "Python",
+            "SQL",
+            "Tableau"
+          ],
+          "missing_skills": [],
+          "experience_gated": false,
+          "rationale": "Candidate matches all 5 required skill(s) with 4 of 2 required year(s) of experience.",
+          "predicted_rank": 1
+        },
+        {
+          "pair_id": "pair-014",
+          "jd_id": "job-en-data-analyst",
+          "cv_id": "cv-en-mid-sql-analyst",
+          "relevance_grade": 3,
+          "expected_relative_order": 2,
+          "shortlist_eligible": true,
+          "rule_score": 64,
+          "skills_score": 40,
+          "experience_score": 100,
+          "semantic_score": 50.2,
+          "hybrid_score": 58,
+          "required_skills": [
+            "Data Warehousing",
+            "Power BI",
+            "Python",
+            "SQL",
+            "Tableau"
+          ],
+          "matched_skills": [
+            "SQL",
+            "Tableau"
+          ],
+          "missing_skills": [
+            "Data Warehousing",
+            "Power BI",
+            "Python"
+          ],
+          "experience_gated": false,
+          "rationale": "Candidate matches 2 of 5 required skill(s) with 2 of 2 required year(s) of experience. Missing skills: Data Warehousing, Power BI, Python.",
+          "predicted_rank": 2
+        },
+        {
+          "pair_id": "pair-015",
+          "jd_id": "job-en-data-analyst",
+          "cv_id": "cv-en-python-backend-dev",
+          "relevance_grade": 2,
+          "expected_relative_order": 3,
+          "shortlist_eligible": false,
+          "rule_score": 52,
+          "skills_score": 20,
+          "experience_score": 100,
+          "semantic_score": 49.2,
+          "hybrid_score": 51,
+          "required_skills": [
+            "Data Warehousing",
+            "Power BI",
+            "Python",
+            "SQL",
+            "Tableau"
+          ],
+          "matched_skills": [
+            "Python"
+          ],
+          "missing_skills": [
+            "Data Warehousing",
+            "Power BI",
+            "SQL",
+            "Tableau"
+          ],
+          "experience_gated": false,
+          "rationale": "Candidate matches 1 of 5 required skill(s) with 3 of 2 required year(s) of experience. Missing skills: Data Warehousing, Power BI, SQL, Tableau.",
+          "predicted_rank": 3
+        },
+        {
+          "pair_id": "pair-016",
+          "jd_id": "job-en-data-analyst",
+          "cv_id": "cv-en-fresh-finance-grad",
+          "relevance_grade": 1,
+          "expected_relative_order": 4,
+          "shortlist_eligible": false,
+          "rule_score": 12,
+          "skills_score": 20,
+          "experience_score": null,
+          "semantic_score": 50.1,
+          "hybrid_score": 27,
+          "required_skills": [
+            "Data Warehousing",
+            "Power BI",
+            "Python",
+            "SQL",
+            "Tableau"
+          ],
+          "matched_skills": [
+            "SQL"
+          ],
+          "missing_skills": [
+            "Data Warehousing",
+            "Power BI",
+            "Python",
+            "Tableau"
+          ],
+          "experience_gated": false,
+          "rationale": "Candidate matches 1 of 5 required skill(s) (12% verified match). Required experience (2 year(s)) could not be verified from CV. Missing skills: Data Warehousing, Power BI, Python, Tableau.",
+          "predicted_rank": 4
+        },
+        {
+          "pair_id": "pair-017",
+          "jd_id": "job-en-data-analyst",
+          "cv_id": "cv-en-culinary-chef",
+          "relevance_grade": 0,
+          "expected_relative_order": 5,
+          "shortlist_eligible": false,
+          "rule_score": 0,
+          "skills_score": 0,
+          "experience_score": 0,
+          "semantic_score": 49.8,
+          "hybrid_score": 20,
+          "required_skills": [
+            "Data Warehousing",
+            "Power BI",
+            "Python",
+            "SQL",
+            "Tableau"
+          ],
+          "matched_skills": [],
+          "missing_skills": [
+            "Data Warehousing",
+            "Power BI",
+            "Python",
+            "SQL",
+            "Tableau"
+          ],
+          "experience_gated": true,
+          "rationale": "Candidate matches 0 of 5 required skill(s). Experience credit (8 of 2 year(s)) is gated to 0% because no required technical skills were verified. Missing skills: Data Warehousing, Power BI, Python, SQL, Tableau.",
+          "predicted_rank": 5
+        },
+        {
+          "pair_id": "pair-018",
+          "jd_id": "job-en-backend-sr",
+          "cv_id": "cv-edge-excessive-length",
+          "relevance_grade": 3,
+          "expected_relative_order": 2,
+          "shortlist_eligible": true,
+          "rule_score": 71,
+          "skills_score": 71,
+          "experience_score": null,
+          "semantic_score": 49.4,
+          "hybrid_score": 62,
+          "required_skills": [
+            "Docker",
+            "Java",
+            "Kubernetes",
+            "Microservices",
+            "PostgreSQL",
+            "Spring Boot",
+            "System Design"
+          ],
+          "matched_skills": [
+            "Docker",
+            "Java",
+            "Microservices",
+            "PostgreSQL",
+            "Spring Boot"
+          ],
+          "missing_skills": [
+            "Kubernetes",
+            "System Design"
+          ],
+          "experience_gated": false,
+          "rationale": "Candidate matches 5 of 7 required skill(s) (with 5 year(s) of relevant experience). Missing skills: Kubernetes, System Design.",
+          "predicted_rank": 2
+        }
+      ]
+    },
+    "rule_baseline_fallback_100_0": {
+      "config": {
+        "rule_weight": 1.0,
+        "semantic_weight": 0.0,
+        "shortlist_threshold": 70,
+        "config_fingerprint": "0b919624"
+      },
+      "overall_summary": {
+        "total_pairs_evaluated": 18,
+        "total_jobs_evaluated": 3,
+        "pairwise_ranking": {
+          "total_comparable_pairs": 42,
+          "total_concordant_pairs": 38,
+          "total_discordant_pairs": 0,
+          "total_tie_pairs": 4,
+          "formula": "(concordant + 0.5 * ties) / comparable",
+          "pooled_pairwise_accuracy": 0.9524,
+          "macro_pairwise_accuracy": 0.9733
+        },
+        "mean_ndcg_at_3": 1.0,
+        "mean_ndcg_at_3_expected": 1.0
+      },
+      "classification": {
+        "evaluated_pairs": 16,
+        "unresolved_pairs_pending_reviewer": 2,
+        "shortlist_threshold": 70,
+        "confusion_matrix": {
+          "TP": 4,
+          "FP": 0,
+          "TN": 10,
+          "FN": 2
+        },
+        "precision": 1.0,
+        "recall": 0.6667,
+        "f1_score": 0.8
+      },
+      "score_separation": {
+        "Grade_0": {
+          "count": 4,
+          "mean_score": 0.0,
+          "min_score": 0,
+          "max_score": 0
+        },
+        "Grade_1": {
+          "count": 3,
+          "mean_score": 4.0,
+          "min_score": 0,
+          "max_score": 12
+        },
+        "Grade_2": {
+          "count": 5,
+          "mean_score": 33.4,
+          "min_score": 20,
+          "max_score": 52
+        },
+        "Grade_3": {
+          "count": 3,
+          "mean_score": 64.0,
+          "min_score": 57,
+          "max_score": 71
+        },
+        "Grade_4": {
+          "count": 3,
+          "mean_score": 91.0,
+          "min_score": 86,
+          "max_score": 100
+        }
+      },
+      "per_job_breakdown": [
+        {
+          "job_id": "job-en-backend-sr",
+          "candidate_count": 8,
+          "comparable_pairs": 25,
+          "concordant_pairs": 21,
+          "discordant_pairs": 0,
+          "tie_pairs": 4,
+          "pairwise_accuracy": 0.92,
+          "ndcg_at_3": 1.0,
+          "ndcg_at_3_expected": 1.0,
+          "has_top_k_ties": false,
+          "ranked_candidates": [
+            {
+              "pair_id": "pair-001",
+              "jd_id": "job-en-backend-sr",
+              "cv_id": "cv-en-sr-java-perfect",
+              "relevance_grade": 4,
+              "expected_relative_order": 1,
+              "shortlist_eligible": true,
+              "rule_score": 86,
+              "skills_score": 86,
+              "experience_score": null,
+              "semantic_score": 57.0,
+              "hybrid_score": 86,
+              "required_skills": [
+                "Docker",
+                "Java",
+                "Kubernetes",
+                "Microservices",
+                "PostgreSQL",
+                "Spring Boot",
+                "System Design"
+              ],
+              "matched_skills": [
+                "Docker",
+                "Java",
+                "Kubernetes",
+                "Microservices",
+                "PostgreSQL",
+                "Spring Boot"
+              ],
+              "missing_skills": [
+                "System Design"
+              ],
+              "experience_gated": false,
+              "rationale": "Candidate matches 6 of 7 required skill(s) (with 5 year(s) of relevant experience). Missing skills: System Design.",
+              "predicted_rank": 1
+            },
+            {
+              "pair_id": "pair-018",
+              "jd_id": "job-en-backend-sr",
+              "cv_id": "cv-edge-excessive-length",
+              "relevance_grade": 3,
+              "expected_relative_order": 2,
+              "shortlist_eligible": true,
+              "rule_score": 71,
+              "skills_score": 71,
+              "experience_score": null,
+              "semantic_score": 49.4,
+              "hybrid_score": 71,
+              "required_skills": [
+                "Docker",
+                "Java",
+                "Kubernetes",
+                "Microservices",
+                "PostgreSQL",
+                "Spring Boot",
+                "System Design"
+              ],
+              "matched_skills": [
+                "Docker",
+                "Java",
+                "Microservices",
+                "PostgreSQL",
+                "Spring Boot"
+              ],
+              "missing_skills": [
+                "Kubernetes",
+                "System Design"
+              ],
+              "experience_gated": false,
+              "rationale": "Candidate matches 5 of 7 required skill(s) (with 5 year(s) of relevant experience). Missing skills: Kubernetes, System Design.",
+              "predicted_rank": 2
+            },
+            {
+              "pair_id": "pair-002",
+              "jd_id": "job-en-backend-sr",
+              "cv_id": "cv-en-sr-java-standard",
+              "relevance_grade": 3,
+              "expected_relative_order": 2,
+              "shortlist_eligible": true,
+              "rule_score": 57,
+              "skills_score": 57,
+              "experience_score": null,
+              "semantic_score": 51.1,
+              "hybrid_score": 57,
+              "required_skills": [
+                "Docker",
+                "Java",
+                "Kubernetes",
+                "Microservices",
+                "PostgreSQL",
+                "Spring Boot",
+                "System Design"
+              ],
+              "matched_skills": [
+                "Docker",
+                "Java",
+                "PostgreSQL",
+                "Spring Boot"
+              ],
+              "missing_skills": [
+                "Kubernetes",
+                "Microservices",
+                "System Design"
+              ],
+              "experience_gated": false,
+              "rationale": "Candidate matches 4 of 7 required skill(s) (with 4 year(s) of relevant experience). Missing skills: Kubernetes, Microservices, System Design.",
+              "predicted_rank": 3
+            },
+            {
+              "pair_id": "pair-003",
+              "jd_id": "job-en-backend-sr",
+              "cv_id": "cv-en-mid-java-partial",
+              "relevance_grade": 2,
+              "expected_relative_order": 3,
+              "shortlist_eligible": false,
+              "rule_score": 29,
+              "skills_score": 29,
+              "experience_score": null,
+              "semantic_score": 50.5,
+              "hybrid_score": 29,
+              "required_skills": [
+                "Docker",
+                "Java",
+                "Kubernetes",
+                "Microservices",
+                "PostgreSQL",
+                "Spring Boot",
+                "System Design"
+              ],
+              "matched_skills": [
+                "Java",
+                "Spring Boot"
+              ],
+              "missing_skills": [
+                "Docker",
+                "Kubernetes",
+                "Microservices",
+                "PostgreSQL",
+                "System Design"
+              ],
+              "experience_gated": false,
+              "rationale": "Candidate matches 2 of 7 required skill(s) (with 2 year(s) of relevant experience). Missing skills: Docker, Kubernetes, Microservices, PostgreSQL, System Design.",
+              "predicted_rank": 4
+            },
+            {
+              "pair_id": "pair-004",
+              "jd_id": "job-en-backend-sr",
+              "cv_id": "cv-en-frontend-react",
+              "relevance_grade": 1,
+              "expected_relative_order": 4,
+              "shortlist_eligible": false,
+              "rule_score": 0,
+              "skills_score": 0,
+              "experience_score": null,
+              "semantic_score": 52.5,
+              "hybrid_score": 0,
+              "required_skills": [
+                "Docker",
+                "Java",
+                "Kubernetes",
+                "Microservices",
+                "PostgreSQL",
+                "Spring Boot",
+                "System Design"
+              ],
+              "matched_skills": [],
+              "missing_skills": [
+                "Docker",
+                "Java",
+                "Kubernetes",
+                "Microservices",
+                "PostgreSQL",
+                "Spring Boot",
+                "System Design"
+              ],
+              "experience_gated": false,
+              "rationale": "Candidate matches 0 of 7 required skill(s) (with 3 year(s) of relevant experience). Missing skills: Docker, Java, Kubernetes, Microservices, PostgreSQL, Spring Boot, System Design.",
+              "predicted_rank": 5
+            },
+            {
+              "pair_id": "pair-005",
+              "jd_id": "job-en-backend-sr",
+              "cv_id": "cv-en-graphic-designer",
+              "relevance_grade": 0,
+              "expected_relative_order": 5,
+              "shortlist_eligible": false,
+              "rule_score": 0,
+              "skills_score": 0,
+              "experience_score": null,
+              "semantic_score": 49.7,
+              "hybrid_score": 0,
+              "required_skills": [
+                "Docker",
+                "Java",
+                "Kubernetes",
+                "Microservices",
+                "PostgreSQL",
+                "Spring Boot",
+                "System Design"
+              ],
+              "matched_skills": [],
+              "missing_skills": [
+                "Docker",
+                "Java",
+                "Kubernetes",
+                "Microservices",
+                "PostgreSQL",
+                "Spring Boot",
+                "System Design"
+              ],
+              "experience_gated": false,
+              "rationale": "Candidate matches 0 of 7 required skill(s) (with 6 year(s) of relevant experience). Missing skills: Docker, Java, Kubernetes, Microservices, PostgreSQL, Spring Boot, System Design.",
+              "predicted_rank": 6
+            },
+            {
+              "pair_id": "pair-006",
+              "jd_id": "job-en-backend-sr",
+              "cv_id": "cv-en-missing-skills-high-exp",
+              "relevance_grade": 1,
+              "expected_relative_order": 5,
+              "shortlist_eligible": false,
+              "rule_score": 0,
+              "skills_score": 0,
+              "experience_score": null,
+              "semantic_score": 49.5,
+              "hybrid_score": 0,
+              "required_skills": [
+                "Docker",
+                "Java",
+                "Kubernetes",
+                "Microservices",
+                "PostgreSQL",
+                "Spring Boot",
+                "System Design"
+              ],
+              "matched_skills": [],
+              "missing_skills": [
+                "Docker",
+                "Java",
+                "Kubernetes",
+                "Microservices",
+                "PostgreSQL",
+                "Spring Boot",
+                "System Design"
+              ],
+              "experience_gated": false,
+              "rationale": "Candidate matches 0 of 7 required skill(s) (with 10 year(s) of relevant experience). Missing skills: Docker, Java, Kubernetes, Microservices, PostgreSQL, Spring Boot, System Design.",
+              "predicted_rank": 7
+            },
+            {
+              "pair_id": "pair-007",
+              "jd_id": "job-en-backend-sr",
+              "cv_id": "cv-en-minimal-unspecified",
+              "relevance_grade": 0,
+              "expected_relative_order": 7,
+              "shortlist_eligible": false,
+              "rule_score": 0,
+              "skills_score": 0,
+              "experience_score": null,
+              "semantic_score": 48.9,
+              "hybrid_score": 0,
+              "required_skills": [
+                "Docker",
+                "Java",
+                "Kubernetes",
+                "Microservices",
+                "PostgreSQL",
+                "Spring Boot",
+                "System Design"
+              ],
+              "matched_skills": [],
+              "missing_skills": [
+                "Docker",
+                "Java",
+                "Kubernetes",
+                "Microservices",
+                "PostgreSQL",
+                "Spring Boot",
+                "System Design"
+              ],
+              "experience_gated": false,
+              "rationale": "Candidate matches 0 of 7 required skill(s) (experience duration unspecified in CV). Missing skills: Docker, Java, Kubernetes, Microservices, PostgreSQL, Spring Boot, System Design.",
+              "predicted_rank": 8
+            }
+          ]
+        },
+        {
+          "job_id": "job-vi-fullstack-mid",
+          "candidate_count": 5,
+          "comparable_pairs": 7,
+          "concordant_pairs": 7,
+          "discordant_pairs": 0,
+          "tie_pairs": 0,
+          "pairwise_accuracy": 1.0,
+          "ndcg_at_3": 1.0,
+          "ndcg_at_3_expected": 1.0,
+          "has_top_k_ties": false,
+          "ranked_candidates": [
+            {
+              "pair_id": "pair-008",
+              "jd_id": "job-vi-fullstack-mid",
+              "cv_id": "cv-vi-fullstack-excellent",
+              "relevance_grade": 4,
+              "expected_relative_order": 1,
+              "shortlist_eligible": true,
+              "rule_score": 87,
+              "skills_score": 78,
+              "experience_score": 100,
+              "semantic_score": 50.1,
+              "hybrid_score": 87,
+              "required_skills": [
+                "Git",
+                "Java",
+                "JavaScript",
+                "MySQL",
+                "PostgreSQL",
+                "REST API",
+                "React",
+                "Spring Boot",
+                "TypeScript"
+              ],
+              "matched_skills": [
+                "Git",
+                "Java",
+                "PostgreSQL",
+                "REST API",
+                "React",
+                "Spring Boot",
+                "TypeScript"
+              ],
+              "missing_skills": [
+                "JavaScript",
+                "MySQL"
+              ],
+              "experience_gated": false,
+              "rationale": "Candidate matches 7 of 9 required skill(s) with 4 of 3 required year(s) of experience. Missing skills: JavaScript, MySQL.",
+              "predicted_rank": 1
+            },
+            {
+              "pair_id": "pair-011",
+              "jd_id": "job-vi-fullstack-mid",
+              "cv_id": "cv-vi-junior-fullstack",
+              "relevance_grade": 2,
+              "expected_relative_order": 4,
+              "shortlist_eligible": false,
+              "rule_score": 40,
+              "skills_score": 44,
+              "experience_score": 33,
+              "semantic_score": 50.0,
+              "hybrid_score": 40,
+              "required_skills": [
+                "Git",
+                "Java",
+                "JavaScript",
+                "MySQL",
+                "PostgreSQL",
+                "REST API",
+                "React",
+                "Spring Boot",
+                "TypeScript"
+              ],
+              "matched_skills": [
+                "Java",
+                "MySQL",
+                "React",
+                "Spring Boot"
+              ],
+              "missing_skills": [
+                "Git",
+                "JavaScript",
+                "PostgreSQL",
+                "REST API",
+                "TypeScript"
+              ],
+              "experience_gated": false,
+              "rationale": "Candidate matches 4 of 9 required skill(s) with 1 of 3 required year(s) of experience. Missing skills: Git, JavaScript, PostgreSQL, REST API, TypeScript.",
+              "predicted_rank": 2
+            },
+            {
+              "pair_id": "pair-009",
+              "jd_id": "job-vi-fullstack-mid",
+              "cv_id": "cv-vi-backend-pure",
+              "relevance_grade": 2,
+              "expected_relative_order": 2,
+              "shortlist_eligible": null,
+              "rule_score": 26,
+              "skills_score": 44,
+              "experience_score": 0,
+              "semantic_score": 49.6,
+              "hybrid_score": 26,
+              "required_skills": [
+                "Git",
+                "Java",
+                "JavaScript",
+                "MySQL",
+                "PostgreSQL",
+                "REST API",
+                "React",
+                "Spring Boot",
+                "TypeScript"
+              ],
+              "matched_skills": [
+                "Java",
+                "PostgreSQL",
+                "React",
+                "Spring Boot"
+              ],
+              "missing_skills": [
+                "Git",
+                "JavaScript",
+                "MySQL",
+                "REST API",
+                "TypeScript"
+              ],
+              "experience_gated": false,
+              "rationale": "Candidate matches 4 of 9 required skill(s) with 0 of 3 required year(s) of experience. Missing skills: Git, JavaScript, MySQL, REST API, TypeScript.",
+              "predicted_rank": 3
+            },
+            {
+              "pair_id": "pair-010",
+              "jd_id": "job-vi-fullstack-mid",
+              "cv_id": "cv-vi-frontend-react-only",
+              "relevance_grade": 2,
+              "expected_relative_order": 3,
+              "shortlist_eligible": null,
+              "rule_score": 20,
+              "skills_score": 33,
+              "experience_score": 0,
+              "semantic_score": 50.0,
+              "hybrid_score": 20,
+              "required_skills": [
+                "Git",
+                "Java",
+                "JavaScript",
+                "MySQL",
+                "PostgreSQL",
+                "REST API",
+                "React",
+                "Spring Boot",
+                "TypeScript"
+              ],
+              "matched_skills": [
+                "Java",
+                "JavaScript",
+                "React"
+              ],
+              "missing_skills": [
+                "Git",
+                "MySQL",
+                "PostgreSQL",
+                "REST API",
+                "Spring Boot",
+                "TypeScript"
+              ],
+              "experience_gated": false,
+              "rationale": "Candidate matches 3 of 9 required skill(s) with 0 of 3 required year(s) of experience. Missing skills: Git, MySQL, PostgreSQL, REST API, Spring Boot, TypeScript.",
+              "predicted_rank": 4
+            },
+            {
+              "pair_id": "pair-012",
+              "jd_id": "job-vi-fullstack-mid",
+              "cv_id": "cv-vi-marketing-digital",
+              "relevance_grade": 0,
+              "expected_relative_order": 5,
+              "shortlist_eligible": false,
+              "rule_score": 0,
+              "skills_score": 0,
+              "experience_score": 0,
+              "semantic_score": 50.8,
+              "hybrid_score": 0,
+              "required_skills": [
+                "Git",
+                "Java",
+                "JavaScript",
+                "MySQL",
+                "PostgreSQL",
+                "REST API",
+                "React",
+                "Spring Boot",
+                "TypeScript"
+              ],
+              "matched_skills": [],
+              "missing_skills": [
+                "Git",
+                "Java",
+                "JavaScript",
+                "MySQL",
+                "PostgreSQL",
+                "REST API",
+                "React",
+                "Spring Boot",
+                "TypeScript"
+              ],
+              "experience_gated": true,
+              "rationale": "Candidate matches 0 of 9 required skill(s). Experience credit (4 of 3 year(s)) is gated to 0% because no required technical skills were verified. Missing skills: Git, Java, JavaScript, MySQL, PostgreSQL, REST API, React, Spring Boot, TypeScript.",
+              "predicted_rank": 5
+            }
+          ]
+        },
+        {
+          "job_id": "job-en-data-analyst",
+          "candidate_count": 5,
+          "comparable_pairs": 10,
+          "concordant_pairs": 10,
+          "discordant_pairs": 0,
+          "tie_pairs": 0,
+          "pairwise_accuracy": 1.0,
+          "ndcg_at_3": 1.0,
+          "ndcg_at_3_expected": 1.0,
+          "has_top_k_ties": false,
+          "ranked_candidates": [
+            {
+              "pair_id": "pair-013",
+              "jd_id": "job-en-data-analyst",
+              "cv_id": "cv-en-senior-bi-analyst",
+              "relevance_grade": 4,
+              "expected_relative_order": 1,
+              "shortlist_eligible": true,
+              "rule_score": 100,
+              "skills_score": 100,
+              "experience_score": 100,
+              "semantic_score": 49.5,
+              "hybrid_score": 100,
+              "required_skills": [
+                "Data Warehousing",
+                "Power BI",
+                "Python",
+                "SQL",
+                "Tableau"
+              ],
+              "matched_skills": [
+                "Data Warehousing",
+                "Power BI",
+                "Python",
+                "SQL",
+                "Tableau"
+              ],
+              "missing_skills": [],
+              "experience_gated": false,
+              "rationale": "Candidate matches all 5 required skill(s) with 4 of 2 required year(s) of experience.",
+              "predicted_rank": 1
+            },
+            {
+              "pair_id": "pair-014",
+              "jd_id": "job-en-data-analyst",
+              "cv_id": "cv-en-mid-sql-analyst",
+              "relevance_grade": 3,
+              "expected_relative_order": 2,
+              "shortlist_eligible": true,
+              "rule_score": 64,
+              "skills_score": 40,
+              "experience_score": 100,
+              "semantic_score": 50.2,
+              "hybrid_score": 64,
+              "required_skills": [
+                "Data Warehousing",
+                "Power BI",
+                "Python",
+                "SQL",
+                "Tableau"
+              ],
+              "matched_skills": [
+                "SQL",
+                "Tableau"
+              ],
+              "missing_skills": [
+                "Data Warehousing",
+                "Power BI",
+                "Python"
+              ],
+              "experience_gated": false,
+              "rationale": "Candidate matches 2 of 5 required skill(s) with 2 of 2 required year(s) of experience. Missing skills: Data Warehousing, Power BI, Python.",
+              "predicted_rank": 2
+            },
+            {
+              "pair_id": "pair-015",
+              "jd_id": "job-en-data-analyst",
+              "cv_id": "cv-en-python-backend-dev",
+              "relevance_grade": 2,
+              "expected_relative_order": 3,
+              "shortlist_eligible": false,
+              "rule_score": 52,
+              "skills_score": 20,
+              "experience_score": 100,
+              "semantic_score": 49.2,
+              "hybrid_score": 52,
+              "required_skills": [
+                "Data Warehousing",
+                "Power BI",
+                "Python",
+                "SQL",
+                "Tableau"
+              ],
+              "matched_skills": [
+                "Python"
+              ],
+              "missing_skills": [
+                "Data Warehousing",
+                "Power BI",
+                "SQL",
+                "Tableau"
+              ],
+              "experience_gated": false,
+              "rationale": "Candidate matches 1 of 5 required skill(s) with 3 of 2 required year(s) of experience. Missing skills: Data Warehousing, Power BI, SQL, Tableau.",
+              "predicted_rank": 3
+            },
+            {
+              "pair_id": "pair-016",
+              "jd_id": "job-en-data-analyst",
+              "cv_id": "cv-en-fresh-finance-grad",
+              "relevance_grade": 1,
+              "expected_relative_order": 4,
+              "shortlist_eligible": false,
+              "rule_score": 12,
+              "skills_score": 20,
+              "experience_score": null,
+              "semantic_score": 50.1,
+              "hybrid_score": 12,
+              "required_skills": [
+                "Data Warehousing",
+                "Power BI",
+                "Python",
+                "SQL",
+                "Tableau"
+              ],
+              "matched_skills": [
+                "SQL"
+              ],
+              "missing_skills": [
+                "Data Warehousing",
+                "Power BI",
+                "Python",
+                "Tableau"
+              ],
+              "experience_gated": false,
+              "rationale": "Candidate matches 1 of 5 required skill(s) (12% verified match). Required experience (2 year(s)) could not be verified from CV. Missing skills: Data Warehousing, Power BI, Python, Tableau.",
+              "predicted_rank": 4
+            },
+            {
+              "pair_id": "pair-017",
+              "jd_id": "job-en-data-analyst",
+              "cv_id": "cv-en-culinary-chef",
+              "relevance_grade": 0,
+              "expected_relative_order": 5,
+              "shortlist_eligible": false,
+              "rule_score": 0,
+              "skills_score": 0,
+              "experience_score": 0,
+              "semantic_score": 49.8,
+              "hybrid_score": 0,
+              "required_skills": [
+                "Data Warehousing",
+                "Power BI",
+                "Python",
+                "SQL",
+                "Tableau"
+              ],
+              "matched_skills": [],
+              "missing_skills": [
+                "Data Warehousing",
+                "Power BI",
+                "Python",
+                "SQL",
+                "Tableau"
+              ],
+              "experience_gated": true,
+              "rationale": "Candidate matches 0 of 5 required skill(s). Experience credit (8 of 2 year(s)) is gated to 0% because no required technical skills were verified. Missing skills: Data Warehousing, Power BI, Python, SQL, Tableau.",
+              "predicted_rank": 5
+            }
+          ]
+        }
+      ],
+      "per_pair_results": [
+        {
+          "pair_id": "pair-001",
+          "jd_id": "job-en-backend-sr",
+          "cv_id": "cv-en-sr-java-perfect",
+          "relevance_grade": 4,
+          "expected_relative_order": 1,
+          "shortlist_eligible": true,
+          "rule_score": 86,
+          "skills_score": 86,
+          "experience_score": null,
+          "semantic_score": 57.0,
+          "hybrid_score": 86,
+          "required_skills": [
+            "Docker",
+            "Java",
+            "Kubernetes",
+            "Microservices",
+            "PostgreSQL",
+            "Spring Boot",
+            "System Design"
+          ],
+          "matched_skills": [
+            "Docker",
+            "Java",
+            "Kubernetes",
+            "Microservices",
+            "PostgreSQL",
+            "Spring Boot"
+          ],
+          "missing_skills": [
+            "System Design"
+          ],
+          "experience_gated": false,
+          "rationale": "Candidate matches 6 of 7 required skill(s) (with 5 year(s) of relevant experience). Missing skills: System Design.",
+          "predicted_rank": 1
+        },
+        {
+          "pair_id": "pair-002",
+          "jd_id": "job-en-backend-sr",
+          "cv_id": "cv-en-sr-java-standard",
+          "relevance_grade": 3,
+          "expected_relative_order": 2,
+          "shortlist_eligible": true,
+          "rule_score": 57,
+          "skills_score": 57,
+          "experience_score": null,
+          "semantic_score": 51.1,
+          "hybrid_score": 57,
+          "required_skills": [
+            "Docker",
+            "Java",
+            "Kubernetes",
+            "Microservices",
+            "PostgreSQL",
+            "Spring Boot",
+            "System Design"
+          ],
+          "matched_skills": [
+            "Docker",
+            "Java",
+            "PostgreSQL",
+            "Spring Boot"
+          ],
+          "missing_skills": [
+            "Kubernetes",
+            "Microservices",
+            "System Design"
+          ],
+          "experience_gated": false,
+          "rationale": "Candidate matches 4 of 7 required skill(s) (with 4 year(s) of relevant experience). Missing skills: Kubernetes, Microservices, System Design.",
+          "predicted_rank": 3
+        },
+        {
+          "pair_id": "pair-003",
+          "jd_id": "job-en-backend-sr",
+          "cv_id": "cv-en-mid-java-partial",
+          "relevance_grade": 2,
+          "expected_relative_order": 3,
+          "shortlist_eligible": false,
+          "rule_score": 29,
+          "skills_score": 29,
+          "experience_score": null,
+          "semantic_score": 50.5,
+          "hybrid_score": 29,
+          "required_skills": [
+            "Docker",
+            "Java",
+            "Kubernetes",
+            "Microservices",
+            "PostgreSQL",
+            "Spring Boot",
+            "System Design"
+          ],
+          "matched_skills": [
+            "Java",
+            "Spring Boot"
+          ],
+          "missing_skills": [
+            "Docker",
+            "Kubernetes",
+            "Microservices",
+            "PostgreSQL",
+            "System Design"
+          ],
+          "experience_gated": false,
+          "rationale": "Candidate matches 2 of 7 required skill(s) (with 2 year(s) of relevant experience). Missing skills: Docker, Kubernetes, Microservices, PostgreSQL, System Design.",
+          "predicted_rank": 4
+        },
+        {
+          "pair_id": "pair-004",
+          "jd_id": "job-en-backend-sr",
+          "cv_id": "cv-en-frontend-react",
+          "relevance_grade": 1,
+          "expected_relative_order": 4,
+          "shortlist_eligible": false,
+          "rule_score": 0,
+          "skills_score": 0,
+          "experience_score": null,
+          "semantic_score": 52.5,
+          "hybrid_score": 0,
+          "required_skills": [
+            "Docker",
+            "Java",
+            "Kubernetes",
+            "Microservices",
+            "PostgreSQL",
+            "Spring Boot",
+            "System Design"
+          ],
+          "matched_skills": [],
+          "missing_skills": [
+            "Docker",
+            "Java",
+            "Kubernetes",
+            "Microservices",
+            "PostgreSQL",
+            "Spring Boot",
+            "System Design"
+          ],
+          "experience_gated": false,
+          "rationale": "Candidate matches 0 of 7 required skill(s) (with 3 year(s) of relevant experience). Missing skills: Docker, Java, Kubernetes, Microservices, PostgreSQL, Spring Boot, System Design.",
+          "predicted_rank": 5
+        },
+        {
+          "pair_id": "pair-005",
+          "jd_id": "job-en-backend-sr",
+          "cv_id": "cv-en-graphic-designer",
+          "relevance_grade": 0,
+          "expected_relative_order": 5,
+          "shortlist_eligible": false,
+          "rule_score": 0,
+          "skills_score": 0,
+          "experience_score": null,
+          "semantic_score": 49.7,
+          "hybrid_score": 0,
+          "required_skills": [
+            "Docker",
+            "Java",
+            "Kubernetes",
+            "Microservices",
+            "PostgreSQL",
+            "Spring Boot",
+            "System Design"
+          ],
+          "matched_skills": [],
+          "missing_skills": [
+            "Docker",
+            "Java",
+            "Kubernetes",
+            "Microservices",
+            "PostgreSQL",
+            "Spring Boot",
+            "System Design"
+          ],
+          "experience_gated": false,
+          "rationale": "Candidate matches 0 of 7 required skill(s) (with 6 year(s) of relevant experience). Missing skills: Docker, Java, Kubernetes, Microservices, PostgreSQL, Spring Boot, System Design.",
+          "predicted_rank": 6
+        },
+        {
+          "pair_id": "pair-006",
+          "jd_id": "job-en-backend-sr",
+          "cv_id": "cv-en-missing-skills-high-exp",
+          "relevance_grade": 1,
+          "expected_relative_order": 5,
+          "shortlist_eligible": false,
+          "rule_score": 0,
+          "skills_score": 0,
+          "experience_score": null,
+          "semantic_score": 49.5,
+          "hybrid_score": 0,
+          "required_skills": [
+            "Docker",
+            "Java",
+            "Kubernetes",
+            "Microservices",
+            "PostgreSQL",
+            "Spring Boot",
+            "System Design"
+          ],
+          "matched_skills": [],
+          "missing_skills": [
+            "Docker",
+            "Java",
+            "Kubernetes",
+            "Microservices",
+            "PostgreSQL",
+            "Spring Boot",
+            "System Design"
+          ],
+          "experience_gated": false,
+          "rationale": "Candidate matches 0 of 7 required skill(s) (with 10 year(s) of relevant experience). Missing skills: Docker, Java, Kubernetes, Microservices, PostgreSQL, Spring Boot, System Design.",
+          "predicted_rank": 7
+        },
+        {
+          "pair_id": "pair-007",
+          "jd_id": "job-en-backend-sr",
+          "cv_id": "cv-en-minimal-unspecified",
+          "relevance_grade": 0,
+          "expected_relative_order": 7,
+          "shortlist_eligible": false,
+          "rule_score": 0,
+          "skills_score": 0,
+          "experience_score": null,
+          "semantic_score": 48.9,
+          "hybrid_score": 0,
+          "required_skills": [
+            "Docker",
+            "Java",
+            "Kubernetes",
+            "Microservices",
+            "PostgreSQL",
+            "Spring Boot",
+            "System Design"
+          ],
+          "matched_skills": [],
+          "missing_skills": [
+            "Docker",
+            "Java",
+            "Kubernetes",
+            "Microservices",
+            "PostgreSQL",
+            "Spring Boot",
+            "System Design"
+          ],
+          "experience_gated": false,
+          "rationale": "Candidate matches 0 of 7 required skill(s) (experience duration unspecified in CV). Missing skills: Docker, Java, Kubernetes, Microservices, PostgreSQL, Spring Boot, System Design.",
+          "predicted_rank": 8
+        },
+        {
+          "pair_id": "pair-008",
+          "jd_id": "job-vi-fullstack-mid",
+          "cv_id": "cv-vi-fullstack-excellent",
+          "relevance_grade": 4,
+          "expected_relative_order": 1,
+          "shortlist_eligible": true,
+          "rule_score": 87,
+          "skills_score": 78,
+          "experience_score": 100,
+          "semantic_score": 50.1,
+          "hybrid_score": 87,
+          "required_skills": [
+            "Git",
+            "Java",
+            "JavaScript",
+            "MySQL",
+            "PostgreSQL",
+            "REST API",
+            "React",
+            "Spring Boot",
+            "TypeScript"
+          ],
+          "matched_skills": [
+            "Git",
+            "Java",
+            "PostgreSQL",
+            "REST API",
+            "React",
+            "Spring Boot",
+            "TypeScript"
+          ],
+          "missing_skills": [
+            "JavaScript",
+            "MySQL"
+          ],
+          "experience_gated": false,
+          "rationale": "Candidate matches 7 of 9 required skill(s) with 4 of 3 required year(s) of experience. Missing skills: JavaScript, MySQL.",
+          "predicted_rank": 1
+        },
+        {
+          "pair_id": "pair-009",
+          "jd_id": "job-vi-fullstack-mid",
+          "cv_id": "cv-vi-backend-pure",
+          "relevance_grade": 2,
+          "expected_relative_order": 2,
+          "shortlist_eligible": null,
+          "rule_score": 26,
+          "skills_score": 44,
+          "experience_score": 0,
+          "semantic_score": 49.6,
+          "hybrid_score": 26,
+          "required_skills": [
+            "Git",
+            "Java",
+            "JavaScript",
+            "MySQL",
+            "PostgreSQL",
+            "REST API",
+            "React",
+            "Spring Boot",
+            "TypeScript"
+          ],
+          "matched_skills": [
+            "Java",
+            "PostgreSQL",
+            "React",
+            "Spring Boot"
+          ],
+          "missing_skills": [
+            "Git",
+            "JavaScript",
+            "MySQL",
+            "REST API",
+            "TypeScript"
+          ],
+          "experience_gated": false,
+          "rationale": "Candidate matches 4 of 9 required skill(s) with 0 of 3 required year(s) of experience. Missing skills: Git, JavaScript, MySQL, REST API, TypeScript.",
+          "predicted_rank": 3
+        },
+        {
+          "pair_id": "pair-010",
+          "jd_id": "job-vi-fullstack-mid",
+          "cv_id": "cv-vi-frontend-react-only",
+          "relevance_grade": 2,
+          "expected_relative_order": 3,
+          "shortlist_eligible": null,
+          "rule_score": 20,
+          "skills_score": 33,
+          "experience_score": 0,
+          "semantic_score": 50.0,
+          "hybrid_score": 20,
+          "required_skills": [
+            "Git",
+            "Java",
+            "JavaScript",
+            "MySQL",
+            "PostgreSQL",
+            "REST API",
+            "React",
+            "Spring Boot",
+            "TypeScript"
+          ],
+          "matched_skills": [
+            "Java",
+            "JavaScript",
+            "React"
+          ],
+          "missing_skills": [
+            "Git",
+            "MySQL",
+            "PostgreSQL",
+            "REST API",
+            "Spring Boot",
+            "TypeScript"
+          ],
+          "experience_gated": false,
+          "rationale": "Candidate matches 3 of 9 required skill(s) with 0 of 3 required year(s) of experience. Missing skills: Git, MySQL, PostgreSQL, REST API, Spring Boot, TypeScript.",
+          "predicted_rank": 4
+        },
+        {
+          "pair_id": "pair-011",
+          "jd_id": "job-vi-fullstack-mid",
+          "cv_id": "cv-vi-junior-fullstack",
+          "relevance_grade": 2,
+          "expected_relative_order": 4,
+          "shortlist_eligible": false,
+          "rule_score": 40,
+          "skills_score": 44,
+          "experience_score": 33,
+          "semantic_score": 50.0,
+          "hybrid_score": 40,
+          "required_skills": [
+            "Git",
+            "Java",
+            "JavaScript",
+            "MySQL",
+            "PostgreSQL",
+            "REST API",
+            "React",
+            "Spring Boot",
+            "TypeScript"
+          ],
+          "matched_skills": [
+            "Java",
+            "MySQL",
+            "React",
+            "Spring Boot"
+          ],
+          "missing_skills": [
+            "Git",
+            "JavaScript",
+            "PostgreSQL",
+            "REST API",
+            "TypeScript"
+          ],
+          "experience_gated": false,
+          "rationale": "Candidate matches 4 of 9 required skill(s) with 1 of 3 required year(s) of experience. Missing skills: Git, JavaScript, PostgreSQL, REST API, TypeScript.",
+          "predicted_rank": 2
+        },
+        {
+          "pair_id": "pair-012",
+          "jd_id": "job-vi-fullstack-mid",
+          "cv_id": "cv-vi-marketing-digital",
+          "relevance_grade": 0,
+          "expected_relative_order": 5,
+          "shortlist_eligible": false,
+          "rule_score": 0,
+          "skills_score": 0,
+          "experience_score": 0,
+          "semantic_score": 50.8,
+          "hybrid_score": 0,
+          "required_skills": [
+            "Git",
+            "Java",
+            "JavaScript",
+            "MySQL",
+            "PostgreSQL",
+            "REST API",
+            "React",
+            "Spring Boot",
+            "TypeScript"
+          ],
+          "matched_skills": [],
+          "missing_skills": [
+            "Git",
+            "Java",
+            "JavaScript",
+            "MySQL",
+            "PostgreSQL",
+            "REST API",
+            "React",
+            "Spring Boot",
+            "TypeScript"
+          ],
+          "experience_gated": true,
+          "rationale": "Candidate matches 0 of 9 required skill(s). Experience credit (4 of 3 year(s)) is gated to 0% because no required technical skills were verified. Missing skills: Git, Java, JavaScript, MySQL, PostgreSQL, REST API, React, Spring Boot, TypeScript.",
+          "predicted_rank": 5
+        },
+        {
+          "pair_id": "pair-013",
+          "jd_id": "job-en-data-analyst",
+          "cv_id": "cv-en-senior-bi-analyst",
+          "relevance_grade": 4,
+          "expected_relative_order": 1,
+          "shortlist_eligible": true,
+          "rule_score": 100,
+          "skills_score": 100,
+          "experience_score": 100,
+          "semantic_score": 49.5,
+          "hybrid_score": 100,
+          "required_skills": [
+            "Data Warehousing",
+            "Power BI",
+            "Python",
+            "SQL",
+            "Tableau"
+          ],
+          "matched_skills": [
+            "Data Warehousing",
+            "Power BI",
+            "Python",
+            "SQL",
+            "Tableau"
+          ],
+          "missing_skills": [],
+          "experience_gated": false,
+          "rationale": "Candidate matches all 5 required skill(s) with 4 of 2 required year(s) of experience.",
+          "predicted_rank": 1
+        },
+        {
+          "pair_id": "pair-014",
+          "jd_id": "job-en-data-analyst",
+          "cv_id": "cv-en-mid-sql-analyst",
+          "relevance_grade": 3,
+          "expected_relative_order": 2,
+          "shortlist_eligible": true,
+          "rule_score": 64,
+          "skills_score": 40,
+          "experience_score": 100,
+          "semantic_score": 50.2,
+          "hybrid_score": 64,
+          "required_skills": [
+            "Data Warehousing",
+            "Power BI",
+            "Python",
+            "SQL",
+            "Tableau"
+          ],
+          "matched_skills": [
+            "SQL",
+            "Tableau"
+          ],
+          "missing_skills": [
+            "Data Warehousing",
+            "Power BI",
+            "Python"
+          ],
+          "experience_gated": false,
+          "rationale": "Candidate matches 2 of 5 required skill(s) with 2 of 2 required year(s) of experience. Missing skills: Data Warehousing, Power BI, Python.",
+          "predicted_rank": 2
+        },
+        {
+          "pair_id": "pair-015",
+          "jd_id": "job-en-data-analyst",
+          "cv_id": "cv-en-python-backend-dev",
+          "relevance_grade": 2,
+          "expected_relative_order": 3,
+          "shortlist_eligible": false,
+          "rule_score": 52,
+          "skills_score": 20,
+          "experience_score": 100,
+          "semantic_score": 49.2,
+          "hybrid_score": 52,
+          "required_skills": [
+            "Data Warehousing",
+            "Power BI",
+            "Python",
+            "SQL",
+            "Tableau"
+          ],
+          "matched_skills": [
+            "Python"
+          ],
+          "missing_skills": [
+            "Data Warehousing",
+            "Power BI",
+            "SQL",
+            "Tableau"
+          ],
+          "experience_gated": false,
+          "rationale": "Candidate matches 1 of 5 required skill(s) with 3 of 2 required year(s) of experience. Missing skills: Data Warehousing, Power BI, SQL, Tableau.",
+          "predicted_rank": 3
+        },
+        {
+          "pair_id": "pair-016",
+          "jd_id": "job-en-data-analyst",
+          "cv_id": "cv-en-fresh-finance-grad",
+          "relevance_grade": 1,
+          "expected_relative_order": 4,
+          "shortlist_eligible": false,
+          "rule_score": 12,
+          "skills_score": 20,
+          "experience_score": null,
+          "semantic_score": 50.1,
+          "hybrid_score": 12,
+          "required_skills": [
+            "Data Warehousing",
+            "Power BI",
+            "Python",
+            "SQL",
+            "Tableau"
+          ],
+          "matched_skills": [
+            "SQL"
+          ],
+          "missing_skills": [
+            "Data Warehousing",
+            "Power BI",
+            "Python",
+            "Tableau"
+          ],
+          "experience_gated": false,
+          "rationale": "Candidate matches 1 of 5 required skill(s) (12% verified match). Required experience (2 year(s)) could not be verified from CV. Missing skills: Data Warehousing, Power BI, Python, Tableau.",
+          "predicted_rank": 4
+        },
+        {
+          "pair_id": "pair-017",
+          "jd_id": "job-en-data-analyst",
+          "cv_id": "cv-en-culinary-chef",
+          "relevance_grade": 0,
+          "expected_relative_order": 5,
+          "shortlist_eligible": false,
+          "rule_score": 0,
+          "skills_score": 0,
+          "experience_score": 0,
+          "semantic_score": 49.8,
+          "hybrid_score": 0,
+          "required_skills": [
+            "Data Warehousing",
+            "Power BI",
+            "Python",
+            "SQL",
+            "Tableau"
+          ],
+          "matched_skills": [],
+          "missing_skills": [
+            "Data Warehousing",
+            "Power BI",
+            "Python",
+            "SQL",
+            "Tableau"
+          ],
+          "experience_gated": true,
+          "rationale": "Candidate matches 0 of 5 required skill(s). Experience credit (8 of 2 year(s)) is gated to 0% because no required technical skills were verified. Missing skills: Data Warehousing, Power BI, Python, SQL, Tableau.",
+          "predicted_rank": 5
+        },
+        {
+          "pair_id": "pair-018",
+          "jd_id": "job-en-backend-sr",
+          "cv_id": "cv-edge-excessive-length",
+          "relevance_grade": 3,
+          "expected_relative_order": 2,
+          "shortlist_eligible": true,
+          "rule_score": 71,
+          "skills_score": 71,
+          "experience_score": null,
+          "semantic_score": 49.4,
+          "hybrid_score": 71,
+          "required_skills": [
+            "Docker",
+            "Java",
+            "Kubernetes",
+            "Microservices",
+            "PostgreSQL",
+            "Spring Boot",
+            "System Design"
+          ],
+          "matched_skills": [
+            "Docker",
+            "Java",
+            "Microservices",
+            "PostgreSQL",
+            "Spring Boot"
+          ],
+          "missing_skills": [
+            "Kubernetes",
+            "System Design"
+          ],
+          "experience_gated": false,
+          "rationale": "Candidate matches 5 of 7 required skill(s) (with 5 year(s) of relevant experience). Missing skills: Kubernetes, System Design.",
+          "predicted_rank": 2
+        }
+      ]
+    },
+    "threshold_sweep_hybrid_60_40": [
+      {
+        "threshold": 50,
+        "TP": 6,
+        "FP": 1,
+        "TN": 9,
+        "FN": 0,
+        "precision": 0.8571,
+        "recall": 1.0,
+        "f1_score": 0.9231
+      },
+      {
+        "threshold": 60,
+        "TP": 4,
+        "FP": 0,
+        "TN": 10,
+        "FN": 2,
+        "precision": 1.0,
+        "recall": 0.6667,
+        "f1_score": 0.8
+      },
+      {
+        "threshold": 65,
+        "TP": 3,
+        "FP": 0,
+        "TN": 10,
+        "FN": 3,
+        "precision": 1.0,
+        "recall": 0.5,
+        "f1_score": 0.6667
+      },
+      {
+        "threshold": 70,
+        "TP": 3,
+        "FP": 0,
+        "TN": 10,
+        "FN": 3,
+        "precision": 1.0,
+        "recall": 0.5,
+        "f1_score": 0.6667
+      },
+      {
+        "threshold": 75,
+        "TP": 1,
+        "FP": 0,
+        "TN": 10,
+        "FN": 5,
+        "precision": 1.0,
+        "recall": 0.1667,
+        "f1_score": 0.2857
+      },
+      {
+        "threshold": 80,
+        "TP": 1,
+        "FP": 0,
+        "TN": 10,
+        "FN": 5,
+        "precision": 1.0,
+        "recall": 0.1667,
+        "f1_score": 0.2857
+      },
+      {
+        "threshold": 85,
+        "TP": 0,
+        "FP": 0,
+        "TN": 10,
+        "FN": 6,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1_score": 0.0
+      }
+    ],
+    "threshold_sweep_rule_baseline_100_0": [
+      {
+        "threshold": 50,
+        "TP": 6,
+        "FP": 1,
+        "TN": 9,
+        "FN": 0,
+        "precision": 0.8571,
+        "recall": 1.0,
+        "f1_score": 0.9231
+      },
+      {
+        "threshold": 60,
+        "TP": 5,
+        "FP": 0,
+        "TN": 10,
+        "FN": 1,
+        "precision": 1.0,
+        "recall": 0.8333,
+        "f1_score": 0.9091
+      },
+      {
+        "threshold": 65,
+        "TP": 4,
+        "FP": 0,
+        "TN": 10,
+        "FN": 2,
+        "precision": 1.0,
+        "recall": 0.6667,
+        "f1_score": 0.8
+      },
+      {
+        "threshold": 70,
+        "TP": 4,
+        "FP": 0,
+        "TN": 10,
+        "FN": 2,
+        "precision": 1.0,
+        "recall": 0.6667,
+        "f1_score": 0.8
+      },
+      {
+        "threshold": 75,
+        "TP": 3,
+        "FP": 0,
+        "TN": 10,
+        "FN": 3,
+        "precision": 1.0,
+        "recall": 0.5,
+        "f1_score": 0.6667
+      },
+      {
+        "threshold": 80,
+        "TP": 3,
+        "FP": 0,
+        "TN": 10,
+        "FN": 3,
+        "precision": 1.0,
+        "recall": 0.5,
+        "f1_score": 0.6667
+      },
+      {
+        "threshold": 85,
+        "TP": 3,
+        "FP": 0,
+        "TN": 10,
+        "FN": 3,
+        "precision": 1.0,
+        "recall": 0.5,
+        "f1_score": 0.6667
+      }
+    ],
+    "weight_sweep_threshold_70": [
+      {
+        "rule_weight": 1.0,
+        "semantic_weight": 0.0,
+        "pooled_pairwise_accuracy": 0.9524,
+        "macro_pairwise_accuracy": 0.9733,
+        "mean_ndcg_3": 1.0,
+        "f1_score": 0.8,
+        "precision": 1.0,
+        "recall": 0.6667
+      },
+      {
+        "rule_weight": 0.7,
+        "semantic_weight": 0.3,
+        "pooled_pairwise_accuracy": 0.9762,
+        "macro_pairwise_accuracy": 0.9867,
+        "mean_ndcg_3": 1.0,
+        "f1_score": 0.6667,
+        "precision": 1.0,
+        "recall": 0.5
+      },
+      {
+        "rule_weight": 0.6,
+        "semantic_weight": 0.4,
+        "pooled_pairwise_accuracy": 0.9762,
+        "macro_pairwise_accuracy": 0.9867,
+        "mean_ndcg_3": 1.0,
+        "f1_score": 0.6667,
+        "precision": 1.0,
+        "recall": 0.5
+      },
+      {
+        "rule_weight": 0.5,
+        "semantic_weight": 0.5,
+        "pooled_pairwise_accuracy": 0.9881,
+        "macro_pairwise_accuracy": 0.9933,
+        "mean_ndcg_3": 1.0,
+        "f1_score": 0.5,
+        "precision": 1.0,
+        "recall": 0.3333
+      },
+      {
+        "rule_weight": 0.4,
+        "semantic_weight": 0.6,
+        "pooled_pairwise_accuracy": 0.9881,
+        "macro_pairwise_accuracy": 0.9933,
+        "mean_ndcg_3": 1.0,
+        "f1_score": 0.2857,
+        "precision": 1.0,
+        "recall": 0.1667
+      },
+      {
+        "rule_weight": 0.0,
+        "semantic_weight": 1.0,
+        "pooled_pairwise_accuracy": 0.5119,
+        "macro_pairwise_accuracy": 0.3981,
+        "mean_ndcg_3": 0.5986,
+        "f1_score": 0.0,
+        "precision": 0.0,
+        "recall": 0.0
+      }
+    ],
+    "per_pair_expected_vs_actual": [
+      {
+        "pair_id": "pair-001",
+        "jd_id": "job-en-backend-sr",
+        "cv_id": "cv-en-sr-java-perfect",
+        "cv_char_count": 170,
+        "expected": {
+          "relevance_grade": 4,
+          "expected_relative_order": 1,
+          "shortlist_eligible": true
+        },
+        "actual": {
+          "predicted_rank_hybrid": 1,
+          "predicted_rank_rule_baseline": 1,
+          "rule_score": 86,
+          "skills_score": 86,
+          "experience_score": null,
+          "semantic_score": 57.0,
+          "hybrid_score": 74,
+          "predicted_shortlist_70_hybrid": true,
+          "predicted_review_50_hybrid": true,
+          "predicted_shortlist_70_rule_baseline": true,
+          "predicted_review_50_rule_baseline": true,
+          "required_skills": [
+            "Docker",
+            "Java",
+            "Kubernetes",
+            "Microservices",
+            "PostgreSQL",
+            "Spring Boot",
+            "System Design"
+          ],
+          "matched_skills": [
+            "Docker",
+            "Java",
+            "Kubernetes",
+            "Microservices",
+            "PostgreSQL",
+            "Spring Boot"
+          ],
+          "missing_skills": [
+            "System Design"
+          ],
+          "experience_gated": false,
+          "rationale": "Candidate matches 6 of 7 required skill(s) (with 5 year(s) of relevant experience). Missing skills: System Design."
+        }
+      },
+      {
+        "pair_id": "pair-002",
+        "jd_id": "job-en-backend-sr",
+        "cv_id": "cv-en-sr-java-standard",
+        "cv_char_count": 161,
+        "expected": {
+          "relevance_grade": 3,
+          "expected_relative_order": 2,
+          "shortlist_eligible": true
+        },
+        "actual": {
+          "predicted_rank_hybrid": 3,
+          "predicted_rank_rule_baseline": 3,
+          "rule_score": 57,
+          "skills_score": 57,
+          "experience_score": null,
+          "semantic_score": 51.1,
+          "hybrid_score": 55,
+          "predicted_shortlist_70_hybrid": false,
+          "predicted_review_50_hybrid": true,
+          "predicted_shortlist_70_rule_baseline": false,
+          "predicted_review_50_rule_baseline": true,
+          "required_skills": [
+            "Docker",
+            "Java",
+            "Kubernetes",
+            "Microservices",
+            "PostgreSQL",
+            "Spring Boot",
+            "System Design"
+          ],
+          "matched_skills": [
+            "Docker",
+            "Java",
+            "PostgreSQL",
+            "Spring Boot"
+          ],
+          "missing_skills": [
+            "Kubernetes",
+            "Microservices",
+            "System Design"
+          ],
+          "experience_gated": false,
+          "rationale": "Candidate matches 4 of 7 required skill(s) (with 4 year(s) of relevant experience). Missing skills: Kubernetes, Microservices, System Design."
+        }
+      },
+      {
+        "pair_id": "pair-003",
+        "jd_id": "job-en-backend-sr",
+        "cv_id": "cv-en-mid-java-partial",
+        "cv_char_count": 114,
+        "expected": {
+          "relevance_grade": 2,
+          "expected_relative_order": 3,
+          "shortlist_eligible": false
+        },
+        "actual": {
+          "predicted_rank_hybrid": 4,
+          "predicted_rank_rule_baseline": 4,
+          "rule_score": 29,
+          "skills_score": 29,
+          "experience_score": null,
+          "semantic_score": 50.5,
+          "hybrid_score": 38,
+          "predicted_shortlist_70_hybrid": false,
+          "predicted_review_50_hybrid": false,
+          "predicted_shortlist_70_rule_baseline": false,
+          "predicted_review_50_rule_baseline": false,
+          "required_skills": [
+            "Docker",
+            "Java",
+            "Kubernetes",
+            "Microservices",
+            "PostgreSQL",
+            "Spring Boot",
+            "System Design"
+          ],
+          "matched_skills": [
+            "Java",
+            "Spring Boot"
+          ],
+          "missing_skills": [
+            "Docker",
+            "Kubernetes",
+            "Microservices",
+            "PostgreSQL",
+            "System Design"
+          ],
+          "experience_gated": false,
+          "rationale": "Candidate matches 2 of 7 required skill(s) (with 2 year(s) of relevant experience). Missing skills: Docker, Kubernetes, Microservices, PostgreSQL, System Design."
+        }
+      },
+      {
+        "pair_id": "pair-004",
+        "jd_id": "job-en-backend-sr",
+        "cv_id": "cv-en-frontend-react",
+        "cv_char_count": 139,
+        "expected": {
+          "relevance_grade": 1,
+          "expected_relative_order": 4,
+          "shortlist_eligible": false
+        },
+        "actual": {
+          "predicted_rank_hybrid": 5,
+          "predicted_rank_rule_baseline": 5,
+          "rule_score": 0,
+          "skills_score": 0,
+          "experience_score": null,
+          "semantic_score": 52.5,
+          "hybrid_score": 21,
+          "predicted_shortlist_70_hybrid": false,
+          "predicted_review_50_hybrid": false,
+          "predicted_shortlist_70_rule_baseline": false,
+          "predicted_review_50_rule_baseline": false,
+          "required_skills": [
+            "Docker",
+            "Java",
+            "Kubernetes",
+            "Microservices",
+            "PostgreSQL",
+            "Spring Boot",
+            "System Design"
+          ],
+          "matched_skills": [],
+          "missing_skills": [
+            "Docker",
+            "Java",
+            "Kubernetes",
+            "Microservices",
+            "PostgreSQL",
+            "Spring Boot",
+            "System Design"
+          ],
+          "experience_gated": false,
+          "rationale": "Candidate matches 0 of 7 required skill(s) (with 3 year(s) of relevant experience). Missing skills: Docker, Java, Kubernetes, Microservices, PostgreSQL, Spring Boot, System Design."
+        }
+      },
+      {
+        "pair_id": "pair-005",
+        "jd_id": "job-en-backend-sr",
+        "cv_id": "cv-en-graphic-designer",
+        "cv_char_count": 146,
+        "expected": {
+          "relevance_grade": 0,
+          "expected_relative_order": 5,
+          "shortlist_eligible": false
+        },
+        "actual": {
+          "predicted_rank_hybrid": 6,
+          "predicted_rank_rule_baseline": 6,
+          "rule_score": 0,
+          "skills_score": 0,
+          "experience_score": null,
+          "semantic_score": 49.7,
+          "hybrid_score": 20,
+          "predicted_shortlist_70_hybrid": false,
+          "predicted_review_50_hybrid": false,
+          "predicted_shortlist_70_rule_baseline": false,
+          "predicted_review_50_rule_baseline": false,
+          "required_skills": [
+            "Docker",
+            "Java",
+            "Kubernetes",
+            "Microservices",
+            "PostgreSQL",
+            "Spring Boot",
+            "System Design"
+          ],
+          "matched_skills": [],
+          "missing_skills": [
+            "Docker",
+            "Java",
+            "Kubernetes",
+            "Microservices",
+            "PostgreSQL",
+            "Spring Boot",
+            "System Design"
+          ],
+          "experience_gated": false,
+          "rationale": "Candidate matches 0 of 7 required skill(s) (with 6 year(s) of relevant experience). Missing skills: Docker, Java, Kubernetes, Microservices, PostgreSQL, Spring Boot, System Design."
+        }
+      },
+      {
+        "pair_id": "pair-006",
+        "jd_id": "job-en-backend-sr",
+        "cv_id": "cv-en-missing-skills-high-exp",
+        "cv_char_count": 133,
+        "expected": {
+          "relevance_grade": 1,
+          "expected_relative_order": 5,
+          "shortlist_eligible": false
+        },
+        "actual": {
+          "predicted_rank_hybrid": 7,
+          "predicted_rank_rule_baseline": 7,
+          "rule_score": 0,
+          "skills_score": 0,
+          "experience_score": null,
+          "semantic_score": 49.5,
+          "hybrid_score": 20,
+          "predicted_shortlist_70_hybrid": false,
+          "predicted_review_50_hybrid": false,
+          "predicted_shortlist_70_rule_baseline": false,
+          "predicted_review_50_rule_baseline": false,
+          "required_skills": [
+            "Docker",
+            "Java",
+            "Kubernetes",
+            "Microservices",
+            "PostgreSQL",
+            "Spring Boot",
+            "System Design"
+          ],
+          "matched_skills": [],
+          "missing_skills": [
+            "Docker",
+            "Java",
+            "Kubernetes",
+            "Microservices",
+            "PostgreSQL",
+            "Spring Boot",
+            "System Design"
+          ],
+          "experience_gated": false,
+          "rationale": "Candidate matches 0 of 7 required skill(s) (with 10 year(s) of relevant experience). Missing skills: Docker, Java, Kubernetes, Microservices, PostgreSQL, Spring Boot, System Design."
+        }
+      },
+      {
+        "pair_id": "pair-007",
+        "jd_id": "job-en-backend-sr",
+        "cv_id": "cv-en-minimal-unspecified",
+        "cv_char_count": 85,
+        "expected": {
+          "relevance_grade": 0,
+          "expected_relative_order": 7,
+          "shortlist_eligible": false
+        },
+        "actual": {
+          "predicted_rank_hybrid": 8,
+          "predicted_rank_rule_baseline": 8,
+          "rule_score": 0,
+          "skills_score": 0,
+          "experience_score": null,
+          "semantic_score": 48.9,
+          "hybrid_score": 20,
+          "predicted_shortlist_70_hybrid": false,
+          "predicted_review_50_hybrid": false,
+          "predicted_shortlist_70_rule_baseline": false,
+          "predicted_review_50_rule_baseline": false,
+          "required_skills": [
+            "Docker",
+            "Java",
+            "Kubernetes",
+            "Microservices",
+            "PostgreSQL",
+            "Spring Boot",
+            "System Design"
+          ],
+          "matched_skills": [],
+          "missing_skills": [
+            "Docker",
+            "Java",
+            "Kubernetes",
+            "Microservices",
+            "PostgreSQL",
+            "Spring Boot",
+            "System Design"
+          ],
+          "experience_gated": false,
+          "rationale": "Candidate matches 0 of 7 required skill(s) (experience duration unspecified in CV). Missing skills: Docker, Java, Kubernetes, Microservices, PostgreSQL, Spring Boot, System Design."
+        }
+      },
+      {
+        "pair_id": "pair-008",
+        "jd_id": "job-vi-fullstack-mid",
+        "cv_id": "cv-vi-fullstack-excellent",
+        "cv_char_count": 172,
+        "expected": {
+          "relevance_grade": 4,
+          "expected_relative_order": 1,
+          "shortlist_eligible": true
+        },
+        "actual": {
+          "predicted_rank_hybrid": 1,
+          "predicted_rank_rule_baseline": 1,
+          "rule_score": 87,
+          "skills_score": 78,
+          "experience_score": 100,
+          "semantic_score": 50.1,
+          "hybrid_score": 72,
+          "predicted_shortlist_70_hybrid": true,
+          "predicted_review_50_hybrid": true,
+          "predicted_shortlist_70_rule_baseline": true,
+          "predicted_review_50_rule_baseline": true,
+          "required_skills": [
+            "Git",
+            "Java",
+            "JavaScript",
+            "MySQL",
+            "PostgreSQL",
+            "REST API",
+            "React",
+            "Spring Boot",
+            "TypeScript"
+          ],
+          "matched_skills": [
+            "Git",
+            "Java",
+            "PostgreSQL",
+            "REST API",
+            "React",
+            "Spring Boot",
+            "TypeScript"
+          ],
+          "missing_skills": [
+            "JavaScript",
+            "MySQL"
+          ],
+          "experience_gated": false,
+          "rationale": "Candidate matches 7 of 9 required skill(s) with 4 of 3 required year(s) of experience. Missing skills: JavaScript, MySQL."
+        }
+      },
+      {
+        "pair_id": "pair-009",
+        "jd_id": "job-vi-fullstack-mid",
+        "cv_id": "cv-vi-backend-pure",
+        "cv_char_count": 137,
+        "expected": {
+          "relevance_grade": 2,
+          "expected_relative_order": 2,
+          "shortlist_eligible": null
+        },
+        "actual": {
+          "predicted_rank_hybrid": 3,
+          "predicted_rank_rule_baseline": 3,
+          "rule_score": 26,
+          "skills_score": 44,
+          "experience_score": 0,
+          "semantic_score": 49.6,
+          "hybrid_score": 35,
+          "predicted_shortlist_70_hybrid": false,
+          "predicted_review_50_hybrid": false,
+          "predicted_shortlist_70_rule_baseline": false,
+          "predicted_review_50_rule_baseline": false,
+          "required_skills": [
+            "Git",
+            "Java",
+            "JavaScript",
+            "MySQL",
+            "PostgreSQL",
+            "REST API",
+            "React",
+            "Spring Boot",
+            "TypeScript"
+          ],
+          "matched_skills": [
+            "Java",
+            "PostgreSQL",
+            "React",
+            "Spring Boot"
+          ],
+          "missing_skills": [
+            "Git",
+            "JavaScript",
+            "MySQL",
+            "REST API",
+            "TypeScript"
+          ],
+          "experience_gated": false,
+          "rationale": "Candidate matches 4 of 9 required skill(s) with 0 of 3 required year(s) of experience. Missing skills: Git, JavaScript, MySQL, REST API, TypeScript."
+        }
+      },
+      {
+        "pair_id": "pair-010",
+        "jd_id": "job-vi-fullstack-mid",
+        "cv_id": "cv-vi-frontend-react-only",
+        "cv_char_count": 128,
+        "expected": {
+          "relevance_grade": 2,
+          "expected_relative_order": 3,
+          "shortlist_eligible": null
+        },
+        "actual": {
+          "predicted_rank_hybrid": 4,
+          "predicted_rank_rule_baseline": 4,
+          "rule_score": 20,
+          "skills_score": 33,
+          "experience_score": 0,
+          "semantic_score": 50.0,
+          "hybrid_score": 32,
+          "predicted_shortlist_70_hybrid": false,
+          "predicted_review_50_hybrid": false,
+          "predicted_shortlist_70_rule_baseline": false,
+          "predicted_review_50_rule_baseline": false,
+          "required_skills": [
+            "Git",
+            "Java",
+            "JavaScript",
+            "MySQL",
+            "PostgreSQL",
+            "REST API",
+            "React",
+            "Spring Boot",
+            "TypeScript"
+          ],
+          "matched_skills": [
+            "Java",
+            "JavaScript",
+            "React"
+          ],
+          "missing_skills": [
+            "Git",
+            "MySQL",
+            "PostgreSQL",
+            "REST API",
+            "Spring Boot",
+            "TypeScript"
+          ],
+          "experience_gated": false,
+          "rationale": "Candidate matches 3 of 9 required skill(s) with 0 of 3 required year(s) of experience. Missing skills: Git, MySQL, PostgreSQL, REST API, Spring Boot, TypeScript."
+        }
+      },
+      {
+        "pair_id": "pair-011",
+        "jd_id": "job-vi-fullstack-mid",
+        "cv_id": "cv-vi-junior-fullstack",
+        "cv_char_count": 116,
+        "expected": {
+          "relevance_grade": 2,
+          "expected_relative_order": 4,
+          "shortlist_eligible": false
+        },
+        "actual": {
+          "predicted_rank_hybrid": 2,
+          "predicted_rank_rule_baseline": 2,
+          "rule_score": 40,
+          "skills_score": 44,
+          "experience_score": 33,
+          "semantic_score": 50.0,
+          "hybrid_score": 44,
+          "predicted_shortlist_70_hybrid": false,
+          "predicted_review_50_hybrid": false,
+          "predicted_shortlist_70_rule_baseline": false,
+          "predicted_review_50_rule_baseline": false,
+          "required_skills": [
+            "Git",
+            "Java",
+            "JavaScript",
+            "MySQL",
+            "PostgreSQL",
+            "REST API",
+            "React",
+            "Spring Boot",
+            "TypeScript"
+          ],
+          "matched_skills": [
+            "Java",
+            "MySQL",
+            "React",
+            "Spring Boot"
+          ],
+          "missing_skills": [
+            "Git",
+            "JavaScript",
+            "PostgreSQL",
+            "REST API",
+            "TypeScript"
+          ],
+          "experience_gated": false,
+          "rationale": "Candidate matches 4 of 9 required skill(s) with 1 of 3 required year(s) of experience. Missing skills: Git, JavaScript, PostgreSQL, REST API, TypeScript."
+        }
+      },
+      {
+        "pair_id": "pair-012",
+        "jd_id": "job-vi-fullstack-mid",
+        "cv_id": "cv-vi-marketing-digital",
+        "cv_char_count": 102,
+        "expected": {
+          "relevance_grade": 0,
+          "expected_relative_order": 5,
+          "shortlist_eligible": false
+        },
+        "actual": {
+          "predicted_rank_hybrid": 5,
+          "predicted_rank_rule_baseline": 5,
+          "rule_score": 0,
+          "skills_score": 0,
+          "experience_score": 0,
+          "semantic_score": 50.8,
+          "hybrid_score": 20,
+          "predicted_shortlist_70_hybrid": false,
+          "predicted_review_50_hybrid": false,
+          "predicted_shortlist_70_rule_baseline": false,
+          "predicted_review_50_rule_baseline": false,
+          "required_skills": [
+            "Git",
+            "Java",
+            "JavaScript",
+            "MySQL",
+            "PostgreSQL",
+            "REST API",
+            "React",
+            "Spring Boot",
+            "TypeScript"
+          ],
+          "matched_skills": [],
+          "missing_skills": [
+            "Git",
+            "Java",
+            "JavaScript",
+            "MySQL",
+            "PostgreSQL",
+            "REST API",
+            "React",
+            "Spring Boot",
+            "TypeScript"
+          ],
+          "experience_gated": true,
+          "rationale": "Candidate matches 0 of 9 required skill(s). Experience credit (4 of 3 year(s)) is gated to 0% because no required technical skills were verified. Missing skills: Git, Java, JavaScript, MySQL, PostgreSQL, REST API, React, Spring Boot, TypeScript."
+        }
+      },
+      {
+        "pair_id": "pair-013",
+        "jd_id": "job-en-data-analyst",
+        "cv_id": "cv-en-senior-bi-analyst",
+        "cv_char_count": 159,
+        "expected": {
+          "relevance_grade": 4,
+          "expected_relative_order": 1,
+          "shortlist_eligible": true
+        },
+        "actual": {
+          "predicted_rank_hybrid": 1,
+          "predicted_rank_rule_baseline": 1,
+          "rule_score": 100,
+          "skills_score": 100,
+          "experience_score": 100,
+          "semantic_score": 49.5,
+          "hybrid_score": 80,
+          "predicted_shortlist_70_hybrid": true,
+          "predicted_review_50_hybrid": true,
+          "predicted_shortlist_70_rule_baseline": true,
+          "predicted_review_50_rule_baseline": true,
+          "required_skills": [
+            "Data Warehousing",
+            "Power BI",
+            "Python",
+            "SQL",
+            "Tableau"
+          ],
+          "matched_skills": [
+            "Data Warehousing",
+            "Power BI",
+            "Python",
+            "SQL",
+            "Tableau"
+          ],
+          "missing_skills": [],
+          "experience_gated": false,
+          "rationale": "Candidate matches all 5 required skill(s) with 4 of 2 required year(s) of experience."
+        }
+      },
+      {
+        "pair_id": "pair-014",
+        "jd_id": "job-en-data-analyst",
+        "cv_id": "cv-en-mid-sql-analyst",
+        "cv_char_count": 122,
+        "expected": {
+          "relevance_grade": 3,
+          "expected_relative_order": 2,
+          "shortlist_eligible": true
+        },
+        "actual": {
+          "predicted_rank_hybrid": 2,
+          "predicted_rank_rule_baseline": 2,
+          "rule_score": 64,
+          "skills_score": 40,
+          "experience_score": 100,
+          "semantic_score": 50.2,
+          "hybrid_score": 58,
+          "predicted_shortlist_70_hybrid": false,
+          "predicted_review_50_hybrid": true,
+          "predicted_shortlist_70_rule_baseline": false,
+          "predicted_review_50_rule_baseline": true,
+          "required_skills": [
+            "Data Warehousing",
+            "Power BI",
+            "Python",
+            "SQL",
+            "Tableau"
+          ],
+          "matched_skills": [
+            "SQL",
+            "Tableau"
+          ],
+          "missing_skills": [
+            "Data Warehousing",
+            "Power BI",
+            "Python"
+          ],
+          "experience_gated": false,
+          "rationale": "Candidate matches 2 of 5 required skill(s) with 2 of 2 required year(s) of experience. Missing skills: Data Warehousing, Power BI, Python."
+        }
+      },
+      {
+        "pair_id": "pair-015",
+        "jd_id": "job-en-data-analyst",
+        "cv_id": "cv-en-python-backend-dev",
+        "cv_char_count": 110,
+        "expected": {
+          "relevance_grade": 2,
+          "expected_relative_order": 3,
+          "shortlist_eligible": false
+        },
+        "actual": {
+          "predicted_rank_hybrid": 3,
+          "predicted_rank_rule_baseline": 3,
+          "rule_score": 52,
+          "skills_score": 20,
+          "experience_score": 100,
+          "semantic_score": 49.2,
+          "hybrid_score": 51,
+          "predicted_shortlist_70_hybrid": false,
+          "predicted_review_50_hybrid": true,
+          "predicted_shortlist_70_rule_baseline": false,
+          "predicted_review_50_rule_baseline": true,
+          "required_skills": [
+            "Data Warehousing",
+            "Power BI",
+            "Python",
+            "SQL",
+            "Tableau"
+          ],
+          "matched_skills": [
+            "Python"
+          ],
+          "missing_skills": [
+            "Data Warehousing",
+            "Power BI",
+            "SQL",
+            "Tableau"
+          ],
+          "experience_gated": false,
+          "rationale": "Candidate matches 1 of 5 required skill(s) with 3 of 2 required year(s) of experience. Missing skills: Data Warehousing, Power BI, SQL, Tableau."
+        }
+      },
+      {
+        "pair_id": "pair-016",
+        "jd_id": "job-en-data-analyst",
+        "cv_id": "cv-en-fresh-finance-grad",
+        "cv_char_count": 120,
+        "expected": {
+          "relevance_grade": 1,
+          "expected_relative_order": 4,
+          "shortlist_eligible": false
+        },
+        "actual": {
+          "predicted_rank_hybrid": 4,
+          "predicted_rank_rule_baseline": 4,
+          "rule_score": 12,
+          "skills_score": 20,
+          "experience_score": null,
+          "semantic_score": 50.1,
+          "hybrid_score": 27,
+          "predicted_shortlist_70_hybrid": false,
+          "predicted_review_50_hybrid": false,
+          "predicted_shortlist_70_rule_baseline": false,
+          "predicted_review_50_rule_baseline": false,
+          "required_skills": [
+            "Data Warehousing",
+            "Power BI",
+            "Python",
+            "SQL",
+            "Tableau"
+          ],
+          "matched_skills": [
+            "SQL"
+          ],
+          "missing_skills": [
+            "Data Warehousing",
+            "Power BI",
+            "Python",
+            "Tableau"
+          ],
+          "experience_gated": false,
+          "rationale": "Candidate matches 1 of 5 required skill(s) (12% verified match). Required experience (2 year(s)) could not be verified from CV. Missing skills: Data Warehousing, Power BI, Python, Tableau."
+        }
+      },
+      {
+        "pair_id": "pair-017",
+        "jd_id": "job-en-data-analyst",
+        "cv_id": "cv-en-culinary-chef",
+        "cv_char_count": 125,
+        "expected": {
+          "relevance_grade": 0,
+          "expected_relative_order": 5,
+          "shortlist_eligible": false
+        },
+        "actual": {
+          "predicted_rank_hybrid": 5,
+          "predicted_rank_rule_baseline": 5,
+          "rule_score": 0,
+          "skills_score": 0,
+          "experience_score": 0,
+          "semantic_score": 49.8,
+          "hybrid_score": 20,
+          "predicted_shortlist_70_hybrid": false,
+          "predicted_review_50_hybrid": false,
+          "predicted_shortlist_70_rule_baseline": false,
+          "predicted_review_50_rule_baseline": false,
+          "required_skills": [
+            "Data Warehousing",
+            "Power BI",
+            "Python",
+            "SQL",
+            "Tableau"
+          ],
+          "matched_skills": [],
+          "missing_skills": [
+            "Data Warehousing",
+            "Power BI",
+            "Python",
+            "SQL",
+            "Tableau"
+          ],
+          "experience_gated": true,
+          "rationale": "Candidate matches 0 of 5 required skill(s). Experience credit (8 of 2 year(s)) is gated to 0% because no required technical skills were verified. Missing skills: Data Warehousing, Power BI, Python, SQL, Tableau."
+        }
+      },
+      {
+        "pair_id": "pair-018",
+        "jd_id": "job-en-backend-sr",
+        "cv_id": "cv-edge-excessive-length",
+        "cv_char_count": 4626,
+        "expected": {
+          "relevance_grade": 3,
+          "expected_relative_order": 2,
+          "shortlist_eligible": true
+        },
+        "actual": {
+          "predicted_rank_hybrid": 2,
+          "predicted_rank_rule_baseline": 2,
+          "rule_score": 71,
+          "skills_score": 71,
+          "experience_score": null,
+          "semantic_score": 49.4,
+          "hybrid_score": 62,
+          "predicted_shortlist_70_hybrid": false,
+          "predicted_review_50_hybrid": true,
+          "predicted_shortlist_70_rule_baseline": true,
+          "predicted_review_50_rule_baseline": true,
+          "required_skills": [
+            "Docker",
+            "Java",
+            "Kubernetes",
+            "Microservices",
+            "PostgreSQL",
+            "Spring Boot",
+            "System Design"
+          ],
+          "matched_skills": [
+            "Docker",
+            "Java",
+            "Microservices",
+            "PostgreSQL",
+            "Spring Boot"
+          ],
+          "missing_skills": [
+            "Kubernetes",
+            "System Design"
+          ],
+          "experience_gated": false,
+          "rationale": "Candidate matches 5 of 7 required skill(s) (with 5 year(s) of relevant experience). Missing skills: Kubernetes, System Design."
+        }
+      }
+    ]
+  },
+  "stability": {
+    "execution_iterations": 30,
+    "provider": "DeterministicTestProvider (Local SHA-256 trigonometric embedding)",
+    "candidate_stats": {
+      "cand-01-strong": {
+        "name": "Strong Candidate",
+        "iterations": 30,
+        "mean": 80.0,
+        "std_dev": 0.0,
+        "min": 80,
+        "max": 80,
+        "exact_repeatability": true
+      },
+      "cand-02-partial": {
+        "name": "Partial Candidate",
+        "iterations": 30,
+        "mean": 39.0,
+        "std_dev": 0.0,
+        "min": 39,
+        "max": 39,
+        "exact_repeatability": true
+      },
+      "cand-03-unrelated": {
+        "name": "Unrelated Candidate",
+        "iterations": 30,
+        "mean": 20.0,
+        "std_dev": 0.0,
+        "min": 20,
+        "max": 20,
+        "exact_repeatability": true
+      }
+    },
+    "repeatability": {
+      "all_scores_identical_across_runs": true,
+      "score_std_dev_max": 0.0,
+      "ranking_consistency_rate": 1.0,
+      "observed_rank_changes": 0,
+      "observed_rank_reversals": 0
+    },
+    "ranking_sanity": {
+      "baseline_order": [
+        "cand-01-strong",
+        "cand-02-partial",
+        "cand-03-unrelated"
+      ],
+      "expected_order": [
+        "cand-01-strong",
+        "cand-02-partial",
+        "cand-03-unrelated"
+      ],
+      "order_matches_expected": true,
+      "ranking_sanity_passed": true,
+      "score_progression": "Strong (80.0) > Partial (39.0) > Unrelated (20.0)"
+    },
+    "notes": "Covers deterministic local engine. Repeatability (low variance across runs) is evaluated separately from Ranking Sanity (ensuring domain-correct candidate ordering). External OpenAI API temperature drift is zero when local provider is active."
+  },
+  "fallback_resilience": {
+    "total_checks": 6,
+    "passed_checks": 6,
+    "failed_checks": 0,
+    "all_passed": true,
+    "cases": [
+      {
+        "scenario": "openai_empty_api_key",
+        "expected": {
+          "dimension": 1536,
+          "model": "deterministic-sha256-1536d-v1"
+        },
+        "actual": {
+          "dimension": 1536,
+          "model": "deterministic-sha256-1536d-v1"
+        },
+        "passed": true
+      },
+      {
+        "scenario": "openai_http_429_fallback_enabled",
+        "expected": {
+          "dimension": 1536,
+          "model": "deterministic-sha256-1536d-v1-fallback"
+        },
+        "actual": {
+          "dimension": 1536,
+          "model": "deterministic-sha256-1536d-v1-fallback"
+        },
+        "passed": true
+      },
+      {
+        "scenario": "openai_http_500_fallback_enabled",
+        "expected": {
+          "dimension": 1536,
+          "model": "deterministic-sha256-1536d-v1-fallback"
+        },
+        "actual": {
+          "dimension": 1536,
+          "model": "deterministic-sha256-1536d-v1-fallback"
+        },
+        "passed": true
+      },
+      {
+        "scenario": "openai_timeout_fallback_enabled",
+        "expected": {
+          "dimension": 1536,
+          "model": "deterministic-sha256-1536d-v1-fallback"
+        },
+        "actual": {
+          "dimension": 1536,
+          "model": "deterministic-sha256-1536d-v1-fallback"
+        },
+        "passed": true
+      },
+      {
+        "scenario": "openai_timeout_fallback_disabled_strict",
+        "expected": {
+          "raises": "RuntimeError",
+          "prevents_vector_space_mixing": true
+        },
+        "actual": {
+          "raised": true,
+          "message": "Upstream OpenAI embeddings unavailable and fallback is disabled to prevent vector-space mixing."
+        },
+        "passed": true
+      },
+      {
+        "scenario": "zero_skill_experience_gating",
+        "expected": {
+          "overall_score": 0,
+          "skills_score": 0,
+          "experience_score": 0,
+          "experience_gated": true
+        },
+        "actual": {
+          "overall_score": 0,
+          "skills_score": 0,
+          "experience_score": 0,
+          "experience_gated": true,
+          "rationale": "Candidate matches 0 of 3 required skill(s). Experience credit (8 of 4 year(s)) is gated to 0% because no required technical skills were verified. Missing skills: Java, PostgreSQL, Spring Boot."
+        },
+        "passed": true
+      }
+    ]
+  }
+}

@@ -102,8 +102,11 @@ def test_unrelated_candidate_with_high_experience_does_not_inflate_score(provide
     )
     res_unrelated = provider.calculate_match(req_unrelated)
     assert res_unrelated.skills_score == 0
+    assert res_unrelated.experience_score == 0
     assert res_unrelated.overall_score == 0
     assert res_unrelated.breakdown["required_skills_matched"] == []
+    assert res_unrelated.breakdown["experience_gated"] is True
+    assert "gated to 0%" in res_unrelated.rationale
 
     # Contrast with a partially qualified candidate who has 2 years and matched skills
     req_partial = MatchScoreRequest(
@@ -179,8 +182,11 @@ def test_experience_gating_boundary_and_empty_skill_set(provider):
         cv_text="Head Chef with 5 years experience in culinary arts."
     ))
     assert r1.skills_score == 0
+    assert r1.experience_score == 0
     assert r1.overall_score == 0
     assert r1.breakdown["required_skills_matched"] == []
+    assert r1.breakdown["experience_gated"] is True
+    assert "gated to 0%" in r1.rationale
 
     # Case 2 (Boundary): 5 required skills, 1 matched, 5 yrs exp vs 5 yrs required
     # Binary gating gives 100% of experience points (40 pts) + 20% of skill points (12 pts) = 52 pts
@@ -246,5 +252,8 @@ def test_experience_gating_boundary_and_empty_skill_set(provider):
         cv_text="Operations worker with 5 years experience."
     ))
     assert r7.skills_score == 0
+    assert r7.experience_score == 0
     assert r7.overall_score == 0
+    assert r7.breakdown["experience_gated"] is True
+    assert "gated to 0%" in r7.rationale
 

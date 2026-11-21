@@ -72,6 +72,25 @@ public class MatchingService {
                 persistence, null, null, new MatchingScoringProperties());
     }
 
+    public MatchingService(
+            CvVersionRepository cvVersionRepository,
+            MatchResultRepository matchResultRepository,
+            AiWorkerClient aiWorkerClient,
+            ObjectMapper objectMapper,
+            MatchingResultMapper matchingResultMapper,
+            ApplicationRepository applicationRepository,
+            ApplicationCvSnapshotRepository applicationCvSnapshotRepository,
+            JobRepository jobRepository,
+            ProcessingJobRepository processingJobRepository,
+            MatchingPersistenceService persistence,
+            EmbeddingRepository embeddingRepository,
+            JobEmbeddingService jobEmbeddingService
+    ) {
+        this(cvVersionRepository, matchResultRepository, aiWorkerClient, objectMapper, matchingResultMapper,
+                applicationRepository, applicationCvSnapshotRepository, jobRepository, processingJobRepository,
+                persistence, embeddingRepository, jobEmbeddingService, new MatchingScoringProperties());
+    }
+
     @org.springframework.beans.factory.annotation.Autowired
     public MatchingService(
             CvVersionRepository cvVersionRepository,
@@ -85,27 +104,8 @@ public class MatchingService {
             ProcessingJobRepository processingJobRepository,
             MatchingPersistenceService persistence,
             @org.springframework.beans.factory.annotation.Autowired(required = false) EmbeddingRepository embeddingRepository,
-            @org.springframework.beans.factory.annotation.Autowired(required = false) JobEmbeddingService jobEmbeddingService
-    ) {
-        this(cvVersionRepository, matchResultRepository, aiWorkerClient, objectMapper, matchingResultMapper,
-                applicationRepository, applicationCvSnapshotRepository, jobRepository, processingJobRepository,
-                persistence, embeddingRepository, jobEmbeddingService, new MatchingScoringProperties());
-    }
-
-    public MatchingService(
-            CvVersionRepository cvVersionRepository,
-            MatchResultRepository matchResultRepository,
-            AiWorkerClient aiWorkerClient,
-            ObjectMapper objectMapper,
-            MatchingResultMapper matchingResultMapper,
-            ApplicationRepository applicationRepository,
-            ApplicationCvSnapshotRepository applicationCvSnapshotRepository,
-            JobRepository jobRepository,
-            ProcessingJobRepository processingJobRepository,
-            MatchingPersistenceService persistence,
-            EmbeddingRepository embeddingRepository,
-            JobEmbeddingService jobEmbeddingService,
-            MatchingScoringProperties scoringProperties
+            @org.springframework.beans.factory.annotation.Autowired(required = false) JobEmbeddingService jobEmbeddingService,
+            @org.springframework.beans.factory.annotation.Autowired(required = false) MatchingScoringProperties scoringProperties
     ) {
         this.cvVersionRepository = cvVersionRepository;
         this.matchResultRepository = matchResultRepository;
@@ -758,6 +758,7 @@ public class MatchingService {
             breakdown.put("config_version", scoringProperties.getConfigVersion());
             breakdown.put("algorithm_id", scoringProperties.getAlgorithmId());
             breakdown.put("shortlist_threshold", scoringProperties.getShortlistThreshold());
+            breakdown.put("review_threshold", scoringProperties.getReviewThreshold());
             breakdown.put("semantic_similarity", null);
             breakdown.put("semantic_score", null);
             breakdown.put("rule_score", baseResponse.getOverallScore());
@@ -786,6 +787,7 @@ public class MatchingService {
         breakdown.put("config_version", scoringProperties.getConfigVersion());
         breakdown.put("algorithm_id", scoringProperties.getAlgorithmId());
         breakdown.put("shortlist_threshold", scoringProperties.getShortlistThreshold());
+        breakdown.put("review_threshold", scoringProperties.getReviewThreshold());
         breakdown.put("rule_score", ruleScore);
         breakdown.put("rule_weight", ruleWeight);
         breakdown.put("semantic_score", (int) Math.round(semanticScore));

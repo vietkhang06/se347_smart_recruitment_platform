@@ -26,6 +26,17 @@ def test_skill_alias_canonicalization():
     assert canonicalize_skill("cicd") == "CI/CD"
     assert canonicalize_skill("spring boot") == "Spring Boot"
     assert canonicalize_skill("fastapi") == "FastAPI"
+    assert canonicalize_skill("powerbi") == "Power BI"
+    assert canonicalize_skill("power bi") == "Power BI"
+    assert canonicalize_skill("tableau") == "Tableau"
+    assert canonicalize_skill("data warehousing") == "Data Warehousing"
+
+
+def test_extract_bi_analytics_skills_from_text():
+    text = "2+ years of experience with SQL, Python, PowerBI, Tableau, and data warehousing."
+    skills = extract_skills_from_text(text)
+    for expected_skill in ["SQL", "Python", "Power BI", "Tableau", "Data Warehousing"]:
+        assert expected_skill in skills
 
 
 def test_extract_skills_handles_casing_and_punctuation():

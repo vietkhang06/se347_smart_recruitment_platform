@@ -138,6 +138,10 @@ def evaluate_job_ranking(
         # 1. Rule score from baseline provider
         rule_resp = provider.calculate_match(req)
         rule_score = rule_resp.overall_score
+        skills_score = getattr(rule_resp, "skills_score", None)
+        experience_score = getattr(rule_resp, "experience_score", None)
+        breakdown = getattr(rule_resp, "breakdown", {}) or {}
+        rationale = getattr(rule_resp, "rationale", None)
 
         # 2. Semantic score from deterministic embedding cosine distance
         jd_text = f"{cand['job_title']} {cand['job_requirements']}"
@@ -156,16 +160,27 @@ def evaluate_job_ranking(
 
         scored_candidates.append({
             "pair_id": cand["pair_id"],
+            "jd_id": job_id,
             "cv_id": cand["cv_id"],
             "relevance_grade": cand["relevance_grade"],
+            "expected_relative_order": cand.get("expected_relative_order"),
             "shortlist_eligible": cand["shortlist_eligible"],
             "rule_score": rule_score,
+            "skills_score": skills_score,
+            "experience_score": experience_score,
             "semantic_score": round(semantic_score, 1),
             "hybrid_score": hybrid_score,
+            "required_skills": breakdown.get("required_skills", []),
+            "matched_skills": breakdown.get("required_skills_matched", []),
+            "missing_skills": breakdown.get("missing_skills", []),
+            "experience_gated": breakdown.get("experience_gated", False),
+            "rationale": rationale,
         })
 
-    # Sort predicted candidates by hybrid_score DESC
-    ranked = sorted(scored_candidates, key=lambda c: -c["hybrid_score"])
+    # Sort predicted candidates by hybrid_score DESC (tie-break by pair_id ASC for determinism)
+    ranked = sorted(scored_candidates, key=lambda c: (-c["hybrid_score"], c["pair_id"]))
+    for rank_idx, cand_item in enumerate(ranked, start=1):
+        cand_item["predicted_rank"] = rank_idx
 
     # 1. Compute Pairwise Ranking Accuracy within this job
     # For every pair (A, B) where ground truth Grade(A) != Grade(B):
@@ -351,9 +366,11 @@ def evaluate_dataset(
                 "ndcg_at_3": r["ndcg_at_3"],
                 "ndcg_at_3_expected": r["ndcg_at_3_expected"],
                 "has_top_k_ties": r["has_top_k_ties"],
+                "ranked_candidates": r["ranked_candidates"],
             }
             for r in job_results
         ],
+        "per_pair_results": sorted(all_scored, key=lambda item: item["pair_id"]),
     }
 
 

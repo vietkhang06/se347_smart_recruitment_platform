@@ -23,9 +23,14 @@ class Settings(BaseSettings):
     AI_WORKER_HOST_PORT: int = 8001
     AI_WORKER_CONTAINER_PORT: int = 8000
 
-    # Phase 3 Configuration placeholders
-    AI_PROVIDER: str = "openai"
+    # Frozen AI & Scoring Configuration
+    AI_MODEL_FREEZE_VERSION: str = "1.0.0-demo-freeze"
+    AI_PROVIDER: str = "deterministic"
     AI_MODEL: str = "gpt-4o-mini"
+    AI_EMBEDDING_MODEL: str = "text-embedding-3-small"
+    AI_EMBEDDING_DIMENSION: int = 1536
+    AI_EMBEDDING_FALLBACK_ENABLED: bool = True
+    AI_TIMEOUT_SECONDS: float = 10.0
     AI_API_KEY: str = ""
 
     model_config = SettingsConfigDict(

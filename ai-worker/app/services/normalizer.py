@@ -25,6 +25,8 @@ from app.schemas.ai import (
 # Canonical Skill Taxonomy & Aliases
 # =============================================================================
 
+NORMALIZER_VERSION = "normalizer-v1.0.0"
+
 CANONICAL_SKILL_MAP: Dict[str, str] = {
     # Languages
     "java": "Java",
@@ -148,6 +150,13 @@ CANONICAL_SKILL_MAP: Dict[str, str] = {
     "tailwindcss": "Tailwind CSS",
     "bootstrap": "Bootstrap",
     "redux": "Redux",
+
+    # Analytics & BI
+    "power bi": "Power BI",
+    "powerbi": "Power BI",
+    "tableau": "Tableau",
+    "data warehousing": "Data Warehousing",
+    "data warehouse": "Data Warehousing",
 }
 
 # Sorted by length descending so longer phrases match before sub-phrases
