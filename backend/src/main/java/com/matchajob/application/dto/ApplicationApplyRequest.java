@@ -21,5 +21,6 @@ public class ApplicationApplyRequest {
     @NotNull(message = "cv_version_id is required")
     private UUID cvVersionId;
 
+    @jakarta.validation.constraints.Size(max = 5000, message = "Cover letter must not exceed 5000 characters")
     private String coverLetter;
 }
