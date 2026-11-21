@@ -130,7 +130,14 @@ public class ApplicationService {
                 .updatedAt(now)
                 .build();
 
-        ApplicationEntity savedApp = applicationRepository.save(application);
+        ApplicationEntity savedApp;
+        try {
+            savedApp = applicationRepository.save(application);
+        } catch (org.springframework.dao.DataIntegrityViolationException ex) {
+            log.warn("Database unique constraint triggered for candidate={} and job={}", candidateId, jobId);
+            throw new DuplicateApplicationException(
+                    "You have already applied for this job. Duplicate application is not allowed.");
+        }
         log.info("Application created: {} (candidate={}, job={})", savedApp.getId(), candidateId, jobId);
 
         // 5. Create immutable CV snapshot linking application to the CV version
