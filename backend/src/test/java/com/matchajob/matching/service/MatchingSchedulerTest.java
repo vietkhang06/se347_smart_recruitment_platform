@@ -154,9 +154,17 @@ class MatchingSchedulerTest {
         when(processingJobService.claimNextMatchingJob())
                 .thenReturn(Optional.of(claimed));
 
+        when(processingJobService.getJob(jobId))
+                .thenReturn(Optional.of(
+                        ProcessingJob.builder()
+                                .id(jobId)
+                                .status("PENDING")
+                                .build()
+                ));
+
         doThrow(new RuntimeException("worker failed"))
-                .when(matchingService)
-                .evaluateApplicationMatch(any(ProcessingJob.class));
+        .when(matchingService)
+        .evaluateApplicationMatch(any(ProcessingJob.class));
 
         scheduler.poll();
 

@@ -68,7 +68,7 @@ public class SecurityConfig {
                     }
 
                     // Public Recruitment endpoints (evidence: guest job search and categories/skills in frontend)
-                    auth.requestMatchers(HttpMethod.GET, "/v1/jobs").permitAll();
+                    auth.requestMatchers(HttpMethod.GET, "/v1/jobs", "/v1/jobs/{id:[0-9a-fA-F\\-]+}", "/v1/jobs/*").permitAll();
                     auth.requestMatchers(HttpMethod.GET, "/v1/categories", "/v1/categories/**").permitAll();
                     auth.requestMatchers(HttpMethod.GET, "/v1/skills", "/v1/skills/**").permitAll();
                     auth.requestMatchers(HttpMethod.GET, "/api/v1/recruitment/taxonomies", "/api/v1/recruitment/taxonomies/**").permitAll();

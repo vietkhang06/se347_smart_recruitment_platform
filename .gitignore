@@ -112,3 +112,4 @@ matching-live-evidence/
 !docs/CLEAN_MACHINE_VERIFICATION_PROMPT.md
 .worktrees/
 .claude/
+.claude/
