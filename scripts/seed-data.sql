@@ -11,36 +11,13 @@
 -- Mật khẩu mặc định cho tất cả tài khoản test: Password123!
 -- ============================================================================
 
+-- Seed is intentionally non-destructive: an initialized database is left unchanged.
+SELECT NOT EXISTS (SELECT 1 FROM users) AS seed_database_is_empty \gset
+\if :seed_database_is_empty
+
 BEGIN;
 
 -- 0. XÓA DỮ LIỆU CŨ TRONG CÁC BẢNG (CASCADE THEO THỨ TỰ PHỤ THUỘC)
-TRUNCATE TABLE
-    audit_logs,
-    reports,
-    moderation_reviews,
-    match_results,
-    interviews,
-    application_status_histories,
-    application_cv_snapshots,
-    applications,
-    saved_jobs,
-    job_tags,
-    job_skills,
-    processing_jobs,
-    embeddings,
-    cv_versions,
-    jobs,
-    candidate_work_history,
-    candidate_skills,
-    candidate_profiles,
-    company_perks,
-    company_members,
-    companies,
-    admin_permissions,
-    skills,
-    categories,
-    users
-CASCADE;
 
 -- ============================================================================
 -- 1. USERS (Mật khẩu: Password123! -> BCrypt hash chuẩn)
@@ -498,3 +475,7 @@ INSERT INTO audit_logs (actor_id, actor_type, action, target_type, target_id, ip
     ('22222222-2222-4222-8222-222222222221', 'user', 'PAUSE_JOB', 'job', '88888888-8888-4888-8888-888888888884', '127.0.0.1'::inet, 'Mozilla/5.0 Chrome/120', now() - INTERVAL '25 days');
 
 COMMIT;
+
+\else
+\echo 'SKIP: database already contains users; seed made no changes.'
+\endif
