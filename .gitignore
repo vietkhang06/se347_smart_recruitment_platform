@@ -118,3 +118,4 @@ matching-live-evidence/
 backend/src/test/java/com/matchajob/pipeline/
 docs/qa/
 scripts/fixtures/
+.agents/
