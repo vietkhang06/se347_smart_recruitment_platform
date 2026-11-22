@@ -28,17 +28,27 @@ export default function AdminOverviewView({ adminData, onNavigateTab }) {
       </Row>
 
       <Row className="g-4 mb-4">
-        {/* Platform Growth Chart.js */}
+        {/* Platform Growth / Breakdown Chart.js */}
         <Col xs={12} lg={8}>
           <Card className="matcha-card p-4 border-0 shadow-sm h-100">
-            <div className="d-flex justify-content-between align-items-center mb-3">
+            <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
               <div>
-                <h5 className="fw-bold mb-0">Tăng trưởng người dùng & Tin tuyển dụng</h5>
-                <p className="text-muted small mb-0">Biểu đồ minh họa 6 tháng, chưa kết nối thống kê thực tế</p>
+                <h5 className="fw-bold mb-0">
+                  {adminData?.jobStats
+                    ? "Phân bổ Tin tuyển dụng theo Ngành nghề"
+                    : "Tăng trưởng người dùng & Tin tuyển dụng"}
+                </h5>
+                <p className="text-muted small mb-0">
+                  {adminData?.jobStats
+                    ? `Tổng ${adminData.jobStats.totalApplicants ?? 0} lượt ứng tuyển · ${adminData.jobStats.totalViews ?? 0} lượt xem tin`
+                    : "Biểu đồ thống kê nền tảng"}
+                </p>
               </div>
-              <span className="badge bg-purple bg-opacity-10 text-purple p-2">Dữ liệu minh họa</span>
+              <span className={`badge p-2 ${adminData?.jobStats ? "bg-success bg-opacity-10 text-success" : "bg-purple bg-opacity-10 text-purple"}`}>
+                {adminData?.jobStats ? "Dữ liệu hệ thống" : "Dữ liệu minh họa"}
+              </span>
             </div>
-            <PlatformGrowthChart growthData={adminData.growthStats} />
+            <PlatformGrowthChart growthData={adminData.growthStats} jobStats={adminData.jobStats} />
           </Card>
         </Col>
 

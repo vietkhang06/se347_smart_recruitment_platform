@@ -5,8 +5,11 @@ import {
 import { STAGES_PIPELINE } from "../../../mock";
 import { mockStore } from "../../../services/mockStore";
 import { applicationService } from "../../../services";
+import { httpClient } from "../../../services/httpClient";
 import { IS_API } from "../../../services/dataMode";
 import MatchingResultPanel from "../../../components/matching/MatchingResultPanel";
+
+const isBrowserAccessibleUrl = (url) => /^(https?:|blob:|data:)/i.test(String(url || "").trim());
 
 export default function CandidateDetailModal({
   candidate: supplied,
@@ -178,14 +181,21 @@ export default function CandidateDetailModal({
             {" · "}Ngày nộp: {candidate.appliedDate || "Gần đây"}
           </div>
           {candidate.cvSnapshotUrl && (
-            <a
-              href={candidate.cvSnapshotUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="btn btn-sm btn-outline-success bg-white text-decoration-none"
-            >
-              <i className="bi bi-file-earmark-pdf me-1"></i>Xem CV nộp kèm
-            </a>
+            isBrowserAccessibleUrl(candidate.cvSnapshotUrl) ? (
+              <a
+                href={candidate.cvSnapshotUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="btn btn-sm btn-outline-success bg-white text-decoration-none"
+              >
+                <i className="bi bi-file-earmark-pdf me-1"></i>Xem CV nộp kèm
+              </a>
+            ) : (
+              <span className="badge bg-white text-success border">
+                <i className="bi bi-file-earmark-pdf me-1"></i>
+                {String(candidate.cvSnapshotUrl).split("/").pop()}
+              </span>
+            )
           )}
         </div>
 
@@ -310,16 +320,47 @@ export default function CandidateDetailModal({
       <Modal.Footer className="justify-content-between gap-2">
         <Button
           variant="outline-success"
-          disabled={busy || saving || Boolean(candidate.withdrawnAt) || (!candidate.cvSnapshotUrl && !app?.cvId)}
+          disabled={
+            busy ||
+            saving ||
+            Boolean(candidate.withdrawnAt) ||
+            (!isBrowserAccessibleUrl(candidate.cvSnapshotUrl) &&
+              !(IS_API && (candidate.cvVersionId || app?.cvVersionId) && (candidate.candidateId || candidate.id)) &&
+              !(!IS_API && app?.cvId))
+          }
           onClick={async () => {
-            if (candidate.cvSnapshotUrl) {
-              window.open(candidate.cvSnapshotUrl, "_blank");
+            if (isBrowserAccessibleUrl(candidate.cvSnapshotUrl)) {
+              window.open(candidate.cvSnapshotUrl, "_blank", "noopener,noreferrer");
+              return;
+            }
+            const cvVerId = candidate.cvVersionId || app?.cvVersionId;
+            const candId = candidate.candidateId || candidate.id;
+            if (IS_API) {
+              if (!cvVerId || !candId) {
+                setError("Hồ sơ API hiện chưa cung cấp mã phiên bản CV để tải xuống.");
+                return;
+              }
+              setBusy(true);
+              setError("");
+              try {
+                const blob = await httpClient.get(
+                  `/v1/candidates/${encodeURIComponent(candId)}/cv/${encodeURIComponent(cvVerId)}/download?disposition=inline`,
+                  { responseType: "blob" }
+                );
+                const objectUrl = URL.createObjectURL(blob);
+                window.open(objectUrl, "_blank", "noopener,noreferrer");
+                setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+              } catch (err) {
+                setError(err?.message || "Không thể tải tệp CV từ máy chủ.");
+              } finally {
+                setBusy(false);
+              }
               return;
             }
             setBusy(true);
             setError("");
             try {
-              await mockStore.downloadSubmittedCV(candidate.candidateId || candidate.id);
+              await mockStore.downloadSubmittedCV(candId);
             } catch (err) {
               setError(err.message);
             } finally {
@@ -329,8 +370,10 @@ export default function CandidateDetailModal({
         >
           {busy
             ? "Đang tải…"
-            : candidate.cvSnapshotUrl
+            : isBrowserAccessibleUrl(candidate.cvSnapshotUrl) || (IS_API && (candidate.cvVersionId || app?.cvVersionId))
             ? "Xem tệp CV"
+            : candidate.cvSnapshotUrl
+            ? `CV: ${String(candidate.cvSnapshotUrl).split("/").pop()}`
             : app?.cvName
             ? `Tải CV: ${app.cvName}`
             : "Đơn chưa có tệp CV"}

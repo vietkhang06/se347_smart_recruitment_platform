@@ -146,7 +146,8 @@ INSERT INTO candidate_work_history (id, candidate_id, company_name, role_title, 
 INSERT INTO cv_versions (id, candidate_id, file_path, file_name, file_size_bytes, mime_type, sha256_hash, raw_text, status, created_at, updated_at) VALUES
     ('88888888-7777-4777-8777-777777777701', '77777777-7777-4777-8777-777777777771', '/data/cv/cv_pham_duy_khanh_2026.pdf', 'CV_PhamDuyKhanh_SeniorFrontend.pdf', 256400, 'application/pdf', 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', 'Pham Duy Khanh. Senior Frontend Engineer. Skills: React, TypeScript, Vite, SPA.', 'extracted', now(), now()),
     ('88888888-7777-4777-8777-777777777702', '77777777-7777-4777-8777-777777777772', '/data/cv/cv_pham_nhat_thong_2026.pdf', 'CV_PhamNhatThong_BackendJava.pdf', 312500, 'application/pdf', 'a3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b866', 'Pham Nhat Thong. Backend Java Engineer. Skills: Spring Boot, PostgreSQL, Docker.', 'extracted', now(), now()),
-    ('88888888-7777-4777-8777-777777777703', '77777777-7777-4777-8777-777777777773', '/data/cv/cv_nguyen_dai_hung_2026.pdf', 'CV_NguyenDaiHung_QA.pdf', 189200, 'application/pdf', 'b3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b877', 'Nguyen Dai Hung. QA Automation. Skills: Playwright, Postman, CI/CD testing.', 'extracted', now(), now());
+    ('88888888-7777-4777-8777-777777777703', '77777777-7777-4777-8777-777777777773', '/data/cv/cv_nguyen_dai_hung_2026.pdf', 'CV_NguyenDaiHung_QA.pdf', 189200, 'application/pdf', 'b3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b877', 'Nguyen Dai Hung. QA Automation. Skills: Playwright, Postman, CI/CD testing.', 'extracted', now(), now()),
+    ('88888888-7777-4777-8777-777777777704', '77777777-7777-4777-8777-777777777774', '/data/cv/cv_vo_quynh_mai_2026.pdf', 'CV_VoQuynhMai_ProductDesigner.pdf', 224800, 'application/pdf', 'c3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b888', 'Vo Quynh Mai. UI/UX Designer & Design System Specialist. Skills: Figma, UI/UX Research, Design System, Prototyping.', 'extracted', now(), now());
 
 -- ============================================================================
 -- 7. JOBS (Đầy đủ vòng đời: active, paused, closed, draft, pending)
@@ -169,7 +170,7 @@ INSERT INTO jobs (
      '<ul><li>Thu nhập cạnh tranh 35 - 50 Triệu VNĐ kèm thưởng hiệu suất dự án.</li><li>Gói bảo hiểm FPT Care toàn diện cho bản thân và gia đình.</li></ul>',
      '<ul><li>Thứ Hai – Thứ Sáu (08:30 – 17:30). Nghỉ Thứ Bảy & Chủ Nhật.</li></ul>',
      'Công nghệ thông tin, Thiết kế sản phẩm số', 'Figma, UX Research, Design System', 'Tiếng Anh lưu loát, Tư duy hệ thống SaaS',
-     48, 1284, 'active', now() - INTERVAL '15 days', '2026-11-30', now() - INTERVAL '15 days', now()),
+     48, 1284, 'active', now() - INTERVAL '15 days', '2026-12-31', now() - INTERVAL '15 days', now()),
 
     -- Job 2: ACTIVE (Frontend Engineer React / TypeScript) - Range salary
     ('88888888-8888-4888-8888-888888888882', '44444444-4444-4444-8444-444444444441', '55555555-5555-4555-8555-555555555551', '22222222-2222-4222-8222-222222222221',
@@ -182,7 +183,7 @@ INSERT INTO jobs (
      '<ul><li>Lương 25 - 40 Triệu VNĐ. Chế độ làm việc Hybrid (2 ngày WFH/tuần).</li><li>Được tài trợ 100% chi phí thi các chứng chỉ quốc tế uy tín.</li></ul>',
      '<ul><li>Thứ Hai – Thứ Sáu (08:30 – 17:30). Linh hoạt giờ giấc.</li></ul>',
      'Công nghệ thông tin & Lập trình Web', 'React, TypeScript, Responsive Web', 'Kinh nghiệm với Vite, REST API, Chart.js',
-     36, 972, 'active', now() - INTERVAL '10 days', '2026-11-25', now() - INTERVAL '10 days', now()),
+     36, 972, 'active', now() - INTERVAL '10 days', '2026-12-25', now() - INTERVAL '10 days', now()),
 
     -- Job 3: ACTIVE (Backend Engineer Java / Spring Boot) - Single salary
     ('88888888-8888-4888-8888-888888888883', '44444444-4444-4444-8444-444444444441', '55555555-5555-4555-8555-555555555551', '22222222-2222-4222-8222-222222222222',
@@ -195,7 +196,7 @@ INSERT INTO jobs (
      '<ul><li>Lương cứng từ 22 Triệu VNĐ + Lương tháng 13 & thưởng hiệu quả.</li><li>Môi trường phát triển công nghệ cao, được mentor bởi các Tech Lead lâu năm.</li></ul>',
      '<ul><li>Thứ Hai – Thứ Sáu.</li></ul>',
      'Backend Development & Microservices', 'Java 21, Spring Boot 3, PostgreSQL', 'pgvector, Docker, Redis Cache',
-     22, 650, 'active', now() - INTERVAL '7 days', '2026-11-20', now() - INTERVAL '7 days', now()),
+     22, 650, 'active', now() - INTERVAL '7 days', '2026-12-20', now() - INTERVAL '7 days', now()),
 
     -- Job 4: PAUSED (Junior QA / Automation Tester) - Negotiable salary
     ('88888888-8888-4888-8888-888888888884', '44444444-4444-4444-8444-444444444441', '55555555-5555-4555-8555-555555555551', '22222222-2222-4222-8222-222222222222',
@@ -314,7 +315,22 @@ INSERT INTO applications (
     -- App 6: Candidate 2 -> Job 5 (DevSecOps) -> Stage: hired
     ('99999999-9999-4999-8999-999999999996', '77777777-7777-4777-8777-777777777772', '88888888-8888-4888-8888-888888888885',
      'Ứng tuyển vị trí DevSecOps Engineer.',
-     '/data/cv/cv_pham_nhat_thong_2026.pdf', 'hired', NULL, 89, now() - INTERVAL '30 days', now());
+     '/data/cv/cv_pham_nhat_thong_2026.pdf', 'hired', NULL, 89, now() - INTERVAL '30 days', now()),
+
+    -- App 7: Candidate 4 -> Job 2 (React Frontend) -> Stage: testing (bo sung vong Bai kiem tra & Top 3 Ranking)
+    ('99999999-9999-4999-8999-999999999997', '77777777-7777-4777-8777-777777777774', '88888888-8888-4888-8888-888888888882',
+     'Tôi có nền tảng vững về Design System, HTML/CSS hiện đại và làm việc sát với team React.',
+     '/data/cv/cv_vo_quynh_mai_2026.pdf', 'testing', NULL, 84, now() - INTERVAL '4 days', now()),
+
+    -- App 8: Candidate 3 -> Job 2 (React Frontend) -> Stage: screening (Top 3 Ranking Job 2)
+    ('99999999-9999-4999-8999-999999999998', '77777777-7777-4777-8777-777777777773', '88888888-8888-4888-8888-888888888882',
+     'Ứng tuyển Frontend Engineer với kinh nghiệm viết E2E Playwright cho các ứng dụng React.',
+     '/data/cv/cv_nguyen_dai_hung_2026.pdf', 'screening', NULL, 76, now() - INTERVAL '3 days', now()),
+
+    -- App 9: Candidate 1 -> Job 1 (Product Designer) -> Stage: testing (Top 3 Ranking Job 1)
+    ('99999999-9999-4999-8999-999999999999', '77777777-7777-4777-8777-777777777771', '88888888-8888-4888-8888-888888888881',
+     'Ứng tuyển Senior Product Designer với 4+ năm kinh nghiệm xây dựng giao diện web và Figma.',
+     '/data/cv/cv_pham_duy_khanh_2026.pdf', 'testing', NULL, 79, now() - INTERVAL '1 day', now());
 
 -- ============================================================================
 -- 10. APPLICATION STATUS HISTORIES (Audit Trail)
@@ -334,7 +350,16 @@ INSERT INTO application_status_histories (id, application_id, from_stage, to_sta
 
     -- App 5: new -> screening -> rejected
     (gen_random_uuid(), '99999999-9999-4999-8999-999999999995', NULL, 'new', '33333333-3333-4333-8333-333333333333', 'Nộp hồ sơ trực tuyến', '{}'::jsonb, now() - INTERVAL '12 days'),
-    (gen_random_uuid(), '99999999-9999-4999-8999-999999999995', 'new', 'rejected', '22222222-2222-4222-8222-222222222221', 'Kinh nghiệm chưa phù hợp với cấp bậc Senior UI/UX', '{}'::jsonb, now() - INTERVAL '11 days');
+    (gen_random_uuid(), '99999999-9999-4999-8999-999999999995', 'new', 'rejected', '22222222-2222-4222-8222-222222222221', 'Kinh nghiệm chưa phù hợp với cấp bậc Senior UI/UX', '{}'::jsonb, now() - INTERVAL '11 days'),
+
+    -- App 7: new -> screening -> testing
+    (gen_random_uuid(), '99999999-9999-4999-8999-999999999997', NULL, 'new', '33333333-3333-4333-8333-333333333334', 'Nộp hồ sơ trực tuyến', '{}'::jsonb, now() - INTERVAL '4 days'),
+    (gen_random_uuid(), '99999999-9999-4999-8999-999999999997', 'new', 'screening', '22222222-2222-4222-8222-222222222221', 'Đạt vòng lọc hồ sơ UI/Frontend', '{}'::jsonb, now() - INTERVAL '3 days'),
+    (gen_random_uuid(), '99999999-9999-4999-8999-999999999997', 'screening', 'testing', '22222222-2222-4222-8222-222222222221', 'Đang thực hiện bài test UI Component', '{}'::jsonb, now() - INTERVAL '2 days'),
+
+    -- App 9: new -> testing
+    (gen_random_uuid(), '99999999-9999-4999-8999-999999999999', NULL, 'new', '33333333-3333-4333-8333-333333333331', 'Nộp hồ sơ trực tuyến', '{}'::jsonb, now() - INTERVAL '1 day'),
+    (gen_random_uuid(), '99999999-9999-4999-8999-999999999999', 'new', 'testing', '22222222-2222-4222-8222-222222222221', 'Gửi bài tập đánh giá Figma & Design System', '{}'::jsonb, now() - INTERVAL '12 hours');
 
 -- ============================================================================
 -- 11. APPLICATION CV SNAPSHOTS & MATCH RESULTS (AI Screening)
@@ -342,20 +367,61 @@ INSERT INTO application_status_histories (id, application_id, from_stage, to_sta
 INSERT INTO application_cv_snapshots (id, application_id, cv_version_id, created_at) VALUES
     (gen_random_uuid(), '99999999-9999-4999-8999-999999999991', '88888888-7777-4777-8777-777777777701', now() - INTERVAL '8 days'),
     (gen_random_uuid(), '99999999-9999-4999-8999-999999999992', '88888888-7777-4777-8777-777777777702', now() - INTERVAL '6 days'),
-    (gen_random_uuid(), '99999999-9999-4999-8999-999999999994', '88888888-7777-4777-8777-777777777703', now() - INTERVAL '5 days');
+    (gen_random_uuid(), '99999999-9999-4999-8999-999999999993', '88888888-7777-4777-8777-777777777704', now() - INTERVAL '2 days'),
+    (gen_random_uuid(), '99999999-9999-4999-8999-999999999994', '88888888-7777-4777-8777-777777777703', now() - INTERVAL '5 days'),
+    (gen_random_uuid(), '99999999-9999-4999-8999-999999999995', '88888888-7777-4777-8777-777777777703', now() - INTERVAL '12 days'),
+    (gen_random_uuid(), '99999999-9999-4999-8999-999999999996', '88888888-7777-4777-8777-777777777702', now() - INTERVAL '30 days'),
+    (gen_random_uuid(), '99999999-9999-4999-8999-999999999997', '88888888-7777-4777-8777-777777777704', now() - INTERVAL '4 days'),
+    (gen_random_uuid(), '99999999-9999-4999-8999-999999999998', '88888888-7777-4777-8777-777777777703', now() - INTERVAL '3 days'),
+    (gen_random_uuid(), '99999999-9999-4999-8999-999999999999', '88888888-7777-4777-8777-777777777701', now() - INTERVAL '1 day');
 
 INSERT INTO match_results (
     id, application_id, job_id, cv_version_id, overall_score, skills_score, experience_score, breakdown, rationale, created_at
 ) VALUES
     (gen_random_uuid(), '99999999-9999-4999-8999-999999999991', '88888888-8888-4888-8888-888888888882', '88888888-7777-4777-8777-777777777701',
      94, 96, 90,
-     '{"skills": 96, "experience": 90, "education": 95, "culture_fit": 92}'::jsonb,
+     '{"requiredSkills": ["React", "TypeScript"], "matchedSkills": ["React", "TypeScript"], "missingSkills": ["Docker"], "skills": 96, "experience": 90}'::jsonb,
      'Ứng viên đáp ứng xuất sắc các kỹ năng cốt lõi React, TypeScript và Vite. Có 4 năm kinh nghiệm thực tế tại nền tảng TMĐT.', now() - INTERVAL '8 days'),
 
     (gen_random_uuid(), '99999999-9999-4999-8999-999999999992', '88888888-8888-4888-8888-888888888883', '88888888-7777-4777-8777-777777777702',
      91, 93, 88,
-     '{"skills": 93, "experience": 88, "education": 92, "culture_fit": 90}'::jsonb,
-     'Kỹ năng Java và Spring Boot vững vàng. Kiến thức về PostgreSQL và Microservices khớp với nhu cầu dự án.', now() - INTERVAL '6 days');
+     '{"requiredSkills": ["Java", "Spring Boot", "PostgreSQL"], "matchedSkills": ["Java", "Spring Boot", "PostgreSQL"], "missingSkills": [], "skills": 93, "experience": 88}'::jsonb,
+     'Kỹ năng Java và Spring Boot vững vàng. Kiến thức về PostgreSQL và Microservices khớp với nhu cầu dự án.', now() - INTERVAL '6 days'),
+
+    (gen_random_uuid(), '99999999-9999-4999-8999-999999999993', '88888888-8888-4888-8888-888888888881', '88888888-7777-4777-8777-777777777704',
+     86, 90, 80,
+     '{"requiredSkills": ["Figma", "UI/UX Research"], "matchedSkills": ["Figma", "UI/UX Research", "Design System"], "missingSkills": [], "skills": 90, "experience": 80}'::jsonb,
+     'Kinh nghiệm thiết kế Design System và UI/UX Research phù hợp chặt chẽ với vị trí Senior Product Designer.', now() - INTERVAL '2 days'),
+
+    (gen_random_uuid(), '99999999-9999-4999-8999-999999999994', '88888888-8888-4888-8888-888888888884', '88888888-7777-4777-8777-777777777703',
+     82, 85, 78,
+     '{"requiredSkills": ["Playwright"], "matchedSkills": ["Playwright", "Postman"], "missingSkills": ["CI/CD"], "skills": 85, "experience": 78}'::jsonb,
+     'Ứng viên có kinh nghiệm thực chiến với Playwright và kiểm thử API tự động.', now() - INTERVAL '5 days'),
+
+    (gen_random_uuid(), '99999999-9999-4999-8999-999999999995', '88888888-8888-4888-8888-888888888881', '88888888-7777-4777-8777-777777777703',
+     45, 40, 50,
+     '{"requiredSkills": ["Figma", "UI/UX Research"], "matchedSkills": [], "missingSkills": ["Figma", "UI/UX Research"], "skills": 40, "experience": 50}'::jsonb,
+     'Hồ sơ thiên về QA Automation, thiếu kỹ năng cốt lõi về Figma và nghiên cứu UX cho vai trò Product Designer.', now() - INTERVAL '12 days'),
+
+    (gen_random_uuid(), '99999999-9999-4999-8999-999999999996', '88888888-8888-4888-8888-888888888885', '88888888-7777-4777-8777-777777777702',
+     89, 88, 90,
+     '{"requiredSkills": ["Docker", "Kubernetes"], "matchedSkills": ["Docker"], "missingSkills": ["Kubernetes"], "skills": 88, "experience": 90}'::jsonb,
+     'Nền tảng hệ thống backend và Docker rất tốt, đáp ứng yêu cầu triển khai dịch vụ đám mây.', now() - INTERVAL '30 days'),
+
+    (gen_random_uuid(), '99999999-9999-4999-8999-999999999997', '88888888-8888-4888-8888-888888888882', '88888888-7777-4777-8777-777777777704',
+     84, 82, 86,
+     '{"requiredSkills": ["React", "TypeScript"], "matchedSkills": ["Figma", "Design System"], "missingSkills": ["TypeScript"], "skills": 82, "experience": 86}'::jsonb,
+     'Tư duy giao diện và Design System nổi bật, tiềm năng cao cho mảng UI Frontend.', now() - INTERVAL '4 days'),
+
+    (gen_random_uuid(), '99999999-9999-4999-8999-999999999998', '88888888-8888-4888-8888-888888888882', '88888888-7777-4777-8777-777777777703',
+     76, 74, 78,
+     '{"requiredSkills": ["React", "TypeScript"], "matchedSkills": ["Playwright"], "missingSkills": ["React", "TypeScript"], "skills": 74, "experience": 78}'::jsonb,
+     'Am hiểu quy trình kiểm thử ứng dụng web hiện đại, cần bổ sung thêm kinh nghiệm trực tiếp với React/TypeScript.', now() - INTERVAL '3 days'),
+
+    (gen_random_uuid(), '99999999-9999-4999-8999-999999999999', '88888888-8888-4888-8888-888888888881', '88888888-7777-4777-8777-777777777701',
+     79, 78, 82,
+     '{"requiredSkills": ["Figma", "UI/UX Research"], "matchedSkills": ["Figma"], "missingSkills": ["UI/UX Research"], "skills": 78, "experience": 82}'::jsonb,
+     'Có nền tảng Frontend và sử dụng Figma tốt; phù hợp vai trò Design Engineer nhưng cần bổ sung nghiên cứu UX chuyên sâu.', now() - INTERVAL '1 day');
 
 -- ============================================================================
 -- 12. INTERVIEWS (Lịch phỏng vấn mẫu)

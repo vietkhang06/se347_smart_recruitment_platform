@@ -8,15 +8,19 @@ import CategoryModal from "../components/CategoryModal";
 import CustomThreeDotsToggle from "../../../components/common/CustomThreeDotsToggle";
 import { useToast } from "../../../context/ToastContext";
 import { MOCK_TOP_SKILLS } from "../../../mock";
+import { IS_API } from "../../../services/dataMode";
+import { adminService } from "../../../services";
 import { mockStore } from "../../../services/mockStore";
 
 export default function CategoriesView({
-  categories,
-  setCategories
+  categories = [],
+  setCategories,
+  onRefresh
 }) {
   const { showToast } = useToast();
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState([]);
+  const [busy, setBusy] = useState(false);
 
   const isAllSelected =
     categories.length > 0 &&
@@ -48,6 +52,10 @@ export default function CategoriesView({
 
   const handleBulkStatus = (status) => {
     if (!selectedCategoryIds.length) return;
+    if (IS_API) {
+      showToast("Backend chưa hỗ trợ cập nhật trạng thái ẩn/hiện hàng loạt cho danh mục.", "warning");
+      return;
+    }
 
     let succeeded = 0;
     const failedIds = [];
@@ -99,30 +107,60 @@ export default function CategoriesView({
     );
   };
 
-  const handleBulkDelete = () => {
+  const handleBulkDelete = async () => {
     if (
-      window.confirm(
+      !window.confirm(
         `Xác nhận xóa ${selectedCategoryIds.length} danh mục ngành nghề đã chọn?`
       )
     ) {
-      selectedCategoryIds.forEach((id) =>
-        mockStore.deleteCategory(id)
-      );
-      setCategories(mockStore.getCategories());
+      return;
+    }
+    setBusy(true);
+    let deletedCount = 0;
+    const failedIds = [];
+    try {
+      for (const id of selectedCategoryIds) {
+        try {
+          await adminService.deleteCategory(id);
+          deletedCount += 1;
+        } catch {
+          failedIds.push(id);
+        }
+      }
+      setSelectedCategoryIds(failedIds);
+      if (onRefresh) await onRefresh();
+      else if (!IS_API) setCategories(mockStore.getCategories());
       showToast(
-        `Đã xóa ${selectedCategoryIds.length} danh mục ngành nghề`
+        failedIds.length
+          ? `Đã xóa ${deletedCount} danh mục; ${failedIds.length} danh mục đang có tin tuyển dụng hoặc không thể xóa.`
+          : `Đã xóa ${deletedCount} danh mục ngành nghề.`,
+        failedIds.length ? "warning" : "success"
       );
-      setSelectedCategoryIds([]);
+    } finally {
+      setBusy(false);
     }
   };
 
-  const handleCreateCategory = (newCat) => {
-    mockStore.saveCategory(newCat);
-    setCategories(mockStore.getCategories());
-    showToast(`Đã thêm danh mục mới: ${newCat.name}`);
+  const handleCreateCategory = async (newCat) => {
+    setBusy(true);
+    try {
+      const created = await adminService.createCategory(newCat);
+      setCategories((prev) => [...prev, created]);
+      if (onRefresh) await onRefresh();
+      else if (!IS_API) setCategories(mockStore.getCategories());
+      showToast(`Đã thêm danh mục mới: ${created?.name || newCat.name}`);
+    } catch (err) {
+      showToast(err?.message || "Không thể thêm danh mục (tên có thể đã tồn tại).", "danger");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const toggleCategoryStatus = (id, name) => {
+    if (IS_API) {
+      showToast("Backend chưa hỗ trợ cập nhật trạng thái danh mục.", "warning");
+      return;
+    }
     const nextStatus = mockStore.toggleCategoryStatus(id);
     setCategories(mockStore.getCategories());
     showToast(
@@ -130,18 +168,26 @@ export default function CategoriesView({
     );
   };
 
-  const handleDeleteCategory = (id, name) => {
+  const handleDeleteCategory = async (id, name) => {
     if (
-      window.confirm(
+      !window.confirm(
         `Xác nhận xóa danh mục ngành nghề "${name}"?`
       )
     ) {
-      mockStore.deleteCategory(id);
-      setCategories(mockStore.getCategories());
+      return;
+    }
+    setBusy(true);
+    try {
+      await adminService.deleteCategory(id);
+      setCategories((prev) => prev.filter((item) => String(item.id) !== String(id)));
+      setSelectedCategoryIds((prev) => prev.filter((item) => String(item) !== String(id)));
+      if (onRefresh) await onRefresh();
+      else if (!IS_API) setCategories(mockStore.getCategories());
       showToast(`Đã xóa danh mục ${name}`);
-      setSelectedCategoryIds((prev) =>
-        prev.filter((item) => item !== id)
-      );
+    } catch (err) {
+      showToast(err?.message || "Không thể xóa danh mục đang được tin tuyển dụng sử dụng.", "danger");
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -174,6 +220,7 @@ export default function CategoriesView({
             variant="success"
             size="sm"
             className="fw-bold"
+            disabled={busy}
             onClick={() => setShowAddModal(true)}
           >
             <i className="bi bi-plus-lg me-1" />
@@ -227,6 +274,7 @@ export default function CategoriesView({
               variant="outline-danger"
               size="sm"
               className="rounded-pill"
+              disabled={busy}
               onClick={handleBulkDelete}
             >
               <i className="bi bi-trash me-1" />

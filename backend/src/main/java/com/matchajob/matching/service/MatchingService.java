@@ -134,6 +134,7 @@ public class MatchingService {
      * delegating to the same execution path used by the background scheduler.
      */
     public MatchResult evaluateApplicationMatch(UUID applicationId) {
+
         if (applicationId == null) {
             throw new IllegalArgumentException("Application ID is required.");
         }

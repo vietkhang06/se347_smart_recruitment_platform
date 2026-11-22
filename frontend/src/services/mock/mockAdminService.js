@@ -1,8 +1,8 @@
+import { mockStore, setAdminStatus } from "../mockStore";
 import {
   ADMIN_REVIEWS_FIXTURE,
   ADMIN_USERS_FIXTURE,
   ADMIN_REPORTS_FIXTURE,
-  ADMIN_CATEGORIES_FIXTURE,
   ADMIN_AUDIT_LOGS_FIXTURE
 } from "../../fixtures/admin.fixture";
 
@@ -69,7 +69,8 @@ export const mockAdminService = {
 
   async getUsers() {
     await delay();
-    const list = load(STORAGE_KEYS.USERS, ADMIN_USERS_FIXTURE);
+    const storeUsers = mockStore.getUsers();
+    const list = Array.isArray(storeUsers) && storeUsers.length > 0 ? storeUsers : load(STORAGE_KEYS.USERS, ADMIN_USERS_FIXTURE);
     return list.map((u) => ({
       ...u,
       name: u.name || u.fullName || "Người dùng",
@@ -79,6 +80,26 @@ export const mockAdminService = {
       joined: u.joined || u.createdAt || "01/01/2026",
       avatar: u.avatar || (u.name || u.fullName || "US").slice(0, 2).toUpperCase()
     }));
+  },
+
+  async getUsersPage(params = {}) {
+    const items = await this.getUsers();
+    return {
+      items,
+      page: params.page ?? 0,
+      size: items.length,
+      totalElements: items.length,
+      totalPages: 1
+    };
+  },
+
+  async updateUserStatus(userId, nextStatus) {
+    await delay();
+    const targetStatus =
+      nextStatus === "Tạm khóa" || String(nextStatus).toLowerCase() === "suspended"
+        ? "Tạm khóa"
+        : "Hoạt động";
+    return setAdminStatus(userId, targetStatus);
   },
 
   async getReports() {
@@ -105,7 +126,46 @@ export const mockAdminService = {
 
   async getCategories() {
     await delay();
-    return load(STORAGE_KEYS.CATEGORIES, ADMIN_CATEGORIES_FIXTURE);
+    return mockStore.getCategories();
+  },
+
+  async createCategory(newCat) {
+    await delay();
+    mockStore.saveCategory(newCat);
+    return newCat;
+  },
+
+  async deleteCategory(id) {
+    await delay();
+    mockStore.deleteCategory(id);
+    return true;
+  },
+
+  async getJobStats() {
+    await delay();
+    const jobs = mockStore.getJobs();
+    const activeJobs = jobs.filter((j) => mockStore.isJobAcceptingApplications(j)).length;
+    const categoryBreakdown = {};
+    const statusBreakdown = {};
+    jobs.forEach((j) => {
+      const st = j.statusCode || j.status || "active";
+      statusBreakdown[st] = (statusBreakdown[st] || 0) + 1;
+      const cat = j.categoryName || j.category || "Khác";
+      categoryBreakdown[cat] = (categoryBreakdown[cat] || 0) + 1;
+    });
+    return {
+      totalJobs: jobs.length,
+      activeJobs,
+      expiredJobs: jobs.filter((j) => j.isExpired).length,
+      draftJobs: jobs.filter((j) => j.statusCode === "draft" || j.status === "Bản nháp").length,
+      pausedJobs: jobs.filter((j) => j.statusCode === "paused" || j.status === "Tạm dừng").length,
+      closedJobs: jobs.filter((j) => j.statusCode === "closed" || j.status === "Đã đóng").length,
+      pendingJobs: jobs.filter((j) => j.statusCode === "pending" || j.status === "Chờ duyệt").length,
+      totalApplicants: jobs.reduce((s, j) => s + Number(j.applicantCount ?? j.applicants ?? 0), 0),
+      totalViews: jobs.reduce((s, j) => s + Number(j.viewCount ?? j.views ?? 0), 0),
+      statusBreakdown,
+      categoryBreakdown
+    };
   },
 
   async getAuditLogs() {

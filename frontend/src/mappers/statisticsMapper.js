@@ -140,21 +140,26 @@ export function toAdminStatisticsViewModel(adminData = {}) {
   const users = adminData.users || [];
   const reviews = adminData.reviews || [];
   const reports = adminData.reports || [];
-  const activeJobs = adminData.activeJobsCount || 1280;
+  const totalUsers = adminData.totalUsers ?? users.length;
+  const activeJobs = adminData.activeJobsCount ?? adminData.jobStats?.activeJobs ?? 0;
+  const totalJobs = adminData.jobStats?.totalJobs ?? activeJobs;
 
-  const pendingReviews = reviews.filter(
-    (r) => r.status === "Chờ duyệt" || r.status === "Cần kiểm tra" || r.status === "Chờ xác minh"
-  ).length;
+  const pendingReviews =
+    adminData.pendingJobsCount ??
+    reviews.filter(
+      (r) => r.status === "Chờ duyệt" || r.status === "Cần kiểm tra" || r.status === "Chờ xác minh"
+    ).length;
 
   const pendingReports = reports.filter((r) => r.status !== "Đã xử lý").length;
+  const severeReports = reports.filter((r) => r.severity === "Nghiêm trọng" && r.status !== "Đã xử lý").length;
 
   return {
     summaryCards: [
       {
         key: "total_users",
         label: "Tổng người dùng",
-        value: formatNumber(18200 + users.length),
-        change: "Tài khoản hệ thống",
+        value: formatNumber(totalUsers),
+        change: "Tài khoản trong hệ thống",
         isPositive: true,
         tone: "purple",
         icon: "●"
@@ -163,14 +168,14 @@ export function toAdminStatisticsViewModel(adminData = {}) {
         key: "active_jobs",
         label: "Tin đang hiển thị",
         value: formatNumber(activeJobs),
-        change: "Đã duyệt và đang nhận đơn",
+        change: `Tổng ${formatNumber(totalJobs)} tin tuyển dụng`,
         isPositive: true,
         tone: "green",
         icon: "▣"
       },
       {
         key: "pending_reviews",
-        label: "Hồ sơ chờ duyệt",
+        label: "Tin / Hồ sơ chờ duyệt",
         value: formatNumber(pendingReviews),
         change: `${reviews.filter((r) => r.risk === "Cao").length} rủi ro cao`,
         isPositive: false,
@@ -181,12 +186,13 @@ export function toAdminStatisticsViewModel(adminData = {}) {
         key: "flagged_reports",
         label: "Báo cáo rủi ro",
         value: formatNumber(pendingReports),
-        change: `${reports.filter((r) => r.severity === "Nghiêm trọng").length} nghiêm trọng`,
+        change: `${severeReports} nghiêm trọng`,
         isPositive: false,
         tone: "red",
         icon: "!"
       }
     ],
+    jobStats: adminData.jobStats || null,
     growthChart: createDefaultAdminStatistics().growthChart
   };
 }

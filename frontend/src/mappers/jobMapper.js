@@ -1,5 +1,11 @@
 import { createDefaultJob } from "../models/JobViewModel";
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const toValidUuid = (val) => {
+  const s = String(val || "").trim();
+  return UUID_REGEX.test(s) ? s : null;
+};
+
 // Bảng tra cứu trạng thái tin tuyển dụng
 export const JOB_STATUS_MAP = {
   active: { text: "Đang tuyển", variant: "success" },
@@ -213,16 +219,75 @@ function toIsoDate(dateStr) {
   return null;
 }
 
+function normalizeSalaryCurrency(rawCurrency) {
+  const s = String(rawCurrency || "").trim().toUpperCase();
+  if (s.includes("USD") || s.includes("$")) return "USD";
+  return "VND";
+}
+
+function normalizeSalaryAmount(val, rawCurrency) {
+  if (val === null || val === undefined || val === "") return null;
+  const num = Number(val);
+  if (!Number.isFinite(num) || num <= 0) return null;
+  const isMillionUnit = /tri[eệ]u/i.test(String(rawCurrency || ""));
+  if (isMillionUnit && num < 10000) {
+    return Math.round(num * 1000000);
+  }
+  return Math.round(num);
+}
+
+function normalizeSalaryPayload(vm) {
+  const rawCurrency = vm.salaryCurrency;
+  const salaryCurrency = normalizeSalaryCurrency(rawCurrency);
+  const rawMode = String(vm.salaryMode || "range").trim().toLowerCase();
+
+  if (rawMode === "negotiable") {
+    return { salaryMode: "negotiable", salaryMin: null, salaryMax: null, salaryCurrency };
+  }
+
+  if (["single", "from", "under"].includes(rawMode)) {
+    const singleVal = normalizeSalaryAmount(vm.salaryMin ?? vm.salarySingle, rawCurrency);
+    if (singleVal == null) {
+      return { salaryMode: "negotiable", salaryMin: null, salaryMax: null, salaryCurrency };
+    }
+    return { salaryMode: "single", salaryMin: singleVal, salaryMax: null, salaryCurrency };
+  }
+
+  const minVal = normalizeSalaryAmount(vm.salaryMin, rawCurrency);
+  const maxVal = normalizeSalaryAmount(vm.salaryMax, rawCurrency);
+  if (minVal != null && maxVal != null) {
+    return {
+      salaryMode: "range",
+      salaryMin: Math.min(minVal, maxVal),
+      salaryMax: Math.max(minVal, maxVal),
+      salaryCurrency
+    };
+  }
+  if (minVal != null || maxVal != null) {
+    return {
+      salaryMode: "single",
+      salaryMin: minVal ?? maxVal,
+      salaryMax: null,
+      salaryCurrency
+    };
+  }
+  return { salaryMode: "negotiable", salaryMin: null, salaryMax: null, salaryCurrency };
+}
+
 /**
  * Chuyển đổi từ JobViewModel hoặc form data sang JobCreateRequest DTO (POST /api/v1/employer/jobs)
  */
 export function toJobCreateRequest(vm, companyId = "COMP-01") {
-  // Map skills sang List<JobSkillItem>
-  const skillsPayload = (vm.skillsWithRequirement || []).map((s) => ({
-    skillId: s.skillId || s.id || (typeof s === "string" ? s : null),
-    skillName: s.name || s.skillName || (typeof s === "string" ? s : ""),
-    isRequired: s.isRequired !== undefined ? Boolean(s.isRequired) : true
-  })).filter((s) => s.skillId || s.skillName);
+  // Map skills sang List<JobSkillItem> (chi gui skillId khi la UUID hop le, Backend tu lookup theo skillName)
+  const skillsPayload = (vm.skillsWithRequirement || []).map((s) => {
+    const rawId = s.skillId || s.id || null;
+    const skillName = s.name || s.skillName || (typeof s === "string" ? s : "");
+    return {
+      skillId: toValidUuid(rawId),
+      skillName,
+      isRequired: s.isRequired !== undefined ? Boolean(s.isRequired) : true
+    };
+  }).filter((s) => s.skillId || s.skillName);
 
   let statusCode = (vm.status || vm.statusCode || "active").toLowerCase();
   if (statusCode === "bản nháp" || statusCode === "draft") statusCode = "draft";
@@ -230,9 +295,12 @@ export function toJobCreateRequest(vm, companyId = "COMP-01") {
   else if (statusCode === "tạm dừng" || statusCode === "paused") statusCode = "paused";
   else if (statusCode === "đã đóng" || statusCode === "closed") statusCode = "closed";
 
+  const resolvedCompanyId = toValidUuid(vm.companyId) || toValidUuid(companyId) || vm.companyId || companyId;
+  const salary = normalizeSalaryPayload(vm);
+
   return {
-    companyId: vm.companyId || companyId,
-    categoryId: vm.categoryId || null,
+    companyId: resolvedCompanyId,
+    categoryId: toValidUuid(vm.categoryId),
     title: vm.title,
     department: vm.department || vm.team || "Engineering",
     level: vm.levelCode || "middle",
@@ -240,10 +308,10 @@ export function toJobCreateRequest(vm, companyId = "COMP-01") {
     location: vm.location || "TP. Hồ Chí Minh",
     address: vm.address || "",
     mapLink: vm.mapLink || "",
-    salaryMode: vm.salaryMode || "range",
-    salaryMin: vm.salaryMin,
-    salaryMax: vm.salaryMax,
-    salaryCurrency: vm.salaryCurrency || "VND",
+    salaryMode: salary.salaryMode,
+    salaryMin: salary.salaryMin,
+    salaryMax: salary.salaryMax,
+    salaryCurrency: salary.salaryCurrency,
     experience: vm.experience || "1-3 năm",
     description: vm.description || "",
     requirements: vm.requirements || "",
@@ -262,14 +330,20 @@ export function toJobCreateRequest(vm, companyId = "COMP-01") {
  * Chuyển đổi từ JobViewModel sang JobUpdateRequest DTO (PUT /api/v1/employer/jobs/{id})
  */
 export function toJobUpdateRequest(vm) {
-  const skillsPayload = (vm.skillsWithRequirement || []).map((s) => ({
-    skillId: s.skillId || s.id || (typeof s === "string" ? s : null),
-    skillName: s.name || s.skillName || (typeof s === "string" ? s : ""),
-    isRequired: s.isRequired !== undefined ? Boolean(s.isRequired) : true
-  })).filter((s) => s.skillId || s.skillName);
+  const skillsPayload = (vm.skillsWithRequirement || []).map((s) => {
+    const rawId = s.skillId || s.id || null;
+    const skillName = s.name || s.skillName || (typeof s === "string" ? s : "");
+    return {
+      skillId: toValidUuid(rawId),
+      skillName,
+      isRequired: s.isRequired !== undefined ? Boolean(s.isRequired) : true
+    };
+  }).filter((s) => s.skillId || s.skillName);
+
+  const salary = normalizeSalaryPayload(vm);
 
   return {
-    categoryId: vm.categoryId || null,
+    categoryId: toValidUuid(vm.categoryId),
     title: vm.title,
     department: vm.department || vm.team,
     level: vm.levelCode,
@@ -277,10 +351,10 @@ export function toJobUpdateRequest(vm) {
     location: vm.location,
     address: vm.address,
     mapLink: vm.mapLink,
-    salaryMode: vm.salaryMode,
-    salaryMin: vm.salaryMin,
-    salaryMax: vm.salaryMax,
-    salaryCurrency: vm.salaryCurrency || "VND",
+    salaryMode: salary.salaryMode,
+    salaryMin: salary.salaryMin,
+    salaryMax: salary.salaryMax,
+    salaryCurrency: salary.salaryCurrency,
     experience: vm.experience,
     description: vm.description,
     requirements: vm.requirements,

@@ -4,13 +4,21 @@ import Card from "react-bootstrap/Card";
 import Button from "react-bootstrap/Button";
 import Badge from "react-bootstrap/Badge";
 import RecruitmentTrendChart from "../../../components/charts/RecruitmentTrendChart";
-import { formatNumber, formatPercent } from "../../../utils/formatUtils";
+import { formatPercent } from "../../../utils/formatUtils";
 
 export default function OverviewView({ employerData, onOpenComposer, onOpenCandidate, onNavigateTab }) {
   const metrics = Array.isArray(employerData?.metrics) ? employerData.metrics : [];
   const candidates = Array.isArray(employerData?.candidates) ? employerData.candidates : [];
   const interviews = Array.isArray(employerData?.interviews) ? employerData.interviews : [];
   const activity = Array.isArray(employerData?.activity) ? employerData.activity : [];
+
+  const featuredCandidates = [...candidates].sort((a, b) => {
+    const scoreA = a.matchScore ?? a.match;
+    const scoreB = b.matchScore ?? b.match;
+    const numA = scoreA != null && scoreA !== "" && Number.isFinite(Number(scoreA)) ? Number(scoreA) : -1;
+    const numB = scoreB != null && scoreB !== "" && Number.isFinite(Number(scoreB)) ? Number(scoreB) : -1;
+    return numB - numA;
+  });
 
   return (
     <div data-aos="fade-up">
@@ -44,7 +52,12 @@ export default function OverviewView({ employerData, onOpenComposer, onOpenCandi
               <span className="badge bg-success bg-opacity-10 text-success p-2">Dữ liệu hệ thống</span>
             </div>
 
-            <RecruitmentTrendChart weeklyData={employerData.weeklyPerformance} />
+            <RecruitmentTrendChart
+              weeklyData={employerData.weeklyPerformance}
+              isLoading={Boolean(employerData?.isLoading)}
+              error={employerData?.error || null}
+              onRetry={employerData?.onRetry}
+            />
           </Card>
         </Col>
 
@@ -83,12 +96,16 @@ export default function OverviewView({ employerData, onOpenComposer, onOpenCandi
 
             <h6 className="fw-bold mb-2">Hoạt động mới nhất</h6>
             <div className="d-flex flex-column gap-2 small text-muted mt-auto">
-              {activity.map((act, i) => (
-                <div key={i} className="d-flex align-items-start gap-2">
-                  <span className="badge bg-secondary bg-opacity-10 text-body flex-shrink-0">{act.time}</span>
-                  <span className="text-truncate-2">{act.text}</span>
-                </div>
-              ))}
+              {activity.length === 0 ? (
+                <div className="text-muted small">Chưa có hoạt động tuyển dụng gần đây.</div>
+              ) : (
+                activity.map((act, i) => (
+                  <div key={i} className="d-flex align-items-start gap-2">
+                    <span className="badge bg-secondary bg-opacity-10 text-body flex-shrink-0">{act.time}</span>
+                    <span className="text-truncate-2">{act.text}</span>
+                  </div>
+                ))
+              )}
             </div>
           </Card>
         </Col>
@@ -120,8 +137,9 @@ export default function OverviewView({ employerData, onOpenComposer, onOpenCandi
               </div>
             </Col>
           ) : (
-            candidates.slice(0, 3).map((c) => {
-              const score = c.matchScore ?? c.match ?? 88;
+            featuredCandidates.slice(0, 3).map((c) => {
+              const rawScore = c.matchScore ?? c.match;
+              const score = rawScore != null && rawScore !== "" && Number.isFinite(Number(rawScore)) ? Number(rawScore) : null;
               return (
                 <Col xs={12} md={4} key={c.id || c.applicationId}>
                   <Card className="p-3 border shadow-sm h-100 bg-surface d-flex flex-column hover-shadow transition-all">
@@ -140,8 +158,11 @@ export default function OverviewView({ employerData, onOpenComposer, onOpenCandi
                           </span>
                         </div>
                       </div>
-                      <Badge bg="success" className="bg-opacity-10 text-success flex-shrink-0">
-                        {score}%
+                      <Badge
+                        bg={score !== null ? "success" : "secondary"}
+                        className={`bg-opacity-10 ${score !== null ? "text-success" : "text-muted"} flex-shrink-0`}
+                      >
+                        {score !== null ? formatPercent(score) : "Chờ AI"}
                       </Badge>
                     </div>
                     <div className="d-flex flex-wrap gap-1 mb-2">

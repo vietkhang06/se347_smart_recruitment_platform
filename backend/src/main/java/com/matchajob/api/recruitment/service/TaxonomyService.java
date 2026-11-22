@@ -24,21 +24,24 @@ public class TaxonomyService {
 
     public List<CategoryResponse> getAllCategories() {
         return categoryRepository.findByDeletedAtIsNullOrderBySortOrderAscNameAsc().stream()
-                .map(CategoryResponse::from).toList();
+                .map(CategoryResponse::from)
+                .toList();
     }
 
     public Category createCategory(Category category) {
         if (category.getName() != null && categoryRepository.findByNameIgnoreCase(category.getName()).isPresent()) {
-            throw new IllegalArgumentException("Category already exists.");
+            throw new IllegalArgumentException("Category with name " + category.getName() + " already exists");
         }
         return categoryRepository.save(category);
     }
 
     public void deleteCategory(UUID id) {
+        Category category = categoryRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Category not found with id: " + id));
         if (jobRepository.existsByCategoryId(id)) {
             throw new IllegalStateException("Cannot delete category currently in use.");
         }
-        categoryRepository.deleteById(id);
+        categoryRepository.delete(category);
     }
 
     public List<String> getWorkTypes() {
@@ -50,6 +53,12 @@ public class TaxonomyService {
     }
 
     public List<String> getSkills() {
-        return skillRepository.findByDeletedAtIsNullOrderByNameAsc().stream().map(Skill::getName).toList();
+        List<String> skills = skillRepository.findByDeletedAtIsNullOrderByNameAsc().stream()
+                .map(Skill::getName)
+                .toList();
+        if (skills.isEmpty()) {
+            return List.of("Java", "Spring Boot", "React", "PostgreSQL", "Docker", "Kubernetes", "Python");
+        }
+        return skills;
     }
 }

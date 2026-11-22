@@ -7,6 +7,7 @@ import Form from "react-bootstrap/Form";
 import Alert from "react-bootstrap/Alert";
 import { useAuth } from "../../../context/AuthContext";
 import { useToast } from "../../../context/ToastContext";
+import { IS_API } from "../../../services/dataMode";
 import { mockStore } from "../../../services/mockStore";
 import { storage } from "../../../services/storage";
 import {
@@ -52,10 +53,20 @@ function readProfile() {
 }
 
 export default function AdminProfileView() {
-  const { logout } = useAuth();
+  const { user: authUser, logout } = useAuth();
   const { showToast } = useToast();
 
-  const [form, setForm] = useState(readProfile);
+  const [form, setForm] = useState(() => {
+    const base = readProfile();
+    if (IS_API && authUser) {
+      return {
+        ...base,
+        name: authUser.name || base.name || "Quản trị viên",
+        email: authUser.email || base.email
+      };
+    }
+    return base;
+  });
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -82,6 +93,16 @@ export default function AdminProfileView() {
         );
       }
 
+      if (!TIMEZONES.includes(form.timezone)) {
+        throw new Error("Múi giờ không hợp lệ.");
+      }
+
+      if (IS_API) {
+        localStorage.setItem(timezoneKey(form.email), form.timezone);
+        showToast("Đã lưu múi giờ ưu tiên. Thông tin tài khoản quản trị được quản lý từ máy chủ.");
+        return;
+      }
+
       const account = mockStore
         .getUsers()
         .find(
@@ -96,10 +117,6 @@ export default function AdminProfileView() {
         throw new Error(
           "Không tìm thấy tài khoản quản trị đang hoạt động tương ứng."
         );
-      }
-
-      if (!TIMEZONES.includes(form.timezone)) {
-        throw new Error("Múi giờ không hợp lệ.");
       }
 
       const key = timezoneKey(form.email);

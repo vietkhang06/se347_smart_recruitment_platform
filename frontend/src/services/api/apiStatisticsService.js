@@ -1,14 +1,13 @@
 import { apiJobService } from "./apiJobService";
 import { apiApplicationService } from "./apiApplicationService";
 import { apiInterviewService } from "./apiInterviewService";
+import { apiAdminService } from "./apiAdminService";
 import { toEmployerStatisticsViewModel, toAdminStatisticsViewModel } from "../../mappers/statisticsMapper";
 import { mockStatisticsService } from "../mock/mockStatisticsService";
 
 /**
  * apiStatisticsService
- * Tính toán & chuyển đổi số liệu tổng hợp cho Employer và Admin.
- * Do Backend chưa có endpoint thống kê riêng, service sẽ tự động tính toán từ các entity
- * đã lấy được qua API hoặc fallback sang Mock.
+ * Tổng hợp & chuyển đổi số liệu cho Employer và Admin từ API thật.
  */
 export const apiStatisticsService = {
   async getEmployerStatistics(companyId = "COMP-01") {
@@ -25,6 +24,21 @@ export const apiStatisticsService = {
   },
 
   async getAdminStatistics() {
-    return mockStatisticsService.getAdminStatistics();
+    const [jobStats, usersPage, reviews, reports] = await Promise.all([
+      apiAdminService.getJobStats(),
+      apiAdminService.getUsersPage({ page: 0, size: 1 }),
+      apiAdminService.getReviews().catch(() => []),
+      apiAdminService.getReports().catch(() => [])
+    ]);
+
+    return toAdminStatisticsViewModel({
+      totalUsers: usersPage.totalElements,
+      users: usersPage.items,
+      activeJobsCount: Number(jobStats?.activeJobs ?? 0),
+      pendingJobsCount: Number(jobStats?.pendingJobs ?? 0),
+      jobStats,
+      reviews,
+      reports
+    });
   }
 };

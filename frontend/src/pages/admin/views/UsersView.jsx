@@ -1,5 +1,7 @@
 import { Alert } from "react-bootstrap";
-import { setAdminStatus, deleteAdminUser, runAdminBatch, copyAdminText } from "../../../services/mockStore";
+import { IS_API } from "../../../services/dataMode";
+import { adminService } from "../../../services";
+import { setAdminStatus, deleteAdminUser, runAdminBatch, copyAdminText, mockStore } from "../../../services/mockStore";
 import { useState, useEffect } from "react";
 import Card from "react-bootstrap/Card";
 import Button from "react-bootstrap/Button";
@@ -11,7 +13,6 @@ import UserDetailModal from "../components/UserDetailModal";
 import UserCreateModal from "../components/UserCreateModal";
 import CustomThreeDotsToggle from "../../../components/common/CustomThreeDotsToggle";
 import { useToast } from "../../../context/ToastContext";
-import { mockStore } from "../../../services/mockStore";
 
 function exportUsers(users) {
   const cell = value => {
@@ -57,9 +58,10 @@ function exportUsers(users) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export default function UsersView({ users = [], setUsers }) {
+export default function UsersView({ users = [], setUsers, onRefresh }) {
   const { showToast } = useToast();
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
@@ -77,16 +79,27 @@ export default function UsersView({ users = [], setUsers }) {
     const matchSearch =
       !q ||
       (u.name || "").toLowerCase().includes(q) ||
+      (u.fullName || "").toLowerCase().includes(q) ||
       (u.email || "").toLowerCase().includes(q) ||
       String(u.id || "").toLowerCase().includes(q);
 
-    const matchRole = roleFilter === "all" ? true : u.role === roleFilter;
+    const isRoleAdmin = u.role === "Quản trị viên" || u.role === "admin" || u.roleCode === "admin";
+    const isRoleEmployer = u.role === "Nhà tuyển dụng" || u.role === "employer" || u.roleCode === "employer";
+    const roleLabel = isRoleAdmin ? "Quản trị viên" : isRoleEmployer ? "Nhà tuyển dụng" : "Ứng viên";
+    const matchRole = roleFilter === "all" ? true : roleLabel === roleFilter || u.role === roleFilter;
 
+    const isActive = u.status === "Hoạt động" || u.status === "Đã xác minh" || u.status === "active" || u.statusCode === "active";
+    const isPending = u.status === "Chờ xác minh" || u.status === "pending" || u.status === "pending_verification" || u.statusCode === "pending_verification";
+    const isSuspended = u.status === "Tạm khóa" || u.status === "suspended" || u.statusCode === "suspended";
     const matchStatus =
       statusFilter === "all"
         ? true
         : statusFilter === "active"
-        ? u.status === "Hoạt động" || u.status === "Đã xác minh"
+        ? isActive
+        : statusFilter === "Tạm khóa"
+        ? isSuspended
+        : statusFilter === "Chờ xác minh"
+        ? isPending
         : u.status === statusFilter;
 
     return matchSearch && matchRole && matchStatus;
@@ -112,6 +125,31 @@ export default function UsersView({ users = [], setUsers }) {
     );
   };
 
+  const runApiStatusBatch = async (ids, targetStatus, label) => {
+    if (!ids.length || busy || !window.confirm(`${label} ${ids.length} tài khoản?`)) return;
+    setBusy(true);
+    setError("");
+    const failed = [];
+    let succeeded = 0;
+    try {
+      for (const id of ids) {
+        try {
+          const updated = await adminService.updateUserStatus(id, targetStatus);
+          setUsers((prev) => prev.map((u) => (String(u.id) === String(id) ? { ...u, ...updated } : u)));
+          succeeded += 1;
+        } catch (err) {
+          failed.push({ id, message: err?.message || "Không cập nhật được trạng thái." });
+        }
+      }
+      setSelectedUserIds(failed.map((item) => item.id));
+      setError(failed.map((item) => `${item.id}: ${item.message}`).join("\n"));
+      showToast(`Đã cập nhật ${succeeded}/${ids.length} tài khoản.`, failed.length ? "warning" : "success");
+      if (onRefresh && succeeded > 0) await onRefresh();
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const run = (ids, operation, label) => {
     if (!ids.length || !window.confirm(`${label} ${ids.length} tài khoản?`)) return;
     const result = runAdminBatch(ids, operation);
@@ -120,16 +158,35 @@ export default function UsersView({ users = [], setUsers }) {
     setError(result.failed.map(item => `${item.id}: ${item.message}`).join("\n"));
     showToast(`Đã xử lý ${result.succeeded}/${ids.length} tài khoản.`);
   };
-  const handleBulkLock = () => run(selectedIds, id => setAdminStatus(id, "Tạm khóa"), "Tạm khóa");
-  const handleBulkActivate = () => run(selectedIds, id => setAdminStatus(id, "Hoạt động"), "Mở khóa");
-  const handleBulkDelete = () => run(selectedIds, deleteAdminUser, "Xóa");
+  const handleBulkLock = () =>
+    IS_API ? runApiStatusBatch(selectedIds, "suspended", "Tạm khóa") : run(selectedIds, id => setAdminStatus(id, "Tạm khóa"), "Tạm khóa");
+  const handleBulkActivate = () =>
+    IS_API ? runApiStatusBatch(selectedIds, "active", "Mở khóa") : run(selectedIds, id => setAdminStatus(id, "Hoạt động"), "Mở khóa");
+  const handleBulkDelete = () => {
+    if (IS_API) {
+      showToast("Backend chưa hỗ trợ API xóa tài khoản; hãy dùng Tạm khóa tài khoản.", "warning");
+      return;
+    }
+    run(selectedIds, deleteAdminUser, "Xóa");
+  };
   const toggleUserStatus = id => {
-    const user = mockStore.getUsers().find(u => u.id === id);
+    const user = users.find(u => String(u.id) === String(id));
     if (!user) return;
     setShowDetailModal(false);
-    run([id], key => setAdminStatus(key, user.status === "Tạm khóa" ? "Hoạt động" : "Tạm khóa"), "Đổi trạng thái");
+    const isLocked = user.status === "Tạm khóa" || user.statusCode === "suspended";
+    if (IS_API) {
+      runApiStatusBatch([id], isLocked ? "active" : "suspended", isLocked ? "Mở khóa" : "Tạm khóa");
+      return;
+    }
+    run([id], key => setAdminStatus(key, isLocked ? "Hoạt động" : "Tạm khóa"), "Đổi trạng thái");
   };
-  const handleDeleteUser = id => run([id], deleteAdminUser, "Xóa");
+  const handleDeleteUser = id => {
+    if (IS_API) {
+      showToast("Backend chưa hỗ trợ API xóa tài khoản; hãy dùng Tạm khóa tài khoản.", "warning");
+      return;
+    }
+    run([id], deleteAdminUser, "Xóa");
+  };
 
   const handleOpenDetail = (user) => {
     setSelectedUser(user);
@@ -164,6 +221,8 @@ export default function UsersView({ users = [], setUsers }) {
             variant="success"
             size="sm"
             className="fw-bold"
+            disabled={busy || IS_API}
+            title={IS_API ? "Backend chưa hỗ trợ Admin tạo tài khoản trực tiếp; người dùng đăng ký qua /register." : ""}
             onClick={() => setShowCreateModal(true)}
           >
             <i className="bi bi-person-plus me-1"></i>Thêm người dùng
@@ -360,7 +419,10 @@ export default function UsersView({ users = [], setUsers }) {
                     <td className="text-center">
                       <Dropdown align="end">
                         <Dropdown.Toggle as={CustomThreeDotsToggle} />
-                        <Dropdown.Menu className="matcha-dropdown-menu py-2">
+                        <Dropdown.Menu
+                          className="matcha-dropdown-menu py-2"
+                          popperConfig={{ strategy: "fixed" }}
+                        >
                           <Dropdown.Item
                             onClick={() => handleOpenDetail(u)}
                             className="small py-2"
@@ -384,6 +446,7 @@ export default function UsersView({ users = [], setUsers }) {
                             <i className="bi bi-envelope text-secondary me-2"></i>Sao chép email
                           </Dropdown.Item>
                           <Dropdown.Item
+                            disabled={IS_API || busy}
                             onClick={() => handleDeleteUser(u.id)}
                             className="small py-2 text-danger"
                           >

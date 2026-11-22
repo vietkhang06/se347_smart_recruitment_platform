@@ -68,7 +68,7 @@ class MatchingSchedulerTest {
                 .claimNextMatchingJob();
 
         verify(matchingService)
-                .evaluateApplicationMatch(job.getEntityId());
+                .evaluateApplicationMatch(job);
 
         verify(processingJobService, never())
                 .markJobFailed(any(), anyString(), anyBoolean());
@@ -96,12 +96,12 @@ class MatchingSchedulerTest {
 
         doThrow(new MatchingService.MatchNotReadyException(
                 "CV extraction not complete"
-        )).when(matchingService).evaluateApplicationMatch(job.getEntityId());
+        )).when(matchingService).evaluateApplicationMatch(job);
 
         scheduler.poll();
 
         verify(matchingService)
-                .evaluateApplicationMatch(job.getEntityId());
+                .evaluateApplicationMatch(job);
 
         verify(processingJobService, never())
                 .markJobFailed(any(), anyString(), anyBoolean());
@@ -129,12 +129,12 @@ class MatchingSchedulerTest {
 
         doThrow(new ResourceAccessException("Connection refused"))
                 .when(matchingService)
-                .evaluateApplicationMatch(job.getEntityId());
+                .evaluateApplicationMatch(job);
 
         scheduler.poll();
 
         verify(matchingService)
-                .evaluateApplicationMatch(job.getEntityId());
+                .evaluateApplicationMatch(job);
 
         verify(processingJobService, never())
                 .markJobFailed(any(), anyString(), anyBoolean());
@@ -156,7 +156,7 @@ class MatchingSchedulerTest {
 
         doThrow(new RuntimeException("worker failed"))
                 .when(matchingService)
-                .evaluateApplicationMatch(any(UUID.class));
+                .evaluateApplicationMatch(any(ProcessingJob.class));
 
         scheduler.poll();
 
