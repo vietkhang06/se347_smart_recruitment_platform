@@ -21,6 +21,7 @@ build/
 .cache/
 tmp/
 temp/
+backups/
 
 # Python virtualenv & cache
 .venv/
@@ -62,6 +63,8 @@ docs/**
 !docs/contracts/**
 !docs/weekly/
 !docs/weekly/**
+!docs/qa/
+!docs/qa/**
 FE_WORKFLOW.md
 FE_UI_FLOW.md
 README_FE.md
@@ -104,6 +107,9 @@ scratch/
 .matching-evidence/
 matching-live-evidence/
 !docs/MATCHING_TASK_COPY_GUIDE_VI.md
+!docs/DEPLOYMENT_RUNBOOK.md
+!docs/FINAL_ACCEPTANCE_REPORT.md
+!docs/CLEAN_MACHINE_VERIFICATION_PROMPT.md
 .worktrees/
 .claude/
 .claude/

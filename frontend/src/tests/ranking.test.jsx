@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { toRankingViewModel, toRankingListViewModel, determineScoreLevel } from "../mappers/rankingMapper";
-import { apiApplicationService } from "../services/api/apiApplicationService";
+import { applicationService } from "../services";
 import RankingView from "../pages/employer/views/RankingView";
 
 // Mock ToastContext
@@ -104,7 +104,7 @@ describe("RankingView Component", () => {
   });
 
   it("gọi API getJobRanking khi render với jobId mặc định", async () => {
-    const spy = vi.spyOn(apiApplicationService, "getJobRanking").mockResolvedValue(mockRankingItems);
+    const spy = vi.spyOn(applicationService, "getJobRanking").mockResolvedValue(mockRankingItems);
     render(<RankingView jobs={mockJobs} />);
 
     await waitFor(() => {
@@ -118,7 +118,7 @@ describe("RankingView Component", () => {
   });
 
   it("hiển thị trạng thái lỗi và cho phép thử lại khi API gặp sự cố", async () => {
-    vi.spyOn(apiApplicationService, "getJobRanking").mockRejectedValueOnce(new Error("Lỗi máy chủ 500"));
+    vi.spyOn(applicationService, "getJobRanking").mockRejectedValueOnce(new Error("Lỗi máy chủ 500"));
     render(<RankingView jobs={mockJobs} />);
 
     expect(await screen.findByText("Lỗi máy chủ 500")).toBeTruthy();
@@ -126,7 +126,7 @@ describe("RankingView Component", () => {
     expect(retryBtn).toBeTruthy();
 
     // Thử lại thành công
-    vi.spyOn(apiApplicationService, "getJobRanking").mockResolvedValueOnce(mockRankingItems);
+    vi.spyOn(applicationService, "getJobRanking").mockResolvedValueOnce(mockRankingItems);
     fireEvent.click(retryBtn);
 
     const elements = await screen.findAllByText("Trần Bảo Long");
@@ -134,14 +134,14 @@ describe("RankingView Component", () => {
   });
 
   it("hiển thị trạng thái rỗng khi vị trí chưa có ứng viên", async () => {
-    vi.spyOn(apiApplicationService, "getJobRanking").mockResolvedValue([]);
+    vi.spyOn(applicationService, "getJobRanking").mockResolvedValue([]);
     render(<RankingView jobs={mockJobs} />);
 
     expect(await screen.findByText(/Chưa có ứng viên nào phù hợp/i)).toBeTruthy();
   });
 
   it("lọc ứng viên theo điểm số tối thiểu", async () => {
-    vi.spyOn(apiApplicationService, "getJobRanking").mockResolvedValue(mockRankingItems);
+    vi.spyOn(applicationService, "getJobRanking").mockResolvedValue(mockRankingItems);
     render(<RankingView jobs={mockJobs} />);
 
     await screen.findAllByText("Trần Bảo Long");

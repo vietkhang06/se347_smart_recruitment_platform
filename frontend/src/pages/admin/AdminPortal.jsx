@@ -1,6 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Container, Badge, Button } from "react-bootstrap";
+import { Container, Badge, Button, Alert, Spinner } from "react-bootstrap";
+import { IS_API } from "../../services/dataMode";
+import { adminService, statisticsService } from "../../services";
 import { MATCHAJOB_MOCK } from "../../services/mockData";
 import { mockStore } from "../../services/mockStore";
 import { useToast } from "../../context/ToastContext";
@@ -42,19 +44,19 @@ export default function AdminPortal() {
   );
 
   const [reviews, setReviews] = useState(() =>
-    mockStore.getReviews()
+    IS_API ? [] : mockStore.getReviews()
   );
 
   const [users, setUsers] = useState(() =>
-    mockStore.getUsers()
+    IS_API ? [] : mockStore.getUsers()
   );
 
   const [reports, setReports] = useState(() =>
-    mockStore.getReports()
+    IS_API ? [] : mockStore.getReports()
   );
 
   const [categories, setCategories] = useState(() =>
-    mockStore.getCategories()
+    IS_API ? [] : mockStore.getCategories()
   );
 
   const [notifications, setNotifications] = useState(() =>
@@ -62,37 +64,93 @@ export default function AdminPortal() {
   );
 
   const [logs, setLogs] = useState(() =>
-    mockStore.getAuditLogs()
+    IS_API ? [] : mockStore.getAuditLogs()
   );
+
+  const [adminStats, setAdminStats] = useState(null);
+  const [loading, setLoading] = useState(IS_API);
+  const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
     setActiveTab(getTab(location.hash));
+    window.scrollTo(0, 0);
   }, [location.hash]);
 
-  useEffect(() => {
-    const refresh = () => {
+  const refreshAdminData = useCallback(async () => {
+    if (!IS_API) {
       setReviews(mockStore.getReviews());
       setUsers(mockStore.getUsers());
       setReports(mockStore.getReports());
       setCategories(mockStore.getCategories());
       setNotifications(mockStore.getNotifications());
       setLogs(mockStore.getAuditLogs());
+      const stats = await statisticsService.getAdminStatistics().catch(() => null);
+      setAdminStats(stats);
+      setLoading(false);
+      setLoadError("");
+      return;
+    }
+
+    setLoading(true);
+    setLoadError("");
+
+    const results = await Promise.allSettled([
+      statisticsService.getAdminStatistics(),
+      adminService.getUsers({ page: 0, size: 100 }),
+      adminService.getReviews(),
+      adminService.getReports(),
+      adminService.getAuditLogs()
+    ]);
+
+    const errors = [];
+    const statsRes = results[0];
+    let categoryJobCounts = {};
+    if (statsRes.status === "fulfilled" && statsRes.value) {
+      setAdminStats(statsRes.value);
+      categoryJobCounts = statsRes.value.jobStats?.categoryBreakdown || {};
+    } else if (statsRes.status === "rejected") {
+      errors.push(`Thống kê: ${statsRes.reason?.message || "Lỗi tải dữ liệu"}`);
+    }
+
+    if (results[1].status === "fulfilled" && Array.isArray(results[1].value)) {
+      setUsers(results[1].value);
+    } else if (results[1].status === "rejected") {
+      errors.push(`Người dùng: ${results[1].reason?.message || "Lỗi tải dữ liệu"}`);
+    }
+
+    if (results[2].status === "fulfilled" && Array.isArray(results[2].value)) setReviews(results[2].value);
+    if (results[3].status === "fulfilled" && Array.isArray(results[3].value)) setReports(results[3].value);
+    if (results[4].status === "fulfilled" && Array.isArray(results[4].value)) setLogs(results[4].value);
+
+    try {
+      const cats = await adminService.getCategories(categoryJobCounts);
+      if (Array.isArray(cats)) setCategories(cats);
+    } catch (err) {
+      errors.push(`Danh mục: ${err?.message || "Lỗi tải dữ liệu"}`);
+    }
+
+    setLoadError(errors.join(". "));
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    refreshAdminData();
+  }, [refreshAdminData]);
+
+  useEffect(() => {
+    if (IS_API) return;
+    const refresh = () => {
+      refreshAdminData();
     };
 
-    window.addEventListener(
-      "matchajob:store-changed",
-      refresh
-    );
+    window.addEventListener("matchajob:store-changed", refresh);
     window.addEventListener("storage", refresh);
 
     return () => {
-      window.removeEventListener(
-        "matchajob:store-changed",
-        refresh
-      );
+      window.removeEventListener("matchajob:store-changed", refresh);
       window.removeEventListener("storage", refresh);
     };
-  }, []);
+  }, [refreshAdminData]);
 
   const handleTabChange = (tab) => {
     const next = VALID_TABS.includes(tab) ? tab : "overview";
@@ -100,11 +158,11 @@ export default function AdminPortal() {
     navigate({ pathname: location.pathname, search: location.search, hash: `#${next}` });
   };
 
-  const pendingReviewsCount = reviews.filter((review) =>
-    ["Chờ duyệt", "Cần kiểm tra", "Chờ xác minh"].includes(
-      review.status
-    )
-  ).length;
+  const pendingReviewsCount =
+    adminStats?.jobStats?.pendingJobs ??
+    reviews.filter((review) =>
+      ["Chờ duyệt", "Cần kiểm tra", "Chờ xác minh"].includes(review.status)
+    ).length;
 
   const pendingReportsCount = reports.filter(
     (report) => report.status !== "Đã xử lý"
@@ -116,11 +174,9 @@ export default function AdminPortal() {
       report.status !== "Đã xử lý"
   ).length;
 
-  const activeJobsCount = mockStore
-    .getJobs()
-    .filter((job) =>
-      mockStore.isJobAcceptingApplications(job)
-    ).length;
+  const activeJobsCount =
+    adminStats?.jobStats?.activeJobs ??
+    mockStore.getJobs().filter((job) => mockStore.isJobAcceptingApplications(job)).length;
 
   const pendingCompanyReviews = reviews.filter(
     (review) =>
@@ -128,11 +184,13 @@ export default function AdminPortal() {
       ["Chờ xác minh", "Cần kiểm tra"].includes(review.status)
   ).length;
 
-  const pendingJobReviews = reviews.filter(
-    (review) =>
-      review.type === "job" &&
-      ["Chờ duyệt", "Cần kiểm tra"].includes(review.status)
-  ).length;
+  const pendingJobReviews =
+    adminStats?.jobStats?.pendingJobs ??
+    reviews.filter(
+      (review) =>
+        review.type === "job" &&
+        ["Chờ duyệt", "Cần kiểm tra"].includes(review.status)
+    ).length;
 
   const highRiskReviews = reviews.filter(
     (review) =>
@@ -140,38 +198,42 @@ export default function AdminPortal() {
       !["Đã duyệt", "Đã từ chối"].includes(review.status)
   ).length;
 
+  const fallbackMetrics = [
+    {
+      label: "Tổng người dùng",
+      value: users.length.toLocaleString("vi-VN"),
+      change: "Tài khoản trong hệ thống",
+      tone: "purple",
+      icon: "●"
+    },
+    {
+      label: "Tin đang nhận hồ sơ",
+      value: activeJobsCount.toLocaleString("vi-VN"),
+      change: "Đã duyệt và chưa hết hạn",
+      tone: "green",
+      icon: "▣"
+    },
+    {
+      label: "Tin / Hồ sơ chờ duyệt",
+      value: `${pendingReviewsCount}`,
+      change: `${highRiskReviews} rủi ro cao`,
+      tone: "orange",
+      icon: "◷"
+    },
+    {
+      label: "Báo cáo rủi ro",
+      value: `${pendingReportsCount}`,
+      change: `${severeReportsCount} nghiêm trọng`,
+      tone: "red",
+      icon: "!"
+    }
+  ];
+
   const dynamicAdminData = {
     ...MATCHAJOB_MOCK.admin,
-    metrics: [
-      {
-        label: "Tổng người dùng",
-        value: users.length.toLocaleString("vi-VN"),
-        change: "Tài khoản trong hệ thống",
-        tone: "purple",
-        icon: "●"
-      },
-      {
-        label: "Tin đang nhận hồ sơ",
-        value: activeJobsCount.toLocaleString("vi-VN"),
-        change: "Đã duyệt và chưa hết hạn",
-        tone: "green",
-        icon: "▣"
-      },
-      {
-        label: "Hồ sơ chờ duyệt",
-        value: `${pendingReviewsCount}`,
-        change: `${highRiskReviews} rủi ro cao`,
-        tone: "orange",
-        icon: "◷"
-      },
-      {
-        label: "Báo cáo rủi ro",
-        value: `${pendingReportsCount}`,
-        change: `${severeReportsCount} nghiêm trọng`,
-        tone: "red",
-        icon: "!"
-      }
-    ],
+    metrics: adminStats?.summaryCards || fallbackMetrics,
+    jobStats: adminStats?.jobStats || null,
+    isApiMode: IS_API,
     logs,
     reviews,
     users,
@@ -188,6 +250,22 @@ export default function AdminPortal() {
 
   return (
     <Container fluid className="py-4 px-lg-5">
+      {loadError && (
+        <Alert variant="warning" className="d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <span>{loadError}</span>
+          <Button size="sm" variant="outline-dark" onClick={refreshAdminData}>
+            Thử lại
+          </Button>
+        </Alert>
+      )}
+
+      {loading && !users.length && (
+        <div className="text-center py-3 text-muted small" role="status">
+          <Spinner animation="border" size="sm" className="me-2" />
+          Đang tải dữ liệu quản trị từ máy chủ...
+        </div>
+      )}
+
       <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 pb-3 border-bottom gap-3">
         <div>
           <div className="d-flex align-items-center gap-2 mb-1 flex-wrap">
@@ -257,6 +335,7 @@ export default function AdminPortal() {
         <UsersView
           users={users}
           setUsers={setUsers}
+          onRefresh={refreshAdminData}
         />
       )}
 
@@ -271,6 +350,7 @@ export default function AdminPortal() {
         <CategoriesView
           categories={categories}
           setCategories={setCategories}
+          onRefresh={refreshAdminData}
         />
       )}
 

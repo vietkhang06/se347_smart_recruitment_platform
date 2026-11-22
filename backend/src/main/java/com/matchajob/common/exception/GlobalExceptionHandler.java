@@ -70,6 +70,16 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(problem);
         }
 
+        if ("uq_application".equalsIgnoreCase(constraintName)) {
+            ProblemDetail problem = problem(
+                    HttpStatus.CONFLICT,
+                    "Duplicate Application",
+                    "You have already applied for this job. Duplicate application is not allowed.",
+                    "duplicate-application");
+            problem.setProperty("code", "DUPLICATE_APPLICATION");
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(problem);
+        }
+
         ProblemDetail problem = problem(
                 HttpStatus.CONFLICT,
                 "Conflict",

@@ -1,5 +1,7 @@
 # MatchaJob - Nền Tảng Tuyển Dụng Thông Minh (SE347)
 
+> Hướng dẫn triển khai, seed/reset và backup/restore đã kiểm chứng: [Deployment Runbook](docs/DEPLOYMENT_RUNBOOK.md). Kết quả quality gate: [Final Acceptance Report](docs/FINAL_ACCEPTANCE_REPORT.md).
+
 ## Demo Compose (4 service)
 
 Yêu cầu: Docker Desktop (Linux engine), Docker Compose v2, cổng host 5173 và 8081 còn trống. Các service gồm frontend, backend, ai-worker và PostgreSQL/pgvector. DB và AI chỉ nằm trong mạng Compose. Dữ liệu DB và CV nằm ở hai named volume riêng theo project name.

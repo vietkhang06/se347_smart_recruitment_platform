@@ -1,6 +1,8 @@
 import { STATISTICS_FIXTURE } from "../../fixtures/statistics.fixture";
 import { mockJobService } from "./mockJobService";
 import { mockApplicationService } from "./mockApplicationService";
+import { mockAdminService } from "./mockAdminService";
+import { mockStore } from "../mockStore";
 import { toEmployerStatisticsViewModel, toAdminStatisticsViewModel } from "../../mappers/statisticsMapper";
 
 function delay(ms = 60) {
@@ -21,8 +23,17 @@ export const mockStatisticsService = {
 
   async getAdminStatistics() {
     await delay();
+    const jobStats = await mockAdminService.getJobStats();
+    const users = mockStore.getUsers();
+    const reviews = mockStore.getReviews();
+    const reports = mockStore.getReports();
     return toAdminStatisticsViewModel({
-      activeJobsCount: 1285
+      totalUsers: users.length,
+      users,
+      reviews,
+      reports,
+      activeJobsCount: jobStats.activeJobs,
+      jobStats
     });
   }
 };
