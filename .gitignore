@@ -113,3 +113,9 @@ matching-live-evidence/
 .worktrees/
 .claude/
 .claude/
+
+# Newly ignored files
+backend/src/test/java/com/matchajob/pipeline/
+docs/qa/
+scripts/fixtures/
+.agents/
