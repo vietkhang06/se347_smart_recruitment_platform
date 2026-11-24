@@ -100,6 +100,9 @@ public class SecurityProfileValidator {
 
                 // Rule 3: APP_ENV=prod requires non-blank JWT secret that is NOT the default dev secret
                 validateProductionJwtSecret();
+
+                // Rule 4: APP_ENV=prod must never allow demo user seeding
+                validateDemoSeedDisabledInProduction();
             }
 
             if (isMarkerDev) {
@@ -128,6 +131,17 @@ public class SecurityProfileValidator {
                 );
             }
             validateProductionJwtSecret();
+            validateDemoSeedDisabledInProduction();
+        }
+    }
+
+    private void validateDemoSeedDisabledInProduction() {
+        boolean demoSeedEnabled = environment != null
+                && Boolean.TRUE.equals(environment.getProperty("app.seed.demo-users.enabled", Boolean.class, false));
+        if (demoSeedEnabled) {
+            throw new IllegalStateException(
+                    "FATAL CONFIGURATION: Demo user seeding (app.seed.demo-users.enabled) cannot be enabled in production!"
+            );
         }
     }
 

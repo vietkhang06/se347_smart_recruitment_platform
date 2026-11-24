@@ -168,4 +168,34 @@ class SecurityProfileValidatorTest {
 
         assertThatCode(validator::validate).doesNotThrowAnyException();
     }
+
+    @Test
+    @DisplayName("13. APP_ENV=prod with app.seed.demo-users.enabled=true fails fast")
+    void validate_prodWithDemoSeedEnabled_failsFast() {
+        MockEnvironment env = new MockEnvironment();
+        env.setActiveProfiles("prod");
+        env.setProperty("app.seed.demo-users.enabled", "true");
+
+        SecurityProfileValidator validator = new SecurityProfileValidator(
+                env, true, "production", "my_super_secret_production_key_not_matching_dev_default_2026"
+        );
+
+        assertThatThrownBy(validator::validate)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Demo user seeding (app.seed.demo-users.enabled) cannot be enabled in production");
+    }
+
+    @Test
+    @DisplayName("14. APP_ENV=prod with app.seed.demo-users.enabled=false passes")
+    void validate_prodWithDemoSeedDisabled_passes() {
+        MockEnvironment env = new MockEnvironment();
+        env.setActiveProfiles("prod");
+        env.setProperty("app.seed.demo-users.enabled", "false");
+
+        SecurityProfileValidator validator = new SecurityProfileValidator(
+                env, true, "production", "my_super_secret_production_key_not_matching_dev_default_2026"
+        );
+
+        assertThatCode(validator::validate).doesNotThrowAnyException();
+    }
 }

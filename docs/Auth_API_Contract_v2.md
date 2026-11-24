@@ -1,10 +1,11 @@
 # MatchaJob – Auth & API Contract Specification v2 (Auth Contract v2)
 ## Authentication, User, CandidateProfile, and Company/Membership API Endpoints
 
-> **Document Status:** Authoritative Contract Specification (Updated in Batch 2.1 per Approved Decisions)  
+> **Document Status:** Authoritative Contract Specification (Synced with Source Code & Security Regression)  
 > **Target Audience:** Frontend Developers, Backend Developers, QA Engineers  
 > **Base URL:** `/api` (hoặc `http://localhost:8080/api`)  
 > **Security Protocol:** HTTP Bearer JWT (RFC 6750, RFC 7519)  
+> **Related Security Reference:** [`SECURITY_RBAC_AND_JWT_FLOW.md`](./SECURITY_RBAC_AND_JWT_FLOW.md) | [`ERD_v2.md`](./ERD_v2.md)
 
 ---
 
@@ -98,8 +99,8 @@ Tài liệu này chuẩn hóa toàn bộ hợp đồng giao tiếp API (API Cont
 #### Nghiệp vụ Xử lý & Trạng thái Bị chặn [CONFIRMED]:
 1. Chuẩn hóa email: `normalizeEmail(request.getEmail())`.
 2. Truy vấn user: Nếu user không tồn tại, đã bị soft-delete (`deleted_at != null`), hoặc mật khẩu không khớp $\rightarrow$ ném `InvalidCredentialsException` (HTTP 401: `INVALID_CREDENTIALS`).
-3. Kiểm tra khóa tài khoản: Nếu `status == 'suspended'` $\rightarrow$ ném `AccountSuspendedException` (HTTP 401: `ACCOUNT_SUSPENDED`).
-4. Kiểm tra kích hoạt: Nếu cấu hình yêu cầu xác minh email và `is_verified == false` $\rightarrow$ ném `AccountNotActivatedException` (HTTP 401: `ACCOUNT_NOT_ACTIVATED`).
+3. Kiểm tra khóa tài khoản: Nếu `status == 'suspended'` $\rightarrow$ ném `AccountSuspendedException` (**HTTP 403 Forbidden**: `ACCOUNT_SUSPENDED`). *(Lưu ý: Với JWT cũ đã phát hành trước khi khóa, `JwtAuthenticationFilter` trả **HTTP 401 Unauthorized** ở request kế tiếp).*
+4. Kiểm tra kích hoạt: Nếu cấu hình yêu cầu xác minh email và `is_verified == false` $\rightarrow$ ném `AccountNotActivatedException` (**HTTP 403 Forbidden**: `ACCOUNT_NOT_ACTIVATED`).
 5. Thành công: Cập nhật `last_login_at = now()`, sinh JWT Token.
 
 #### JWT Claims [CONFIRMED — ĐỢT 3.2]:
@@ -356,9 +357,9 @@ Tiền tố `/v1/admin/**` yêu cầu `ROLE_ADMIN` (khai báo trong `SecurityCon
 | **400 Bad Request** | `INVALID_REGISTRATION_ROLE` | Đăng ký với role không được phép (chỉ nhận `CANDIDATE` hoặc `EMPLOYER`). |
 | **400 Bad Request** | `CANNOT_REMOVE_COMPANY_OWNER` | Cố gắng xóa chủ sở hữu khỏi công ty. |
 | **401 Unauthorized** | `INVALID_CREDENTIALS` | Sai email hoặc mật khẩu; hoặc tài khoản đã bị soft-delete. |
-| **401 Unauthorized** | `ACCOUNT_SUSPENDED` | Tài khoản đã bị khóa bởi quản trị viên. |
-| **401 Unauthorized** | `ACCOUNT_NOT_ACTIVATED` | Tài khoản đang chờ xác thực email. |
-| **401 Unauthorized** | `UNAUTHORIZED` | Thiếu hoặc token JWT không hợp lệ/hết hạn. |
+| **401 Unauthorized** | `UNAUTHORIZED` | Thiếu hoặc token JWT không hợp lệ/hết hạn, hoặc JWT của tài khoản đã bị khóa/xóa mềm bị `JwtAuthenticationFilter` từ chối. |
+| **403 Forbidden** | `ACCOUNT_SUSPENDED` | Tài khoản đã bị khóa bởi quản trị viên khi gọi `POST /api/v1/auth/login` (`AccountSuspendedException`). |
+| **403 Forbidden** | `ACCOUNT_NOT_ACTIVATED` | Tài khoản đang chờ xác thực email khi gọi `POST /api/v1/auth/login` (`AccountNotActivatedException`). |
 | **403 Forbidden** | `FORBIDDEN` | Không đủ quyền hạn (ví dụ: EMPLOYER gọi API CandidateProfile; hoặc không phải member của company). |
 | **404 Not Found** | `USER_NOT_FOUND` | Không tìm thấy người dùng. |
 | **404 Not Found** | `CANDIDATE_PROFILE_NOT_FOUND` | Không tìm thấy hồ sơ ứng viên (hoặc đã bị soft-delete). |

@@ -119,3 +119,10 @@ backend/src/test/java/com/matchajob/pipeline/
 docs/qa/
 scripts/fixtures/
 .agents/
+
+# Auth/RBAC Security Plan, Documentation & QA Report
+!docs/AUTH_RBAC_SECURITY_IMPLEMENTATION_PLAN.md
+!docs/SECURITY_RBAC_AND_JWT_FLOW.md
+!docs/qa/
+!docs/qa/security-regression/
+!docs/qa/security-regression/**

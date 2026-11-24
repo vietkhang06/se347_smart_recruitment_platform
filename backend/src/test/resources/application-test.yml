@@ -53,6 +53,9 @@ management:
 app:
   auth:
     require-email-verification: false
+  seed:
+    demo-users:
+      enabled: false
 
 security:
   jwt:
