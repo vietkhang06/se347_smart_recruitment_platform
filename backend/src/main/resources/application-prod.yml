@@ -61,6 +61,9 @@ security:
 app:
   auth:
     require-email-verification: ${REQUIRE_EMAIL_VERIFICATION:true}
+  seed:
+    demo-users:
+      enabled: false
 
 springdoc:
   api-docs:

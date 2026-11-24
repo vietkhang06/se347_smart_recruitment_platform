@@ -45,7 +45,10 @@ management:
 
 app:
   auth:
-    require-email-verification: false
+    require-email-verification: ${REQUIRE_EMAIL_VERIFICATION:false}
+  seed:
+    demo-users:
+      enabled: ${DEMO_SEED_ENABLED:false}
 
 security:
   jwt:
