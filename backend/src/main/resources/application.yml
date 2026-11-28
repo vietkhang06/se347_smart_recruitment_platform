@@ -33,6 +33,7 @@ matchajob:
       rule-weight: ${MATCHAJOB_SCORING_RULE_WEIGHT:0.60}
       semantic-weight: ${MATCHAJOB_SCORING_SEMANTIC_WEIGHT:0.40}
       shortlist-threshold: ${MATCHAJOB_SCORING_SHORTLIST_THRESHOLD:70}
+      review-threshold: ${MATCHAJOB_SCORING_REVIEW_THRESHOLD:50}
 
 management:
   endpoints:

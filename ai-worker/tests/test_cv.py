@@ -115,6 +115,7 @@ def test_embeddings_generation_deterministic(client: TestClient):
     assert response1.status_code == 200
     data1 = response1.json()
     assert data1["dimension"] == 1536
+    assert data1["model"] == "deterministic-sha256-1536d-v1"
     assert len(data1["embeddings"]) == 2
     assert len(data1["embeddings"][0]) == 1536
 

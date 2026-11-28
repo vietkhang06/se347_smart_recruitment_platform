@@ -1,6 +1,7 @@
 """API routes for CV extraction, vector embeddings, and semantic matching."""
 
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
+from starlette.concurrency import run_in_threadpool
 
 from app.schemas.ai import (
     CVExtractResponse,
@@ -32,7 +33,8 @@ async def extract_cv(file: UploadFile = File(...)):
     content = await file.read(MAX_FILE_SIZE_BYTES + 1)
     await file.close()
     try:
-        raw_text, page_count = extract_cv_text(
+        raw_text, page_count = await run_in_threadpool(
+            extract_cv_text,
             filename=file.filename,
             content=content,
             content_type=file.content_type or "",
@@ -50,7 +52,7 @@ async def extract_cv(file: UploadFile = File(...)):
         )
 
     provider = get_ai_provider()
-    parsed_data = provider.extract_entities(raw_text)
+    parsed_data = await run_in_threadpool(provider.extract_entities, raw_text)
 
     return CVExtractResponse(
         raw_text=raw_text,
@@ -74,12 +76,21 @@ async def generate_embeddings(request: EmbeddingsRequest):
         )
 
     provider = get_ai_provider()
-    embeddings = provider.generate_embeddings(request.texts)
+    try:
+        embeddings, active_model = await run_in_threadpool(
+            provider.generate_embeddings_with_model,
+            request.texts,
+        )
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(e),
+        ) from e
 
     return EmbeddingsResponse(
         embeddings=embeddings,
-        dimension=1536,
-        model="text-embedding-3-small",
+        dimension=len(embeddings[0]) if embeddings else 1536,
+        model=active_model,
     )
 
 
@@ -97,4 +108,4 @@ async def calculate_match_score(request: MatchScoreRequest):
         )
 
     provider = get_ai_provider()
-    return provider.calculate_match(request)
+    return await run_in_threadpool(provider.calculate_match, request)

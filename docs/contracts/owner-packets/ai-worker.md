@@ -40,9 +40,19 @@
 
 ## Owner response
 
-- Status: `Pending`
+- Status: `Frozen v1.0.0-demo-freeze` (`2026-11-21`, manifest: [`evaluation/model_freeze_manifest.json`](../../../evaluation/model_freeze_manifest.json))
+- Owner display name confirmed: `Khải Vạn (Zikenic)`
 - Provider/model actually executed:
+  - Default demo/CI mode (`AI_PROVIDER=deterministic`): `DeterministicTestProvider` returning `model="deterministic-sha256-1536d-v1"` (1536-dim unit vectors, zero-network).
+  - Production mode (`AI_PROVIDER=openai` + valid `AI_API_KEY`): `OpenAIProvider` calls `POST https://api.openai.com/v1/embeddings` via `httpx` (`embedding_model="text-embedding-3-small"`, `dimensions=1536`, `timeout=10.0s`) and reports `"text-embedding-3-small"` on success; falls back to `"deterministic-sha256-1536d-v1-fallback"` when `AI_EMBEDDING_FALLBACK_ENABLED=true`, or raises HTTP `503` when `AI_EMBEDDING_FALLBACK_ENABLED=false` to avoid vector-space mixing.
+  - `/api/v1/cv/extract` & `/api/v1/match/score` run inside `run_in_threadpool` using deterministic `extractor-v1.0.0`, `normalizer-v1.0.0` (116 aliases -> 75 canonical skills), and `baseline-rule-v1.0.0`.
 - Schema/scoring approach:
+  - Internal worker DTOs stay strictly `snake_case` (`MatchScoreRequest` / `MatchScoreResponse` with `ConfigDict(extra="forbid")`); Backend `MatchingResultMapper` translates to public `camelCase` (`MatchingResultResponse`).
+  - Rule scoring (`baseline-rule-v1.0.0`): 60% skills / 40% experience with applicability-aware normalization and zero-skill experience gating (`experience_score=0`, `experience_gated=true`).
+  - Backend hybrid scoring (`v1.0-hybrid-60-40`, `hybrid-rule-semantic-v1`): `0.60 * rule_score + 0.40 * semantic_score` (pgvector cosine distance normalized `(1 - d/2)*100`), with `shortlist_threshold=70` and `review_threshold=50`.
 - Evaluation cases/expected results:
+  - Verified on fixed fixtures via `evaluation/run_final_benchmark.py --seed 20261120 --verify-expected evaluation/results/expected_benchmark_snapshot.json`: Parsing/Normalization `13/13 PASS`, Fallback/Resilience `6/6 PASS`, Hybrid 60/40 Pooled Pairwise Accuracy `97.62%` / Macro `98.67%` / NDCG@3 `1.0000`, Stability 30 runs `σ = 0.0`.
+  - Full methodology, limitations, bias analysis, and fallback runbook: [`docs/AI_MODEL_FREEZE_AND_METHODOLOGY_REPORT.md`](../../AI_MODEL_FREEZE_AND_METHODOLOGY_REPORT.md).
 - Timeout and error semantics:
-- Reviewer/date/PR/evidence:
+  - Invalid/corrupt/double-extension uploads -> HTTP `400`; >10 MiB payload -> HTTP `413`; schema validation failure -> RFC 7807 `422` (`VALIDATION_ERROR`, never echoes `cv_text`); upstream OpenAI failure with `AI_EMBEDDING_FALLBACK_ENABLED=false` -> HTTP `503` (Backend transitions to `scoring_mode="rule_based_fallback"`).
+- Reviewer/date/PR/evidence: `2026-11-21` — PR #39 review defects resolved; verified via `pytest` (`ai-worker/tests`, `evaluation/`), `mvn -B test`, and `evaluation/run_final_benchmark.py --verify-expected`.

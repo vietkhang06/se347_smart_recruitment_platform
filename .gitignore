@@ -107,6 +107,7 @@ scratch/
 .matching-evidence/
 matching-live-evidence/
 !docs/MATCHING_TASK_COPY_GUIDE_VI.md
+!docs/AI_MODEL_FREEZE_AND_METHODOLOGY_REPORT.md
 !docs/DEPLOYMENT_RUNBOOK.md
 !docs/FINAL_ACCEPTANCE_REPORT.md
 !docs/CLEAN_MACHINE_VERIFICATION_PROMPT.md

@@ -7,6 +7,7 @@ from pypdf import PdfReader
 from docx import Document
 
 
+EXTRACTOR_VERSION = "extractor-v1.0.0"
 MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB
 MAX_PDF_PAGES = 20
 MAX_CHARACTERS = 500_000

@@ -1,0 +1,106 @@
+{
+  "freeze_version": "1.0.0-demo-freeze",
+  "freeze_date": "2026-11-21",
+  "owner": "Khải Vạn (Zikenic)",
+  "service_versions": {
+    "ai_worker_service_name": "matchajob-ai-worker",
+    "ai_worker_version": "1.0.0",
+    "extractor_version": "extractor-v1.0.0",
+    "normalizer_version": "normalizer-v1.0.0",
+    "rule_algorithm_version": "baseline-rule-v1.0.0",
+    "backend_config_version": "v1.0-hybrid-60-40",
+    "backend_algorithm_id": "hybrid-rule-semantic-v1"
+  },
+  "pinned_runtime_dependencies": {
+    "fastapi": "0.111.1",
+    "uvicorn[standard]": "0.30.3",
+    "pydantic": "2.8.2",
+    "pydantic-settings": "2.3.4",
+    "python-dotenv": "1.0.1",
+    "httpx": "0.27.0",
+    "pytest": "8.2.2",
+    "pytest-asyncio": "0.23.8",
+    "python-multipart": "0.0.33",
+    "pypdf": "6.21.4",
+    "python-docx": "1.2.0"
+  },
+  "extraction_limits": {
+    "max_file_size_bytes": 10485760,
+    "max_pdf_pages": 20,
+    "max_characters": 500000,
+    "supported_extensions": [".pdf", ".docx"]
+  },
+  "normalization_taxonomy": {
+    "canonical_skill_entries": 116,
+    "canonical_skills_unique": 75,
+    "unicode_normalization": "NFKC"
+  },
+  "embedding_providers": {
+    "demo_default_provider": "deterministic",
+    "deterministic_embedding_model": "deterministic-sha256-1536d-v1",
+    "deterministic_fallback_model": "deterministic-sha256-1536d-v1-fallback",
+    "production_embedding_provider": "openai",
+    "production_embedding_model": "text-embedding-3-small",
+    "production_llm_model_placeholder": "gpt-4o-mini",
+    "embedding_dimension": 1536,
+    "ai_timeout_seconds": 10.0,
+    "ai_embedding_fallback_enabled": true,
+    "backend_offline_stub_model": "stub-deterministic"
+  },
+  "scoring_weights": {
+    "rule_internal": {
+      "skills_weight": 0.60,
+      "experience_weight": 0.40,
+      "experience_gating_policy": "zero_matched_skills_gates_experience_to_zero"
+    },
+    "hybrid_demo_default": {
+      "rule_weight": 0.60,
+      "semantic_weight": 0.40
+    },
+    "rule_only_baseline_fallback": {
+      "rule_weight": 1.00,
+      "semantic_weight": 0.00
+    }
+  },
+  "decision_thresholds": {
+    "strong_match_tier": 85,
+    "shortlist_threshold": 70,
+    "review_threshold": 50,
+    "deterministic_tie_breaking_order": [
+      "overall_score DESC NULLS LAST",
+      "applied_at ASC",
+      "application_id ASC"
+    ]
+  },
+  "benchmark_reproducibility": {
+    "seed": 20261120,
+    "dataset_path": "evaluation/datasets/pilot_cv_jd_eval_dataset.json",
+    "dataset_version": "1.1.0-frozen",
+    "expected_snapshot_path": "evaluation/results/expected_benchmark_snapshot.json",
+    "benchmark_script": "evaluation/run_final_benchmark.py"
+  },
+  "frozen_artifact_sha256": {
+    "ai-worker/app/schemas/ai.py": "070102869d201606216e0567255ae2e720c6b1471a1288f6be6f3ea544ec1b33",
+    "evaluation/datasets/pilot_cv_jd_eval_dataset.json": "a58d24cb9bfb74a20bab4855b75033decc16586136c021cb8d8a974078ae67f9",
+    "docs/contracts/schemas/ai-match-score-response.schema.json": "5cf2f8f78a20677c3c256a3532016196c0cbf03f10117cf094375f98c1621696",
+    "docs/contracts/schemas/matching-result.schema.json": "e0c58c44b120b44991bf0b958a3c5bf3dd2390b1be01cf61ad4008e16d015822",
+    "docs/contracts/fixtures/ai-match-score-request.json": "60916e3e865cbaa6c8ca8d7ebc16f47a6b46eb3ad59ebf470cf87dec6fae72b5",
+    "docs/contracts/fixtures/ai-match-score-response.json": "9c43563437044023de64fbba694a5e6aa32e17454d079ae65ba9ab15b4b513f7",
+    "docs/contracts/fixtures/ai-cv-extract-response.json": "af606f378b7be31d2fabe4029b7523b6016cc6febc6ea374e7b619e9175b6b36",
+    "ai-worker/requirements.txt": "768f9d1f6fcc7124363340dc198e3d8d02b88393595d04cc6e99d2945cddd7c1",
+    "evaluation/results/expected_benchmark_snapshot.json": "c8acb0ea9ded3d844aec0ca160dbf3505c7a1997428601dd2083cacc1405faef",
+    "ai-worker/tests/fixtures/corrupt.docx": "df2c424c141dafba235665a64fb8526ea8d100496dd0b1ce58f984443ff1e77b",
+    "ai-worker/tests/fixtures/corrupt.pdf": "4ce5e520e0df64431cef38498f21b6684176eabdb0881f4319043cf3d87282d1",
+    "ai-worker/tests/fixtures/cv_en_backend.docx": "4ff0a65c414cde7d00d87a3e81d2721dbc0017109b902bd3bbb05e5f6b3de2cf",
+    "ai-worker/tests/fixtures/cv_en_backend.pdf": "697a7fc58b3b1ac0d46a7bcccead215808a3afff557aeb31f974f862612274b7",
+    "ai-worker/tests/fixtures/cv_minimal.docx": "6827c4d6d89afe2463f1b8d368a4f23aa90c346a4de4dfc44d03d806296accda",
+    "ai-worker/tests/fixtures/cv_minimal.pdf": "e5aae6e6c35859b8365d081a1edd718521bc357d6dc7d8bf18e0402c0b714de8",
+    "ai-worker/tests/fixtures/cv_unrelated.docx": "bbc96735e3ec14897cb3e54850c8a352e107bd62ab3754c678c804a016e92a07",
+    "ai-worker/tests/fixtures/cv_vi_backend.docx": "ba2c535bb3cf60f17f8cdb83bc35a976a1b4458ab1f0c0cac85770520172d2f0",
+    "ai-worker/tests/fixtures/jd_en_backend.json": "9d27d4855da72dd91cd51f3c8828d2ffa35c978fd0771037b31c6f2b5371e6d8",
+    "ai-worker/tests/fixtures/jd_en_freeform.txt": "180fe093b6391d75bf610d8e43273d69ab1bb96394d98892b77a0102c6000d21",
+    "ai-worker/tests/fixtures/jd_vi_backend.json": "ab9fa2a76849e6af0133181f395e1cc1b2eeb52e898d34362836c00436261d8c",
+    "ai-worker/tests/fixtures/jd_vi_freeform.txt": "de45d96af2db1da5fbec2dde2f19a0e678f7a093f0442541e2ee16a7a9be3871",
+    "ai-worker/tests/fixtures/unsupported.txt": "9a3917cff11d457b0fd57a5400f157084daf9b3e01dd547fd715bcfd095e79e7"
+  }
+}

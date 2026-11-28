@@ -4,7 +4,9 @@ import abc
 import hashlib
 import logging
 import math
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Tuple
+
+import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +19,13 @@ from app.services.normalizer import (
 )
 
 
+DETERMINISTIC_EMBEDDING_MODEL = "deterministic-sha256-1536d-v1"
+DETERMINISTIC_EMBEDDING_FALLBACK_MODEL = "deterministic-sha256-1536d-v1-fallback"
+RULE_ALGORITHM_VERSION = "baseline-rule-v1.0.0"
+RULE_SKILLS_WEIGHT = 0.60
+RULE_EXPERIENCE_WEIGHT = 0.40
+
+
 class AIProvider(abc.ABC):
     """Abstract Base Class for AI Providers."""
 
@@ -24,6 +33,10 @@ class AIProvider(abc.ABC):
     def generate_embeddings(self, texts: List[str]) -> List[List[float]]:
         """Generate dense vector embeddings (1536-dimensional)."""
         pass
+
+    def generate_embeddings_with_model(self, texts: List[str]) -> Tuple[List[List[float]], str]:
+        """Generate embeddings and return (vectors, active_model_identifier)."""
+        return self.generate_embeddings(texts), DETERMINISTIC_EMBEDDING_MODEL
 
     @abc.abstractmethod
     def extract_entities(self, raw_text: str) -> Dict[str, Any]:
@@ -63,6 +76,9 @@ class DeterministicTestProvider(AIProvider):
             unit_vector = [round(x / norm, 6) for x in raw_vector]
             embeddings.append(unit_vector)
         return embeddings
+
+    def generate_embeddings_with_model(self, texts: List[str]) -> Tuple[List[List[float]], str]:
+        return self.generate_embeddings(texts), DETERMINISTIC_EMBEDDING_MODEL
 
     def extract_entities(self, raw_text: str) -> Dict[str, Any]:
         """
@@ -135,16 +151,20 @@ class DeterministicTestProvider(AIProvider):
 
         # 5. Compute overall score
         # Job criteria weights: skills = 60%, experience = 40%
+        experience_gated = False
         if skills_required and experience_required:
             # Both criteria are required by the job
-            verified_skills_points = 0.6 * skills_score if skills_score is not None else 0.0
+            verified_skills_points = RULE_SKILLS_WEIGHT * skills_score if skills_score is not None else 0.0
             # Gating policy: When technical skills are explicitly required by the JD,
             # generic experience duration is only credited if at least one required skill is verified.
             # An applicant with zero matched skills cannot claim role-relevant experience.
             if required_matched:
-                verified_exp_points = 0.4 * experience_score if experience_score is not None else 0.0
+                verified_exp_points = RULE_EXPERIENCE_WEIGHT * experience_score if experience_score is not None else 0.0
             else:
                 verified_exp_points = 0.0
+                experience_gated = True
+                if experience_score is not None:
+                    experience_score = 0
             overall_score = int(round(verified_skills_points + verified_exp_points))
         elif skills_required and not experience_required:
             # Job only requires skills (experience not specified in JD)
@@ -160,9 +180,11 @@ class DeterministicTestProvider(AIProvider):
 
         # 6. Build consistent breakdown and explanation
         breakdown: Dict[str, Any] = {
+            "algorithm_version": RULE_ALGORITHM_VERSION,
             "required_skills": required_skills,
             "required_skills_matched": required_matched,
             "missing_skills": missing_skills,
+            "experience_gated": experience_gated,
         }
         if candidate_exp is not None:
             breakdown["candidate_experience_years"] = candidate_exp
@@ -171,7 +193,14 @@ class DeterministicTestProvider(AIProvider):
 
         # 7. Formulate accurate, non-misleading rationale
         if skills_required and experience_required:
-            if experience_score is not None:
+            if experience_gated and candidate_exp is not None:
+                rationale = (
+                    f"Candidate matches 0 of {len(required_skills)} required skill(s). "
+                    f"Experience credit ({candidate_exp} of {required_exp} year(s)) is gated to 0% "
+                    f"because no required technical skills were verified. "
+                    f"Missing skills: {', '.join(missing_skills)}."
+                )
+            elif experience_score is not None:
                 # Both evaluated
                 if missing_skills:
                     rationale = (
@@ -186,7 +215,7 @@ class DeterministicTestProvider(AIProvider):
                     )
             else:
                 # Skills evaluated, experience required by JD but unspecified in CV
-                verified_pts = int(round(0.6 * skills_score)) if skills_score is not None else 0
+                verified_pts = int(round(RULE_SKILLS_WEIGHT * skills_score)) if skills_score is not None else 0
                 if missing_skills:
                     rationale = (
                         f"Candidate matches {len(required_matched)} of {len(required_skills)} required skill(s) "
@@ -253,63 +282,90 @@ class DeterministicTestProvider(AIProvider):
 
 
 class OpenAIProvider(AIProvider):
-    """Production OpenAI provider with resilient fallback to test provider on failure or when unconfigured."""
+    """Production OpenAI provider with configurable fallback to deterministic provider on failure or when unconfigured."""
 
-    def __init__(self, api_key: str, model: str = "gpt-4o-mini", embedding_model: str = "text-embedding-3-small"):
+    def __init__(
+        self,
+        api_key: str,
+        model: str = "gpt-4o-mini",
+        embedding_model: str = "text-embedding-3-small",
+        dimension: int = 1536,
+        timeout: float = 10.0,
+        allow_fallback: bool = True,
+    ):
         self.api_key = api_key.strip() if api_key else ""
         self.model = model
         self.embedding_model = embedding_model
-        self.fallback = DeterministicTestProvider()
+        self.dimension = dimension
+        self.timeout = timeout
+        self.allow_fallback = allow_fallback
+        self.fallback = DeterministicTestProvider(dimension=dimension)
 
-    def generate_embeddings(self, texts: List[str]) -> List[List[float]]:
+    def _is_valid_embeddings_batch(self, embeddings: Any, expected_count: int) -> bool:
+        if not isinstance(embeddings, list) or len(embeddings) != expected_count:
+            return False
+        for vec in embeddings:
+            if not isinstance(vec, list) or len(vec) != self.dimension:
+                return False
+            for val in vec:
+                if isinstance(val, bool) or not isinstance(val, (int, float)) or not math.isfinite(val):
+                    return False
+        return True
+
+    def generate_embeddings_with_model(self, texts: List[str]) -> Tuple[List[List[float]], str]:
         if texts is None:
             raise ValueError("texts must not be None")
         if not texts:
-            return []
+            return [], (self.embedding_model if self.api_key else DETERMINISTIC_EMBEDDING_MODEL)
         if not self.api_key:
-            return self.fallback.generate_embeddings(texts)
-        try:
-            import json
-            import urllib.request
-            import urllib.error
+            return self.fallback.generate_embeddings(texts), DETERMINISTIC_EMBEDDING_MODEL
 
-            req_data = json.dumps({
-                "input": texts,
-                "model": self.embedding_model,
-                "dimensions": 1536,
-            }).encode("utf-8")
-            req = urllib.request.Request(
+        try:
+            resp = httpx.post(
                 "https://api.openai.com/v1/embeddings",
-                data=req_data,
+                json={
+                    "input": texts,
+                    "model": self.embedding_model,
+                    "dimensions": self.dimension,
+                },
                 headers={
                     "Authorization": f"Bearer {self.api_key}",
                     "Content-Type": "application/json",
                 },
-                method="POST",
+                timeout=self.timeout,
             )
-            with urllib.request.urlopen(req, timeout=10.0) as resp:
-                if resp.status == 200:
-                    result = json.loads(resp.read().decode("utf-8"))
-                    embeddings = [item["embedding"] for item in result.get("data", [])]
-                    if len(embeddings) == len(texts) and all(len(v) == 1536 for v in embeddings):
-                        return embeddings
-                    logger.warning(
-                        "OpenAI embeddings returned invalid dimensions or count: count=%d, expected=%d",
-                        len(embeddings), len(texts)
-                    )
-        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError, json.JSONDecodeError, KeyError) as e:
-            # Resilient fallback on upstream failure (timeout, network, auth, quota)
-            logger.warning("OpenAI embeddings API call failed (%s). Falling back to deterministic provider.", e)
-        return self.fallback.generate_embeddings(texts)
+            if resp.status_code == 200:
+                result = resp.json()
+                data_items = result.get("data", []) if isinstance(result, dict) else []
+                embeddings = [item.get("embedding") for item in data_items if isinstance(item, dict)]
+                if self._is_valid_embeddings_batch(embeddings, len(texts)):
+                    return embeddings, self.embedding_model
+                logger.warning(
+                    "OpenAI embeddings returned invalid shape/values: count=%d, expected=%d",
+                    len(embeddings), len(texts),
+                )
+            else:
+                logger.warning("OpenAI embeddings HTTP status=%d.", resp.status_code)
+        except (httpx.HTTPError, TimeoutError, OSError, ValueError, KeyError, TypeError) as e:
+            # Never log credentials/API keys; log exception class only.
+            logger.warning("OpenAI embeddings call failed (%s).", type(e).__name__)
+
+        if self.allow_fallback:
+            logger.warning("Falling back to deterministic SHA-256 embeddings (%s).", DETERMINISTIC_EMBEDDING_FALLBACK_MODEL)
+            return self.fallback.generate_embeddings(texts), DETERMINISTIC_EMBEDDING_FALLBACK_MODEL
+
+        raise RuntimeError(
+            "Upstream OpenAI embeddings unavailable and fallback is disabled to prevent vector-space mixing."
+        )
+
+    def generate_embeddings(self, texts: List[str]) -> List[List[float]]:
+        vectors, _ = self.generate_embeddings_with_model(texts)
+        return vectors
 
     def extract_entities(self, raw_text: str) -> Dict[str, Any]:
-        if not self.api_key:
-            return self.fallback.extract_entities(raw_text)
         return self.fallback.extract_entities(raw_text)
 
     def calculate_match(self, request: MatchScoreRequest) -> MatchScoreResponse:
-        if not self.api_key:
-            return self.fallback.calculate_match(request)
         return self.fallback.calculate_match(request)
 
 
@@ -318,5 +374,12 @@ def get_ai_provider() -> AIProvider:
     settings = get_settings()
     provider_name = settings.AI_PROVIDER.lower().strip()
     if provider_name == "openai" and settings.AI_API_KEY:
-        return OpenAIProvider(api_key=settings.AI_API_KEY, model=settings.AI_MODEL)
-    return DeterministicTestProvider()
+        return OpenAIProvider(
+            api_key=settings.AI_API_KEY,
+            model=settings.AI_MODEL,
+            embedding_model=settings.AI_EMBEDDING_MODEL,
+            dimension=settings.AI_EMBEDDING_DIMENSION,
+            timeout=settings.AI_TIMEOUT_SECONDS,
+            allow_fallback=settings.AI_EMBEDDING_FALLBACK_ENABLED,
+        )
+    return DeterministicTestProvider(dimension=settings.AI_EMBEDDING_DIMENSION)

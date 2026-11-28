@@ -20,6 +20,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
 @DisplayName("Hybrid Matching Score & Vector Similarity Tests")
@@ -153,5 +154,138 @@ class HybridMatchingScoreTest {
 
         assertThat(fallback.getOverallScore()).isEqualTo(80);
         assertThat(fallback.getBreakdown()).containsEntry("scoring_mode", "rule_based_fallback");
+    }
+
+    @Test
+    @DisplayName("Externalized MatchingScoringProperties via 13-arg constructor controls hybrid calculation and breakdown")
+    void externalizedScoringProperties_controlsHybridCalculationAndMetadata() {
+        UUID jobId = UUID.randomUUID();
+        UUID cvId = UUID.randomUUID();
+
+        MatchingScoringProperties customProps = new MatchingScoringProperties(
+                "v1.1-custom-70-30",
+                "hybrid-custom-test",
+                0.70,
+                0.30,
+                65
+        );
+        customProps.setReviewThreshold(45);
+        customProps.validate();
+
+        ObjectMapper objectMapper = new ObjectMapper();
+        MatchingService customService = new MatchingService(
+                mock(CvVersionRepository.class),
+                mock(MatchResultRepository.class),
+                mock(AiWorkerClient.class),
+                objectMapper,
+                new MatchingResultMapper(objectMapper),
+                mock(ApplicationRepository.class),
+                mock(ApplicationCvSnapshotRepository.class),
+                jobRepository,
+                mock(ProcessingJobRepository.class),
+                mock(MatchingPersistenceService.class),
+                embeddingRepository,
+                jobEmbeddingService,
+                customProps
+        );
+
+        // Cosine distance = 1.0 -> normalized similarity score = 50.0
+        when(embeddingRepository.hasEmbedding("job", jobId)).thenReturn(true);
+        when(embeddingRepository.calculateCosineDistance("cv_version", cvId, "job", jobId))
+                .thenReturn(Optional.of(1.0));
+
+        MatchScoreResponse baseResponse = MatchScoreResponse.builder()
+                .overallScore(80)
+                .skillsScore(80)
+                .experienceScore(80)
+                .rationale("Rule score 80.")
+                .build();
+
+        MatchScoreResponse hybrid = customService.integrateSemanticSimilarity(jobId, cvId, baseResponse);
+
+        // Expected: round(0.70 * 80 + 0.30 * 50) = round(56 + 15) = 71
+        assertThat(hybrid.getOverallScore()).isEqualTo(71);
+        assertThat(hybrid.getBreakdown())
+                .containsEntry("config_version", "v1.1-custom-70-30")
+                .containsEntry("algorithm_id", "hybrid-custom-test")
+                .containsEntry("rule_weight", 0.70)
+                .containsEntry("semantic_weight", 0.30)
+                .containsEntry("shortlist_threshold", 65)
+                .containsEntry("review_threshold", 45);
+    }
+
+    @Test
+    @DisplayName("Pure rule-based baseline properties (1.0 / 0.0) output exact rule score")
+    void pureRuleBaselineProperties_outputsPureRuleScore() {
+        UUID jobId = UUID.randomUUID();
+        UUID cvId = UUID.randomUUID();
+
+        MatchingScoringProperties baselineProps = new MatchingScoringProperties(
+                "v1.0-rule-baseline",
+                "rule-only-v1",
+                1.0,
+                0.0,
+                70
+        );
+
+        ObjectMapper objectMapper = new ObjectMapper();
+        MatchingService baselineService = new MatchingService(
+                mock(CvVersionRepository.class),
+                mock(MatchResultRepository.class),
+                mock(AiWorkerClient.class),
+                objectMapper,
+                new MatchingResultMapper(objectMapper),
+                mock(ApplicationRepository.class),
+                mock(ApplicationCvSnapshotRepository.class),
+                jobRepository,
+                mock(ProcessingJobRepository.class),
+                mock(MatchingPersistenceService.class),
+                embeddingRepository,
+                jobEmbeddingService,
+                baselineProps
+        );
+
+        when(embeddingRepository.hasEmbedding("job", jobId)).thenReturn(true);
+        when(embeddingRepository.calculateCosineDistance("cv_version", cvId, "job", jobId))
+                .thenReturn(Optional.of(1.8)); // low semantic score (10.0), ignored due to 0.0 weight
+
+        MatchScoreResponse baseResponse = MatchScoreResponse.builder()
+                .overallScore(76)
+                .skillsScore(80)
+                .experienceScore(70)
+                .build();
+
+        MatchScoreResponse result = baselineService.integrateSemanticSimilarity(jobId, cvId, baseResponse);
+        assertThat(result.getOverallScore()).isEqualTo(76);
+        assertThat(result.getBreakdown()).containsEntry("config_version", "v1.0-rule-baseline");
+    }
+
+    @Test
+    @DisplayName("MatchingScoringProperties.validate rejects NaN, Infinity, invalid ranges, sum mismatch, and bad thresholds")
+    void scoringPropertiesValidation_rejectsInvalidConfigs() {
+        assertThatThrownBy(() -> new MatchingScoringProperties("v1", "alg", Double.NaN, 0.4, 70))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("finite");
+
+        assertThatThrownBy(() -> new MatchingScoringProperties("v1", "alg", Double.POSITIVE_INFINITY, 0.4, 70))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("finite");
+
+        assertThatThrownBy(() -> new MatchingScoringProperties("v1", "alg", -0.1, 1.1, 70))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        assertThatThrownBy(() -> new MatchingScoringProperties("v1", "alg", 0.5, 0.3, 70))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("sum to 1.0");
+
+        assertThatThrownBy(() -> new MatchingScoringProperties("v1", "alg", 0.6, 0.4, 105))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        MatchingScoringProperties invalidReview = new MatchingScoringProperties();
+        invalidReview.setShortlistThreshold(60);
+        invalidReview.setReviewThreshold(75);
+        assertThatThrownBy(invalidReview::validate)
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("reviewThreshold");
     }
 }

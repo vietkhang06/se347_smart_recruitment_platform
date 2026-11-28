@@ -1,5 +1,6 @@
 package com.matchajob.matching.service;
 
+import jakarta.annotation.PostConstruct;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
@@ -16,6 +17,7 @@ public class MatchingScoringProperties {
     private double ruleWeight = 0.60;
     private double semanticWeight = 0.40;
     private int shortlistThreshold = 70;
+    private int reviewThreshold = 50;
 
     public MatchingScoringProperties() {
     }
@@ -29,7 +31,13 @@ public class MatchingScoringProperties {
         validate();
     }
 
+    @PostConstruct
     public void validate() {
+        if (!Double.isFinite(ruleWeight) || !Double.isFinite(semanticWeight)) {
+            throw new IllegalArgumentException(
+                    "ruleWeight and semanticWeight must be finite numbers, got: ruleWeight="
+                            + ruleWeight + ", semanticWeight=" + semanticWeight);
+        }
         if (ruleWeight < 0.0 || ruleWeight > 1.0) {
             throw new IllegalArgumentException("ruleWeight must be between 0.0 and 1.0, got: " + ruleWeight);
         }
@@ -42,6 +50,10 @@ public class MatchingScoringProperties {
         }
         if (shortlistThreshold < 0 || shortlistThreshold > 100) {
             throw new IllegalArgumentException("shortlistThreshold must be between 0 and 100, got: " + shortlistThreshold);
+        }
+        if (reviewThreshold < 0 || reviewThreshold > shortlistThreshold) {
+            throw new IllegalArgumentException(
+                    "reviewThreshold must be between 0 and shortlistThreshold (" + shortlistThreshold + "), got: " + reviewThreshold);
         }
     }
 
@@ -83,5 +95,13 @@ public class MatchingScoringProperties {
 
     public void setShortlistThreshold(int shortlistThreshold) {
         this.shortlistThreshold = shortlistThreshold;
+    }
+
+    public int getReviewThreshold() {
+        return reviewThreshold;
+    }
+
+    public void setReviewThreshold(int reviewThreshold) {
+        this.reviewThreshold = reviewThreshold;
     }
 }
