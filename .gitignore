@@ -21,6 +21,7 @@ build/
 .cache/
 tmp/
 temp/
+backups/
 
 # Python virtualenv & cache
 .venv/
@@ -62,6 +63,8 @@ docs/**
 !docs/contracts/**
 !docs/weekly/
 !docs/weekly/**
+!docs/qa/
+!docs/qa/**
 FE_WORKFLOW.md
 FE_UI_FLOW.md
 README_FE.md
@@ -105,5 +108,22 @@ scratch/
 matching-live-evidence/
 !docs/MATCHING_TASK_COPY_GUIDE_VI.md
 !docs/AI_MODEL_FREEZE_AND_METHODOLOGY_REPORT.md
+!docs/DEPLOYMENT_RUNBOOK.md
+!docs/FINAL_ACCEPTANCE_REPORT.md
+!docs/CLEAN_MACHINE_VERIFICATION_PROMPT.md
 .worktrees/
 .claude/
+.claude/
+
+# Newly ignored files
+backend/src/test/java/com/matchajob/pipeline/
+docs/qa/
+scripts/fixtures/
+.agents/
+
+# Auth/RBAC Security Plan, Documentation & QA Report
+!docs/AUTH_RBAC_SECURITY_IMPLEMENTATION_PLAN.md
+!docs/SECURITY_RBAC_AND_JWT_FLOW.md
+!docs/qa/
+!docs/qa/security-regression/
+!docs/qa/security-regression/**

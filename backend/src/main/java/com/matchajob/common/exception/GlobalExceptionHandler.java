@@ -57,8 +57,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ProblemDetail> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
-        log.warn("Database constraint violation: {}", ex.getMessage());
         String constraintName = extractConstraintName(ex);
+        Throwable root = ex.getMostSpecificCause();
+        log.warn("Database constraint violation [constraint={}, cause={}]",
+                constraintName != null ? constraintName : "unknown",
+                root != null ? root.getClass().getSimpleName() : ex.getClass().getSimpleName());
 
         if ("uq_companies_tax_code".equalsIgnoreCase(constraintName)) {
             ProblemDetail problem = problem(
@@ -67,6 +70,16 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                     "A company with this tax code already exists",
                     "duplicate-tax-code");
             problem.setProperty("code", "DUPLICATE_TAX_CODE");
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(problem);
+        }
+
+        if ("uq_application".equalsIgnoreCase(constraintName)) {
+            ProblemDetail problem = problem(
+                    HttpStatus.CONFLICT,
+                    "Duplicate Application",
+                    "You have already applied for this job. Duplicate application is not allowed.",
+                    "duplicate-application");
+            problem.setProperty("code", "DUPLICATE_APPLICATION");
             return ResponseEntity.status(HttpStatus.CONFLICT).body(problem);
         }
 
@@ -119,7 +132,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             HttpHeaders headers,
             HttpStatusCode status,
             WebRequest request) {
-        log.warn("Validation error on request: {}", ex.getMessage());
+        // Never log ex.getMessage() or rejected values, which may include plaintext passwords on auth DTOs.
+        String sanitizedErrors = ex.getBindingResult().getFieldErrors().stream()
+                .map(error -> error.getField() + ": " + error.getDefaultMessage())
+                .collect(java.util.stream.Collectors.joining("; "));
+        log.warn("Validation error on request: {}", sanitizedErrors.isEmpty() ? "binding failed" : sanitizedErrors);
         String defaultDetail = ex.getBindingResult().getFieldErrors().stream()
                 .findFirst()
                 .map(error -> error.getField() + ": " + error.getDefaultMessage())
@@ -146,7 +163,9 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             HttpHeaders headers,
             HttpStatusCode status,
             WebRequest request) {
-        log.warn("Malformed HTTP request body: {}", ex.getMessage());
+        Throwable root = ex.getMostSpecificCause();
+        log.warn("Malformed HTTP request body [{}]",
+                root != null ? root.getClass().getSimpleName() : ex.getClass().getSimpleName());
         ProblemDetail problem = problem(
                 HttpStatus.BAD_REQUEST,
                 "Malformed Request",

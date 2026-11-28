@@ -122,10 +122,6 @@ public class MatchingService {
         this.scoringProperties = scoringProperties != null ? scoringProperties : new MatchingScoringProperties();
     }
 
-    public MatchResult evaluateApplicationMatch(UUID applicationId, String leaseToken) {
-        return evaluateApplicationMatch(applicationId);
-    }
-
     /**
      * Synchronous compatibility entry point used by
      * POST /v1/applications/{id}/match.
@@ -134,6 +130,15 @@ public class MatchingService {
      * delegating to the same execution path used by the background scheduler.
      */
     public MatchResult evaluateApplicationMatch(UUID applicationId) {
+        return evaluateApplicationMatch(applicationId, (String) null);
+    }
+
+    /**
+     * Overload supporting background schedulers holding an active lease token.
+     */
+    public MatchResult evaluateApplicationMatch(UUID applicationId, String leaseToken) {
+        Optional<ProcessingJob> processingJob = findMatchingProcessingJob(applicationId);
+        MatchResult existing = matchResultRepository.findByApplicationId(applicationId).orElse(null);
 
         if (applicationId == null) {
             throw new IllegalArgumentException("Application ID is required.");

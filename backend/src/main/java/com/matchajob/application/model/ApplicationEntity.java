@@ -56,6 +56,11 @@ public class ApplicationEntity {
     @Builder.Default
     private Instant updatedAt = Instant.now();
 
+    @PreUpdate
+    public void preUpdate() {
+        this.updatedAt = Instant.now();
+    }
+
     /**
      * Returns the current stage as an ApplicationStage enum.
      */
